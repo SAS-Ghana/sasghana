@@ -1,0 +1,7 @@
+project_id = "sas-people"
+
+[auth]
+enable_signup = false
+
+[storage]
+file_size_limit = "20MiB"
