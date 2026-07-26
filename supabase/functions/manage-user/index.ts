@@ -21,9 +21,9 @@ async function handleRequest(request: Request) {
     const body = await request.json();
     const username = String(body.username ?? "").trim().toLowerCase();
     const email = String(body.email || `${username}@saspeople.local`).trim().toLowerCase();
-    if (!username) return json({ error: "Username is required." }, 400);
 
     if (body.action === "create") {
+      if (!username) return json({ error: "Username is required." }, 400);
       if (body.send_invite && !body.email) return json({ error: "An email address is required when sending an invitation." }, 400);
       if (!body.send_invite && String(body.password ?? "").length < 10) return json({ error: "Temporary passwords must contain at least 10 characters." }, 400);
       const authResult = body.send_invite
