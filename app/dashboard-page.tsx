@@ -6,10 +6,10 @@ import type { UserProfile } from "./lib/supabase-auth";
 
 type DashboardData = {
   employees: DataRow[]; onboarding: DataRow[]; documents: DataRow[];
-  leave: DataRow[]; departments: DataRow[]; audits: DataRow[];
+  leave: DataRow[]; departments: DataRow[]; audits: DataRow[]; backups:DataRow[];
 };
 
-const emptyData: DashboardData = {employees:[],onboarding:[],documents:[],leave:[],departments:[],audits:[]};
+const emptyData: DashboardData = {employees:[],onboarding:[],documents:[],leave:[],departments:[],audits:[],backups:[]};
 
 export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:string;profile:UserProfile;onNavigate:(page:string)=>void}) {
   const [data,setData]=useState<DashboardData>(emptyData);
@@ -19,12 +19,13 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   const load=useCallback(async()=>{
     setLoading(true);setError("");
     try {
-      const [employees,onboarding,documents,leave,departments,audits]=await Promise.all([
+      const [employees,onboarding,documents,leave,departments,audits,backups]=await Promise.all([
         listRows(accessToken,"employees"),listRows(accessToken,"employee_onboarding"),
         listRows(accessToken,"employee_documents"),listRows(accessToken,"leave_requests"),
         listNamedRows(accessToken,"departments","id,name"),listRows(accessToken,"audit_logs","*",12),
+        listRows(accessToken,"backup_records","*",10),
       ]);
-      setData({employees,onboarding,documents,leave,departments,audits});
+      setData({employees,onboarding,documents,leave,departments,audits,backups});
     } catch(cause){setError(cause instanceof Error?cause.message:"Dashboard data could not be loaded.");}
     finally{setLoading(false);}
   },[accessToken]);
@@ -42,6 +43,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   const compliance=data.documents.length?Math.round(data.documents.filter((row)=>row.status==="verified").length/data.documents.length*100):0;
   const today=new Date().toISOString().slice(0,10);
   const onLeave=data.leave.filter((row)=>row.status==="approved"&&String(row.start_date)<=today&&String(row.end_date)>=today).length;
+  const recentBackup=data.backups.find(row=>row.status==="completed"&&new Date(String(row.completed_at??row.created_at)).getTime()>Date.now()-30*86400000);
   const tasks=[
     ...data.documents.filter((row)=>row.status==="pending").slice(0,2).map((row)=>({title:"Verify employee document",meta:String(row.document_name),due:String(row.expiry_date??"Pending")})),
     ...activeOnboarding.filter((row)=>["needs_attention","overdue"].includes(String(row.status))).slice(0,2).map((row)=>({title:"Review onboarding",meta:`${row.progress??0}% complete`,due:String(row.due_date??"Open")})),
@@ -50,6 +52,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
 
   return <section>
     <header className="hero"><div><span className="eyebrow">SAS Finance Group Ghana</span><h1>Good afternoon, {profile.display_name}.</h1><p className="muted">{loading?"Loading live organisation data...":"Here is what needs your attention across SAS People today."}</p></div><button className="primary" onClick={()=>onNavigate("Employees")}>Add employee</button></header>
+    {!recentBackup&&profile.roles.includes("SAS System Administrator")&&<aside className="backup-alert"><div><strong>Backup review required</strong><p>No completed backup has been recorded in the last 30 days. Create a backup record and verify restoration readiness.</p></div><button onClick={()=>onNavigate("Backups")}>Review backups</button></aside>}
     {error&&<p className="form-error">{error}</p>}
     <section className="metrics" aria-label="Organisation summary">
       {[["Total employees",data.employees.length,"Live headcount"],["Active onboarding",activeOnboarding.length,"Open journeys"],["On leave today",onLeave,"Approved today"],["Document compliance",`${compliance}%`,`${data.documents.length} documents`]].map(([label,value,note])=><article className="card metric" key={label}><div className="metric-top"><span>{label}</span><b>{String(label).slice(0,1)}</b></div><div className="metric-value">{value}</div><div className="trend">{note}</div></article>)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createRow, DataRow, deleteRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { createRow, createSignedStorageUrl, DataRow, deleteRow, listNamedRows, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
 import type { ModuleConfig } from "./workspace-config";
 
 type Option = { value: string; label: string };
@@ -68,6 +68,22 @@ export function ModulePage({
     }
   }
 
+  async function printRecord(row:DataRow) {
+    const employee=employees.find(item=>item.value===String(row.employee_id))?.label??`${row.first_name??""} ${row.last_name??""}`.trim();
+    let photo="";
+    const photoPath=String(row.passport_photo_path??"");
+    if(photoPath) try{photo=await createSignedStorageUrl(accessToken,"employee-media",photoPath);}catch{/* Letter can print without a photograph. */}
+    const isPayroll=config.table==="payroll_records";
+    const title=isPayroll?`Payslip — ${row.pay_period}`:"Appointment Letter";
+    const body=isPayroll?`
+      <h2>${employee}</h2><p>Pay period: <b>${row.pay_period}</b></p>
+      <table><tr><td>Basic salary</td><td>${money(row.basic_salary)}</td></tr><tr><td>Allowances</td><td>${money(row.allowances)}</td></tr><tr><td>PAYE tax</td><td>${money(row.paye_tax)}</td></tr><tr><td>Employee SSNIT (5.5%)</td><td>${money(row.employee_ssnit)}</td></tr><tr><td>Tier 1</td><td>${money(row.tier_one)}</td></tr><tr><td>Tier 2</td><td>${money(row.tier_two)}</td></tr><tr><td>Tier 3</td><td>${money(row.tier_three)}</td></tr><tr class="total"><td>Net pay</td><td>${money(row.net_pay)}</td></tr></table>
+    `:`<p>${new Date().toLocaleDateString("en-GB")}</p><h2>Dear ${row.first_name} ${row.last_name},</h2><h1>APPOINTMENT AS ${String(row.position_title??"EMPLOYEE").toUpperCase()}</h1><p>We are pleased to confirm your appointment with SAS Finance Group Ghana as <b>${row.position_title??"an employee"}</b>, commencing on <b>${row.start_date??"the agreed start date"}</b>.</p><p>Your employment is governed by your employment contract, SAS policies, confidentiality obligations, and applicable Ghanaian law.</p><p>We welcome you to SAS Finance Group Ghana and look forward to your contribution.</p><p class="signature">For: SAS Finance Group Ghana<br/><br/><b>Authorised Signatory</b></p>`;
+    const popup=window.open("","_blank","width=900,height=900");
+    popup?.document.write(`<!doctype html><html><head><title>${title}</title><style>body{font:15px Arial;color:#0b1426;padding:48px;line-height:1.6}header{display:flex;justify-content:space-between;border-bottom:3px solid #00afe3;padding-bottom:18px;margin-bottom:34px}header img.logo{width:210px;object-fit:contain}.photo{width:110px;height:140px;object-fit:cover;border:1px solid #ccc}h1{font-size:20px;text-align:center;margin:34px 0}table{width:100%;border-collapse:collapse;margin-top:24px}td{padding:10px;border-bottom:1px solid #ddd}td:last-child{text-align:right}.total{font-size:18px;font-weight:bold}.signature{margin-top:70px}@media print{button{display:none}}</style></head><body><header><img class="logo" src="/logo.png"/>${photo?`<img class="photo" src="${photo}"/>`:""}</header><h1>${title}</h1>${body}<button onclick="window.print()">Print / Save PDF</button></body></html>`);
+    popup?.document.close();
+  }
+
   return <section>
     <header className="page-header">
       <div><span className="eyebrow">SAS People workspace</span><h1>{config.title}</h1><p className="muted">{config.subtitle}</p></div>
@@ -78,11 +94,12 @@ export function ModulePage({
       <div><strong>{rows.filter((row) => ["active","approved","completed","published","available","resolved","verified","present"].includes(String(row.status))).length}</strong><span>Active / completed</span></div>
       <div><strong>{rows.filter((row) => ["pending","in_progress","draft","open","needs_attention"].includes(String(row.status))).length}</strong><span>Needs attention</span></div>
     </div>
+    {config.table==="leave_requests"&&<article className="card leave-calendar"><div className="panel-head"><div><h2>Who’s away</h2><p className="muted">Approved leave visible across the organisation</p></div></div><div className="calendar-events">{rows.filter(row=>row.status==="approved").length===0?<p className="muted">No approved leave is currently scheduled.</p>:rows.filter(row=>row.status==="approved").map(row=><div key={String(row.id)}><strong>{String(row.employee_name??"Employee")}</strong><span>{String(row.start_date)} — {String(row.end_date)}</span><small>{String(row.leave_type)}</small></div>)}</div></article>}
     <article className="card data-panel">
       <div className="panel-head"><div><h2>{config.title} register</h2><p className="muted">Live records from Supabase</p></div><button className="text-btn" onClick={() => void load()}>Refresh</button></div>
       {error && <p className="form-error" role="alert">{error}</p>}
       {loading ? <div className="empty-state">Loading records...</div> : visibleRows.length === 0 ? <div className="empty-state"><div className="empty-icon">{config.icon}</div><h3>No {config.title.toLowerCase()} yet</h3><p>Add the first record to begin. Nothing is pre-filled or simulated.</p></div> :
-      <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th>Actions</th></tr></thead><tbody>{visibleRows.map((row) => <tr key={String(row.id)}>{config.columns.map((column) => <td key={column.key}>{formatValue(row[column.key])}</td>)}<td><div className="row-actions"><button onClick={() => setEditing(row)}>Edit</button><button className="danger" onClick={() => void remove(row)}>Delete</button></div></td></tr>)}</tbody></table></div>}
+      <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th>Actions</th></tr></thead><tbody>{visibleRows.map((row) => <tr key={String(row.id)}>{config.columns.map((column) => <td key={column.key}>{formatValue(row[column.key])}</td>)}<td><div className="row-actions">{["employees","payroll_records"].includes(config.table)&&<button onClick={() => void printRecord(row)}>{config.table==="employees"?"Appointment letter":"Payslip"}</button>}<button onClick={() => setEditing(row)}>Edit</button><button className="danger" onClick={() => void remove(row)}>Delete</button></div></td></tr>)}</tbody></table></div>}
     </article>
     {editing !== undefined && <RecordDialog config={config} row={editing} accessToken={accessToken} organisationId={organisationId} employees={employees} departments={departments} branches={branches} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await load(); }} />}
   </section>;
@@ -102,6 +119,8 @@ function formatValue(value: DataRow[string]) {
   return text.replaceAll("_", " ");
 }
 
+function money(value:DataRow[string]){return new Intl.NumberFormat("en-GH",{style:"currency",currency:"GHS"}).format(Number(value??0));}
+
 function RecordDialog({
   config,row,accessToken,organisationId,employees,departments,branches,onClose,onSaved,
 }: {
@@ -111,17 +130,29 @@ function RecordDialog({
   const [values,setValues] = useState<Record<string,string>>(() => Object.fromEntries(config.fields.map((field) => [field.key, String(row?.[field.key] ?? defaultValue(field))])));
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
+  const [file,setFile]=useState<File|null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     const payload: DataRow = { organisation_id: organisationId };
     for (const field of config.fields) {
+      if(field.type==="file") continue;
       const value = values[field.key];
       payload[field.key] = value === "" ? null : field.type === "number" ? Number(value) : value === "true" ? true : value === "false" ? false : value;
     }
     try {
-      if (row?.id) await updateRow(accessToken,config.table,String(row.id),payload);
-      else await createRow(accessToken,config.table,payload);
+      let recordId=String(row?.id??"");
+      if (row?.id) await updateRow(accessToken,config.table,recordId,payload);
+      else {
+        const created=await createRow(accessToken,config.table,payload);
+        recordId=String(created[0]?.id??"");
+      }
+      if(file&&config.table==="employees"&&recordId){
+        const extension=file.name.split(".").pop()?.toLowerCase()??"jpg";
+        const path=`${organisationId}/${recordId}/passport.${extension}`;
+        await uploadStorageFile(accessToken,"employee-media",path,file);
+        await updateRow(accessToken,"employees",recordId,{passport_photo_path:path});
+      }
       await onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Save failed.");
@@ -137,6 +168,7 @@ function RecordDialog({
       return <label key={field.key}>{field.label}{field.required && " *"}
         {field.type === "textarea" ? <textarea value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}/> :
         options ? <select value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}><option value="">Select {field.label.toLowerCase()}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> :
+        field.type==="file" ? <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event)=>setFile(event.target.files?.[0]??null)} required={field.required&&!row?.[field.key]}/> :
         <input type={field.type ?? "text"} value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}/>}
       </label>;
     })}

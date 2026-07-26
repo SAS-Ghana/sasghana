@@ -100,8 +100,63 @@ export function updateRow(
   });
 }
 
+export function updateRowsWhere(
+  accessToken:string,
+  table:string,
+  column:string,
+  value:string,
+  row:DataRow,
+) {
+  return request<DataRow[]>(accessToken,`${table}?${column}=eq.${encodeURIComponent(value)}`,{
+    method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(row),
+  });
+}
+
 export function deleteRow(accessToken: string, table: string, id: string) {
   return request<void>(accessToken, `${table}?id=eq.${id}`, {
     method: "DELETE",
   });
+}
+
+export async function uploadStorageFile(
+  accessToken: string,
+  bucket: string,
+  path: string,
+  file: File,
+) {
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
+    method: "POST",
+    headers: {
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": file.type,
+      "x-upsert": "true",
+    },
+    body: file,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as {message?:string};
+    throw new Error(body.message ?? "File upload failed.");
+  }
+  return path;
+}
+
+export async function createSignedStorageUrl(
+  accessToken: string,
+  bucket: string,
+  path: string,
+  expiresIn = 300,
+) {
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/sign/${bucket}/${path}`, {
+    method: "POST",
+    headers: {
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({expiresIn}),
+  });
+  const body = await response.json() as {signedURL?:string;message?:string};
+  if (!response.ok || !body.signedURL) throw new Error(body.message ?? "Secure preview could not be created.");
+  return `${supabaseUrl}/storage/v1${body.signedURL}`;
 }

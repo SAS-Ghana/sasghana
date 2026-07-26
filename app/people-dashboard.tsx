@@ -6,9 +6,12 @@ import { DashboardPage } from "./dashboard-page";
 import { ModulePage } from "./module-page";
 import { workspaceModules } from "./workspace-config";
 import { AccountManagementPage } from "./account-management-page";
+import { ChatPopup } from "./realtime-chat";
+import { NotificationSettings } from "./notification-settings";
+import { NotificationCenter } from "./notification-center";
 
-const workspaceNav = ["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","HR Requests","Announcements","Policies","Reports"];
-const adminNav = ["User accounts","Branches","Settings","Security & audit"];
+const workspaceNav = ["Dashboard","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
+const adminNav = ["User accounts","Branches","Backups","Settings","Security & audit"];
 
 const pagePermissions: Record<string,string[]> = {
   Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],
@@ -20,6 +23,14 @@ const pagePermissions: Record<string,string[]> = {
   Assets:["assets.manage"],
   Tasks:["tasks.manage"],
   Payroll:["payroll.manage","payroll.view_self"],
+  Hiring:["hiring.manage","hiring.view"],
+  Candidates:["hiring.manage"],
+  "Onboarding media":["onboarding.manage"],
+  Benefits:["benefits.manage","benefits.view_self"],
+  Compensation:["compensation.manage"],
+  Community:["community.manage","community.view"],
+  Meetings:["meetings.manage","meetings.view"],
+  Backups:["backups.manage"],
   Reports:["reports.view"],
   "User accounts":["users.manage"],
   Branches:["settings.manage"],
@@ -36,6 +47,7 @@ export function PeopleDashboard({
   const [active,setActive]=useState("Dashboard");
   const [accountOpen,setAccountOpen]=useState(false);
   const [search,setSearch]=useState("");
+  const [notificationSettings,setNotificationSettings]=useState(false);
   const isAdmin=profile.roles.includes("SAS System Administrator")||profile.account_type==="administrator";
   const canAccess=(page:string)=>isAdmin||page==="Dashboard"||!pagePermissions[page]||pagePermissions[page].some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(page);
   const availableWorkspace=workspaceNav.filter(canAccess);
@@ -59,9 +71,9 @@ export function PeopleDashboard({
         <button className="mobile-menu" aria-label="Open menu" onClick={()=>setDrawer(true)}>Menu</button>
         <input className="search" aria-label="Search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search employees, documents, requests..."/>
         <div className="profile">
-          <button className="icon-btn" aria-label="Notifications" onClick={()=>navigate("Announcements")}>N</button>
+          <NotificationCenter accessToken={accessToken} profile={profile}/>
           <button className="account-button" onClick={()=>setAccountOpen(value=>!value)} aria-expanded={accountOpen}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small className="muted">{primaryRole.replaceAll("_"," ")}</small></div></button>
-          {accountOpen&&<div className="account-menu"><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
+          {accountOpen&&<div className="account-menu"><button onClick={()=>{setNotificationSettings(true);setAccountOpen(false);}}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
         </div>
       </header>
       <div className="content">
@@ -69,6 +81,8 @@ export function PeopleDashboard({
           active==="User accounts" ? <AccountManagementPage accessToken={accessToken}/> :
           <ModulePage config={workspaceModules[active]} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>}
       </div>
+      <ChatPopup accessToken={accessToken} profile={profile}/>
+      {notificationSettings&&<NotificationSettings accessToken={accessToken} profile={profile} onClose={()=>setNotificationSettings(false)}/>}
     </main>
   </div>;
 }
