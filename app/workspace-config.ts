@@ -1,0 +1,82 @@
+export type FieldConfig = {
+  key: string;
+  label: string;
+  type?: "text" | "date" | "number" | "textarea" | "select" | "email";
+  required?: boolean;
+  options?: string[];
+  relation?: "employees" | "departments";
+};
+
+export type ModuleConfig = {
+  title: string;
+  singular: string;
+  subtitle: string;
+  table: string;
+  icon: string;
+  columns: { key: string; label: string }[];
+  fields: FieldConfig[];
+};
+
+export const workspaceModules: Record<string, ModuleConfig> = {
+  Employees: {
+    title: "Employees", singular: "employee", table: "employees", icon: "E",
+    subtitle: "Manage active and archived employee records.",
+    columns: [{key:"employee_number",label:"Employee ID"},{key:"first_name",label:"First name"},{key:"last_name",label:"Last name"},{key:"work_email",label:"Work email"},{key:"position_title",label:"Position"},{key:"employment_status",label:"Status"}],
+    fields: [{key:"employee_number",label:"Employee ID",required:true},{key:"first_name",label:"First name",required:true},{key:"last_name",label:"Last name",required:true},{key:"work_email",label:"Work email",type:"email",required:true},{key:"department_id",label:"Department",type:"select",relation:"departments"},{key:"position_title",label:"Position title"},{key:"phone",label:"Phone"},{key:"branch",label:"Branch"},{key:"start_date",label:"Start date",type:"date"},{key:"employment_status",label:"Status",type:"select",options:["active","probation","leave","ended"],required:true}],
+  },
+  Onboarding: {
+    title:"Onboarding",singular:"onboarding journey",table:"employee_onboarding",icon:"O",subtitle:"Track every new employee through a structured onboarding journey.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"status",label:"Status"},{key:"progress",label:"Progress"},{key:"due_date",label:"Due date"},{key:"notes",label:"Notes"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"status",label:"Status",type:"select",options:["not_started","in_progress","needs_attention","completed","overdue"],required:true},{key:"progress",label:"Progress (%)",type:"number",required:true},{key:"due_date",label:"Due date",type:"date"},{key:"notes",label:"Notes",type:"textarea"}],
+  },
+  Documents: {
+    title:"Documents",singular:"document",table:"employee_documents",icon:"D",subtitle:"Securely catalogue, verify, and monitor employee documents.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"document_name",label:"Document"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"expiry_date",label:"Expiry"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"document_name",label:"Document name",required:true},{key:"category",label:"Category",required:true},{key:"status",label:"Status",type:"select",options:["pending","verified","rejected","expired"],required:true},{key:"expiry_date",label:"Expiry date",type:"date"},{key:"confidentiality",label:"Confidentiality",type:"select",options:["internal","confidential","restricted"],required:true}],
+  },
+  Attendance: {
+    title:"Attendance",singular:"attendance record",table:"attendance_records",icon:"A",subtitle:"Monitor attendance, lateness, remote work, and absence.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"attendance_date",label:"Date"},{key:"clock_in",label:"Clock in"},{key:"clock_out",label:"Clock out"},{key:"status",label:"Status"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"attendance_date",label:"Date",type:"date",required:true},{key:"clock_in",label:"Clock in"},{key:"clock_out",label:"Clock out"},{key:"status",label:"Status",type:"select",options:["present","late","absent","remote","travel","leave"],required:true},{key:"notes",label:"Notes",type:"textarea"}],
+  },
+  Leave: {
+    title:"Leave",singular:"leave request",table:"leave_requests",icon:"L",subtitle:"Administer leave requests, approvals, and absence periods.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"leave_type",label:"Leave type"},{key:"start_date",label:"Starts"},{key:"end_date",label:"Ends"},{key:"days",label:"Days"},{key:"status",label:"Status"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"leave_type",label:"Leave type",type:"select",options:["Annual leave","Sick leave","Maternity leave","Paternity leave","Compassionate leave","Study leave","Unpaid leave"],required:true},{key:"start_date",label:"Start date",type:"date",required:true},{key:"end_date",label:"End date",type:"date",required:true},{key:"days",label:"Days",type:"number",required:true},{key:"status",label:"Status",type:"select",options:["draft","pending","approved","rejected","cancelled"],required:true},{key:"reason",label:"Reason",type:"textarea"}],
+  },
+  Performance: {
+    title:"Performance",singular:"performance review",table:"performance_reviews",icon:"P",subtitle:"Coordinate objectives, probation reviews, and performance cycles.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"review_type",label:"Review type"},{key:"review_period",label:"Period"},{key:"status",label:"Status"},{key:"rating",label:"Rating"},{key:"due_date",label:"Due"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"review_type",label:"Review type",type:"select",options:["30-day probation","60-day probation","90-day probation","annual","mid-year"],required:true},{key:"review_period",label:"Review period",required:true},{key:"status",label:"Status",type:"select",options:["draft","self_assessment","manager_review","hr_review","completed"],required:true},{key:"rating",label:"Rating",type:"number"},{key:"due_date",label:"Due date",type:"date"},{key:"summary",label:"Summary",type:"textarea"}],
+  },
+  Assets: {
+    title:"Assets",singular:"asset",table:"assets",icon:"A",subtitle:"Track SAS equipment, assignments, condition, and returns.",
+    columns:[{key:"asset_code",label:"SAS asset ID"},{key:"category",label:"Category"},{key:"description",label:"Description"},{key:"serial_number",label:"Serial number"},{key:"employee_name",label:"Assigned to"},{key:"status",label:"Status"}],
+    fields:[{key:"asset_code",label:"SAS asset ID",required:true},{key:"category",label:"Category",type:"select",options:["Laptop","Desktop computer","Mobile phone","Access card","Office key","Monitor","Headset","Software licence","Furniture","Other"],required:true},{key:"description",label:"Description",required:true},{key:"brand",label:"Brand"},{key:"model",label:"Model"},{key:"serial_number",label:"Serial number"},{key:"condition",label:"Condition",type:"select",options:["new","good","fair","damaged"],required:true},{key:"assigned_employee_id",label:"Assigned employee",type:"select",relation:"employees"},{key:"status",label:"Status",type:"select",options:["available","assigned","maintenance","retired","lost"],required:true}],
+  },
+  "HR Requests": {
+    title:"HR Requests",singular:"HR request",table:"hr_requests",icon:"H",subtitle:"Receive, assign, and resolve employee support requests.",
+    columns:[{key:"subject",label:"Subject"},{key:"request_type",label:"Type"},{key:"employee_name",label:"Employee"},{key:"priority",label:"Priority"},{key:"status",label:"Status"},{key:"created_at",label:"Created"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees"},{key:"request_type",label:"Request type",required:true},{key:"subject",label:"Subject",required:true},{key:"description",label:"Description",type:"textarea"},{key:"priority",label:"Priority",type:"select",options:["low","normal","high","urgent"],required:true},{key:"status",label:"Status",type:"select",options:["open","in_progress","waiting","resolved","closed"],required:true}],
+  },
+  Announcements: {
+    title:"Announcements",singular:"announcement",table:"announcements",icon:"A",subtitle:"Publish internal news and notices to the right audience.",
+    columns:[{key:"title",label:"Title"},{key:"audience",label:"Audience"},{key:"status",label:"Status"},{key:"publish_at",label:"Publish date"},{key:"created_at",label:"Created"}],
+    fields:[{key:"title",label:"Title",required:true},{key:"body",label:"Message",type:"textarea",required:true},{key:"audience",label:"Audience",type:"select",options:["all","employees","managers","hr","department_heads"],required:true},{key:"status",label:"Status",type:"select",options:["draft","published","archived"],required:true},{key:"publish_at",label:"Publish date"}],
+  },
+  Reports: {
+    title:"Reports",singular:"saved report",table:"saved_reports",icon:"R",subtitle:"Create and maintain reusable SAS reporting views.",
+    columns:[{key:"name",label:"Report name"},{key:"report_type",label:"Type"},{key:"format",label:"Format"},{key:"last_generated_at",label:"Last generated"},{key:"created_at",label:"Created"}],
+    fields:[{key:"name",label:"Report name",required:true},{key:"report_type",label:"Report type",type:"select",options:["Headcount","Onboarding","Documents","Attendance","Leave","Performance","Assets","HR requests","Audit"],required:true},{key:"description",label:"Description",type:"textarea"},{key:"format",label:"Format",type:"select",options:["dashboard","xlsx","pdf"],required:true}],
+  },
+  Settings: {
+    title:"Settings",singular:"setting",table:"system_settings",icon:"S",subtitle:"Configure organisation-wide SAS People behaviour.",
+    columns:[{key:"setting_key",label:"Setting"},{key:"setting_value",label:"Value"},{key:"category",label:"Category"},{key:"description",label:"Description"},{key:"updated_at",label:"Updated"}],
+    fields:[{key:"setting_key",label:"Setting key",required:true},{key:"setting_value",label:"Value"},{key:"category",label:"Category",type:"select",options:["general","attendance","leave","documents","security","notifications"],required:true},{key:"description",label:"Description",type:"textarea"}],
+  },
+  "Security & audit": {
+    title:"Security & audit",singular:"security event",table:"security_events",icon:"S",subtitle:"Review security signals and protected administrative activity.",
+    columns:[{key:"event_type",label:"Event type"},{key:"severity",label:"Severity"},{key:"description",label:"Description"},{key:"outcome",label:"Outcome"},{key:"created_at",label:"Created"}],
+    fields:[{key:"event_type",label:"Event type",required:true},{key:"severity",label:"Severity",type:"select",options:["info","warning","high","critical"],required:true},{key:"description",label:"Description",type:"textarea",required:true},{key:"outcome",label:"Outcome",required:true}],
+  },
+};

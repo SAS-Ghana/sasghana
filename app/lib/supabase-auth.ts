@@ -6,6 +6,7 @@ export type AuthSession = {
 
 export type UserProfile = {
   id: string;
+  organisation_id: string;
   username: string;
   display_name: string;
   status: string;
@@ -44,21 +45,26 @@ export async function signIn(
   );
   if (!response.ok) throw new Error("The username or password is incorrect.");
   const session = (await response.json()) as AuthSession;
-  const profileResponse = await fetch(
-    `${supabaseUrl}/rest/v1/profiles?select=id,username,display_name,status&id=eq.${session.user.id}`,
-    {
-      headers: {
-        apikey: publishableKey,
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    },
-  );
-  const profiles = (await profileResponse.json()) as UserProfile[];
-  const profile = profiles[0];
+  const profile = await fetchProfile(session.access_token, session.user.id);
   if (!profile || !["active", "password_change_required"].includes(profile.status)) {
     throw new Error("This account is not active. Contact an administrator.");
   }
   return { session, profile };
+}
+
+export async function fetchProfile(accessToken: string, userId: string) {
+  const profileResponse = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=id,organisation_id,username,display_name,status&id=eq.${userId}`,
+    {
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  if (!profileResponse.ok) return null;
+  const profiles = (await profileResponse.json()) as UserProfile[];
+  return profiles[0] ?? null;
 }
 
 export async function changePassword(

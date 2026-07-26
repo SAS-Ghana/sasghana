@@ -20,3 +20,17 @@ test("authentication uses Supabase and contains no embedded password", async () 
   assert.match(app, /changePassword/);
   assert.doesNotMatch(`${auth}\n${app}`, /password\s*=\s*["'][^"']+["']/i);
 });
+
+test("workspace modules use Supabase instead of placeholder dashboard data", async () => {
+  const [dashboard, modules, dataClient] = await Promise.all([
+    readFile(new URL("../app/dashboard-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/workspace-config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/supabase-data.ts", import.meta.url), "utf8"),
+  ]);
+  for (const page of ["Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","HR Requests","Announcements","Reports","Settings","Security & audit"]) {
+    assert.match(modules, new RegExp(page.replace(/[&]/g, "\\&")));
+  }
+  assert.match(dashboard, /listRows/);
+  assert.match(dataClient, /\/rest\/v1\//);
+  assert.doesNotMatch(dashboard, /\b248\b|\b92%\b|Kwame Mensah|Nana Yeboah/);
+});

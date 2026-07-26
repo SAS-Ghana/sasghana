@@ -5,6 +5,7 @@ import {
   AuthSession,
   changePassword,
   clearSession,
+  fetchProfile,
   readSession,
   saveSession,
   signIn,
@@ -29,13 +30,16 @@ export function SasPeopleApp() {
     void Promise.resolve().then(() => {
       const stored = readSession();
       if (stored) {
-        setSession(stored);
-        setProfile({
-          id: stored.user.id,
-          username: "Administrator",
-          display_name: "Administrator",
-          status: "active",
+        void fetchProfile(stored.access_token, stored.user.id).then((storedProfile) => {
+          if (storedProfile && ["active", "password_change_required"].includes(storedProfile.status)) {
+            setSession(stored);
+            setProfile(storedProfile);
+          } else {
+            clearSession();
+          }
+          setReady(true);
         });
+        return;
       }
       setReady(true);
     });
@@ -108,7 +112,7 @@ export function SasPeopleApp() {
 
   return (
     <>
-      <PeopleDashboard profile={profile} onLogout={handleLogout} onChangePassword={() => setPasswordOpen(true)} />
+      <PeopleDashboard accessToken={session.access_token} profile={profile} onLogout={handleLogout} onChangePassword={() => setPasswordOpen(true)} />
       {passwordOpen && (
         <PasswordDialog
           accessToken={session.access_token}
