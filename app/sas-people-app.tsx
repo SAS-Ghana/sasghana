@@ -147,7 +147,7 @@ function PasswordDialog({ accessToken, onClose }: { accessToken: string; onClose
     }
   }
 
-  return <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
+  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
     <button className="modal-close" onClick={onClose} aria-label="Close">x</button>
     <span className="eyebrow">Account security</span>
     <h2 id="password-title">Change password</h2>

@@ -46,8 +46,8 @@ export async function callFunction<T>(
     },
     body: JSON.stringify(body),
   });
-  const result = await response.json() as T & { error?: string };
-  if (!response.ok) throw new Error(result.error ?? "Secure operation failed.");
+  const result = await response.json().catch(()=>({})) as T & { error?: string; message?:string };
+  if (!response.ok) throw new Error(result.error ?? result.message ?? `Secure operation failed (${response.status}).`);
   return result;
 }
 

@@ -35,13 +35,20 @@ export function AccountManagementPage({ accessToken }: { accessToken: string }) 
     } catch(cause){setError(cause instanceof Error?cause.message:"Account update failed.");}
   }
 
+  async function deleteAccount(row:DataRow){
+    if(!window.confirm(`Permanently delete the login for ${row.display_name}? The linked employee record will be retained.`))return;
+    setError("");setNotice("");
+    try{await callFunction(accessToken,"manage-user",{action:"delete",user_id:row.id});setNotice(`${row.display_name}'s login account was deleted.`);await load();}
+    catch(cause){setError(cause instanceof Error?cause.message:"Account deletion failed.");}
+  }
+
   return <section>
     <header className="page-header"><div><span className="eyebrow">Administration</span><h1>User accounts</h1><p className="muted">Create private logins and assign exactly what each person can access.</p></div><button className="primary" onClick={()=>setOpen(true)}>Create account</button></header>
     <div className="summary-strip"><div><strong>{accounts.length}</strong><span>Total accounts</span></div><div><strong>{accounts.filter(x=>x.status==="active").length}</strong><span>Active</span></div><div><strong>{accounts.filter(x=>x.status!=="active").length}</strong><span>Restricted / invited</span></div></div>
     {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
     <article className="card data-panel"><div className="panel-head"><div><h2>Account directory</h2><p className="muted">Authentication and access are stored in Supabase</p></div><button className="text-btn" onClick={()=>void load()}>Refresh</button></div>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Username</th><th>Account type</th><th>Job title</th><th>Status</th><th>Invitation</th><th>Actions</th></tr></thead>
-      <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}</td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions">{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button></div></td></tr>)}</tbody></table></div>
+          <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}</td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions">{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button><button className="danger" onClick={()=>void deleteAccount(row)}>Delete account</button></div></td></tr>)}</tbody></table></div>
     </article>
     {open&&<CreateAccountDialog accessToken={accessToken} roles={roles} permissions={permissions} employees={employees} onClose={()=>setOpen(false)} onCreated={async()=>{setOpen(false);setNotice("Account created securely.");await load();}}/>}
   </section>;
@@ -59,11 +66,11 @@ function CreateAccountDialog({accessToken,roles,permissions,employees,onClose,on
   function toggle(list:string[],value:string,setter:(next:string[])=>void){setter(list.includes(value)?list.filter(x=>x!==value):[...list,value]);}
   async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{await callFunction(accessToken,"manage-user",{action:"create",...values,send_invite:invite,role_ids:roleIds,permission_ids:permissionIds,dashboard_access:dashboards});await onCreated();}catch(cause){setError(cause instanceof Error?cause.message:"Account creation failed.");}finally{setBusy(false);}}
   const dashboardOptions=["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","HR Requests","Announcements","Policies","Reports"];
-  return <div className="modal-backdrop"><section className="modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={onClose} aria-label="Close">x</button><span className="eyebrow">Private account</span><h2 id="account-title">Create employee login</h2>
+  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={onClose} aria-label="Close">x</button><span className="eyebrow">Private account</span><h2 id="account-title">Create employee login</h2>
     <form onSubmit={submit} className="record-form account-form">
       <label>Full name *<input required value={values.display_name} onChange={e=>setValues({...values,display_name:e.target.value})}/></label>
       <label>Username *<input required value={values.username} onChange={e=>setValues({...values,username:e.target.value})}/></label>
-      <label>Email for invitations<input type="email" value={values.email} onChange={e=>setValues({...values,email:e.target.value})}/></label>
+      <label>Email for invitations {invite&&"*"}<input type="email" required={invite} value={values.email} onChange={e=>setValues({...values,email:e.target.value})}/></label>
       <label>Temporary password {!invite&&"*"}<input type="password" required={!invite} minLength={10} value={values.password} onChange={e=>setValues({...values,password:e.target.value})}/></label>
       <label>Account type *<select value={values.account_type} onChange={e=>setValues({...values,account_type:e.target.value})}><option value="employee">Employee</option><option value="hr">Human Resources</option><option value="manager">Manager</option><option value="auditor">Auditor / Compliance</option><option value="administrator">Administrator</option></select></label>
       <label>Employee record<select value={values.employee_id} onChange={e=>setValues({...values,employee_id:e.target.value})}><option value="">Not linked</option>{employees.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></label>

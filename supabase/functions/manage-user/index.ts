@@ -24,6 +24,8 @@ async function handleRequest(request: Request) {
     if (!username) return json({ error: "Username is required." }, 400);
 
     if (body.action === "create") {
+      if (body.send_invite && !body.email) return json({ error: "An email address is required when sending an invitation." }, 400);
+      if (!body.send_invite && String(body.password ?? "").length < 10) return json({ error: "Temporary passwords must contain at least 10 characters." }, 400);
       const authResult = body.send_invite
         ? await admin.auth.admin.inviteUserByEmail(email, { data: { username, display_name: body.display_name } })
         : await admin.auth.admin.createUser({
@@ -41,7 +43,10 @@ async function handleRequest(request: Request) {
         invitation_status: body.send_invite ? "sent" : "accepted",
         dashboard_access: body.dashboard_access ?? [],
       });
-      if (profileError) throw profileError;
+      if (profileError) {
+        await admin.auth.admin.deleteUser(userId);
+        throw profileError;
+      }
       if (body.role_ids?.length) await admin.from("user_roles").insert(body.role_ids.map((role_id: string) => ({ profile_id: userId, role_id })));
       if (body.permission_ids?.length) await admin.from("user_permission_overrides").insert(body.permission_ids.map((permission_id: string) => ({ profile_id: userId, permission_id, granted: true })));
       await admin.from("audit_logs").insert({ organisation_id: organisation!.organisation_id, actor_id: (await caller.auth.getUser()).data.user!.id, action: "user.created", resource: "profiles", resource_id: userId, outcome: "success", metadata: { username, account_type: body.account_type } });
@@ -60,6 +65,17 @@ async function handleRequest(request: Request) {
       if (error) throw error;
       await admin.from("profiles").update({ status: "password_change_required", force_password_change: true }).eq("id", body.user_id);
       return json({ ok: true });
+    }
+    if (body.action === "delete") {
+      if (body.user_id === (await caller.auth.getUser()).data.user!.id) return json({ error: "You cannot delete the account currently in use." }, 400);
+      await admin.from("employees").update({profile_id:null}).eq("profile_id",body.user_id);
+      await admin.from("user_permission_overrides").delete().eq("profile_id",body.user_id);
+      await admin.from("user_roles").delete().eq("profile_id",body.user_id);
+      const { error: profileDeleteError }=await admin.from("profiles").delete().eq("id",body.user_id);
+      if(profileDeleteError)throw profileDeleteError;
+      const { error: authDeleteError }=await admin.auth.admin.deleteUser(body.user_id);
+      if(authDeleteError)throw authDeleteError;
+      return json({ok:true});
     }
     return json({ error: "Unsupported action." }, 400);
   } catch (error) {

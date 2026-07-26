@@ -69,18 +69,28 @@ export function ModulePage({
   }
 
   async function printRecord(row:DataRow) {
-    const employee=employees.find(item=>item.value===String(row.employee_id))?.label??`${row.first_name??""} ${row.last_name??""}`.trim();
+    let employeeRow=row;
+    if(config.table==="payroll_records"){
+      const employeeRows=await listRows(accessToken,"employees","*",500);
+      employeeRow=employeeRows.find(item=>item.id===row.employee_id)??row;
+    }
+    const employee=employees.find(item=>item.value===String(row.employee_id))?.label??`${employeeRow.first_name??""} ${employeeRow.last_name??""}`.trim();
     let photo="";
-    const photoPath=String(row.passport_photo_path??"");
+    const photoPath=String(employeeRow.passport_photo_path??"");
     if(photoPath) try{photo=await createSignedStorageUrl(accessToken,"employee-media",photoPath);}catch{/* Letter can print without a photograph. */}
     const isPayroll=config.table==="payroll_records";
-    const title=isPayroll?`Payslip — ${row.pay_period}`:"Appointment Letter";
-    const body=isPayroll?`
+    const templates=await listRows(accessToken,"document_templates","*",100).catch(()=>[]);
+    const template=templates.find(item=>item.template_type===(isPayroll?"payslip":"appointment_letter")&&item.status==="active");
+    const defaultBody=isPayroll?`
       <h2>${employee}</h2><p>Pay period: <b>${row.pay_period}</b></p>
       <table><tr><td>Basic salary</td><td>${money(row.basic_salary)}</td></tr><tr><td>Allowances</td><td>${money(row.allowances)}</td></tr><tr><td>PAYE tax</td><td>${money(row.paye_tax)}</td></tr><tr><td>Employee SSNIT (5.5%)</td><td>${money(row.employee_ssnit)}</td></tr><tr><td>Tier 1</td><td>${money(row.tier_one)}</td></tr><tr><td>Tier 2</td><td>${money(row.tier_two)}</td></tr><tr><td>Tier 3</td><td>${money(row.tier_three)}</td></tr><tr class="total"><td>Net pay</td><td>${money(row.net_pay)}</td></tr></table>
-    `:`<p>${new Date().toLocaleDateString("en-GB")}</p><h2>Dear ${row.first_name} ${row.last_name},</h2><h1>APPOINTMENT AS ${String(row.position_title??"EMPLOYEE").toUpperCase()}</h1><p>We are pleased to confirm your appointment with SAS Finance Group Ghana as <b>${row.position_title??"an employee"}</b>, commencing on <b>${row.start_date??"the agreed start date"}</b>.</p><p>Your employment is governed by your employment contract, SAS policies, confidentiality obligations, and applicable Ghanaian law.</p><p>We welcome you to SAS Finance Group Ghana and look forward to your contribution.</p><p class="signature">For: SAS Finance Group Ghana<br/><br/><b>Authorised Signatory</b></p>`;
+    `:`<p>${new Date().toLocaleDateString("en-GB")}</p><h2>Dear ${employeeRow.first_name} ${employeeRow.last_name},</h2><h1>APPOINTMENT AS ${String(employeeRow.position_title??"EMPLOYEE").toUpperCase()}</h1><p>We are pleased to confirm your appointment with SAS Finance Group Ghana as <b>${employeeRow.position_title??"an employee"}</b>, commencing on <b>${employeeRow.start_date??"the agreed start date"}</b>.</p><p>Your employment is governed by your employment contract, SAS policies, confidentiality obligations, and applicable Ghanaian law.</p><p>We welcome you to SAS Finance Group Ghana and look forward to your contribution.</p><p class="signature">For: SAS Finance Group Ghana<br/><br/><b>Authorised Signatory</b></p>`;
+    const title=mergeTemplate(String(template?.subject??(isPayroll?`Payslip — ${row.pay_period}`:"Appointment Letter")),employeeRow,row);
+    const body=template?`<main class="template-copy">${escapeHtml(mergeTemplate(String(template.content),employeeRow,row))}</main>`:defaultBody;
+    let signature="";
+    if(template?.signature_path)try{signature=await createSignedStorageUrl(accessToken,"hr-media",String(template.signature_path));}catch{/* Signature stays optional. */}
     const popup=window.open("","_blank","width=900,height=900");
-    popup?.document.write(`<!doctype html><html><head><title>${title}</title><style>body{font:15px Arial;color:#0b1426;padding:48px;line-height:1.6}header{display:flex;justify-content:space-between;border-bottom:3px solid #00afe3;padding-bottom:18px;margin-bottom:34px}header img.logo{width:210px;object-fit:contain}.photo{width:110px;height:140px;object-fit:cover;border:1px solid #ccc}h1{font-size:20px;text-align:center;margin:34px 0}table{width:100%;border-collapse:collapse;margin-top:24px}td{padding:10px;border-bottom:1px solid #ddd}td:last-child{text-align:right}.total{font-size:18px;font-weight:bold}.signature{margin-top:70px}@media print{button{display:none}}</style></head><body><header><img class="logo" src="/logo.png"/>${photo?`<img class="photo" src="${photo}"/>`:""}</header><h1>${title}</h1>${body}<button onclick="window.print()">Print / Save PDF</button></body></html>`);
+    popup?.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>body{font:15px Arial;color:#0b1426;padding:48px;line-height:1.6}header{display:flex;justify-content:space-between;border-bottom:3px solid #00afe3;padding-bottom:18px;margin-bottom:34px}header img.logo{width:210px;object-fit:contain}.photo{width:110px;height:140px;object-fit:cover;border:1px solid #ccc}h1{font-size:20px;text-align:center;margin:34px 0}table{width:100%;border-collapse:collapse;margin-top:24px}td{padding:10px;border-bottom:1px solid #ddd}td:last-child{text-align:right}.total{font-size:18px;font-weight:bold}.signature{margin-top:50px;max-width:190px;max-height:90px}.template-copy{white-space:pre-wrap}@media print{button{display:none}}</style></head><body><header><img class="logo" src="/logo.png"/>${photo?`<img class="photo" src="${photo}"/>`:""}</header><h1>${escapeHtml(title)}</h1>${body}${signature?`<img class="signature" src="${signature}"/>`:""}<button onclick="window.print()">Print / Save PDF</button></body></html>`);
     popup?.document.close();
   }
 
@@ -120,6 +130,28 @@ function formatValue(value: DataRow[string]) {
 }
 
 function money(value:DataRow[string]){return new Intl.NumberFormat("en-GH",{style:"currency",currency:"GHS"}).format(Number(value??0));}
+function mergeTemplate(template:string,employee:DataRow,payroll:DataRow){
+  const values:Record<string,string>={
+    "{{today}}":new Date().toLocaleDateString("en-GB"),
+    "{{employee.full_name}}":`${employee.first_name??""} ${employee.last_name??""}`.trim(),
+    "{{employee.employee_number}}":String(employee.employee_number??""),
+    "{{employee.position_title}}":String(employee.position_title??""),
+    "{{employee.department}}":String(employee.department_name??""),
+    "{{employee.start_date}}":String(employee.start_date??""),
+    "{{employee.work_email}}":String(employee.work_email??""),
+    "{{payroll.pay_period}}":String(payroll.pay_period??""),
+    "{{payroll.basic_salary}}":money(payroll.basic_salary),
+    "{{payroll.allowances}}":money(payroll.allowances),
+    "{{payroll.paye_tax}}":money(payroll.paye_tax),
+    "{{payroll.employee_ssnit}}":money(payroll.employee_ssnit),
+    "{{payroll.tier_one}}":money(payroll.tier_one),
+    "{{payroll.tier_two}}":money(payroll.tier_two),
+    "{{payroll.tier_three}}":money(payroll.tier_three),
+    "{{payroll.net_pay}}":money(payroll.net_pay),
+  };
+  return Object.entries(values).reduce((content,[field,value])=>content.replaceAll(field,value),template);
+}
+function escapeHtml(value:string){return value.replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]??char));}
 
 function RecordDialog({
   config,row,accessToken,organisationId,employees,departments,branches,onClose,onSaved,
@@ -159,7 +191,7 @@ function RecordDialog({
     } finally { setBusy(false); }
   }
 
-  return <div className="modal-backdrop"><section className="modal record-modal" role="dialog" aria-modal="true" aria-labelledby="record-title">
+  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal record-modal" role="dialog" aria-modal="true" aria-labelledby="record-title">
     <button className="modal-close" onClick={onClose} aria-label="Close">x</button>
     <span className="eyebrow">{row ? "Edit record" : "New record"}</span><h2 id="record-title">{row ? `Edit ${config.singular}` : `Add ${config.singular}`}</h2>
     <form onSubmit={submit} className="record-form">{config.fields.map((field) => {
