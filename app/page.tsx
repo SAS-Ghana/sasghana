@@ -1,5 +1,5 @@
-import { PeopleDashboard } from "./people-dashboard";
+import { SasPeopleApp } from "./sas-people-app";
 
 export default function Home() {
-  return <PeopleDashboard />;
+  return <SasPeopleApp />;
 }
