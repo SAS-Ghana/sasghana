@@ -10,6 +10,12 @@ export type UserProfile = {
   username: string;
   display_name: string;
   status: string;
+  account_type: string;
+  job_title?: string;
+  employee_id?: string;
+  dashboard_access: string[];
+  roles: string[];
+  permissions: string[];
 };
 
 const supabaseUrl =
@@ -53,18 +59,31 @@ export async function signIn(
 }
 
 export async function fetchProfile(accessToken: string, userId: string) {
-  const profileResponse = await fetch(
-    `${supabaseUrl}/rest/v1/profiles?select=id,organisation_id,username,display_name,status&id=eq.${userId}`,
-    {
+  const [profileResponse, permissionsResponse, rolesResponse] = await Promise.all([
+    fetch(`${supabaseUrl}/rest/v1/profiles?select=id,organisation_id,username,display_name,status,account_type,job_title,employee_id,dashboard_access&id=eq.${userId}`, {
       headers: {
         apikey: publishableKey,
         Authorization: `Bearer ${accessToken}`,
       },
-    },
-  );
+    }),
+    fetch(`${supabaseUrl}/rest/v1/rpc/current_permissions`, {
+      method: "POST", headers: { ...jsonHeaders, Authorization: `Bearer ${accessToken}` }, body: "{}",
+    }),
+    fetch(`${supabaseUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`, {
+      headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+    }),
+  ]);
   if (!profileResponse.ok) return null;
-  const profiles = (await profileResponse.json()) as UserProfile[];
-  return profiles[0] ?? null;
+  const profiles = (await profileResponse.json()) as Omit<UserProfile, "roles" | "permissions">[];
+  if (!profiles[0]) return null;
+  const permissionRows = permissionsResponse.ok ? await permissionsResponse.json() as {permission_key:string}[] : [];
+  const roleRows = rolesResponse.ok ? await rolesResponse.json() as {roles:{name:string}|null}[] : [];
+  return {
+    ...profiles[0],
+    dashboard_access: profiles[0].dashboard_access ?? [],
+    permissions: permissionRows.map((row) => row.permission_key),
+    roles: roleRows.flatMap((row) => row.roles?.name ? [row.roles.name] : []),
+  };
 }
 
 export async function changePassword(

@@ -32,6 +32,25 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+export async function callFunction<T>(
+  accessToken: string,
+  functionName: string,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+    method: "POST",
+    headers: {
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(result.error ?? "Secure operation failed.");
+  return result;
+}
+
 export function listRows(
   accessToken: string,
   table: string,

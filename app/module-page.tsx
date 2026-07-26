@@ -20,6 +20,7 @@ export function ModulePage({
   const [rows, setRows] = useState<DataRow[]>([]);
   const [employees, setEmployees] = useState<Option[]>([]);
   const [departments, setDepartments] = useState<Option[]>([]);
+  const [branches, setBranches] = useState<Option[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<DataRow | null | undefined>(undefined);
@@ -28,10 +29,11 @@ export function ModulePage({
     setLoading(true);
     setError("");
     try {
-      const [records, employeeRows, departmentRows] = await Promise.all([
+      const [records, employeeRows, departmentRows, branchRows] = await Promise.all([
         listRows(accessToken, config.table),
         listNamedRows(accessToken, "employees", "id,first_name,last_name", "first_name"),
         listNamedRows(accessToken, "departments", "id,name"),
+        listNamedRows(accessToken, "branches", "id,name"),
       ]);
       const employeeOptions = employeeRows.map((row) => ({
         value: String(row.id),
@@ -39,6 +41,7 @@ export function ModulePage({
       }));
       setEmployees(employeeOptions);
       setDepartments(departmentRows.map((row) => ({ value: String(row.id), label: String(row.name) })));
+      setBranches(branchRows.map((row) => ({ value: String(row.id), label: String(row.name) })));
       setRows(records.map((row) => enrichRow(row, employeeOptions)));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Records could not be loaded.");
@@ -81,12 +84,12 @@ export function ModulePage({
       {loading ? <div className="empty-state">Loading records...</div> : visibleRows.length === 0 ? <div className="empty-state"><div className="empty-icon">{config.icon}</div><h3>No {config.title.toLowerCase()} yet</h3><p>Add the first record to begin. Nothing is pre-filled or simulated.</p></div> :
       <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th>Actions</th></tr></thead><tbody>{visibleRows.map((row) => <tr key={String(row.id)}>{config.columns.map((column) => <td key={column.key}>{formatValue(row[column.key])}</td>)}<td><div className="row-actions"><button onClick={() => setEditing(row)}>Edit</button><button className="danger" onClick={() => void remove(row)}>Delete</button></div></td></tr>)}</tbody></table></div>}
     </article>
-    {editing !== undefined && <RecordDialog config={config} row={editing} accessToken={accessToken} organisationId={organisationId} employees={employees} departments={departments} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await load(); }} />}
+    {editing !== undefined && <RecordDialog config={config} row={editing} accessToken={accessToken} organisationId={organisationId} employees={employees} departments={departments} branches={branches} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await load(); }} />}
   </section>;
 }
 
 function enrichRow(row: DataRow, employees: Option[]) {
-  const employeeId = row.employee_id ?? row.assigned_employee_id;
+  const employeeId = row.employee_id ?? row.assigned_employee_id ?? row.assigned_to_employee_id;
   const employee = employees.find((item) => item.value === String(employeeId));
   return employee ? { ...row, employee_name: employee.label } : row;
 }
@@ -100,10 +103,10 @@ function formatValue(value: DataRow[string]) {
 }
 
 function RecordDialog({
-  config,row,accessToken,organisationId,employees,departments,onClose,onSaved,
+  config,row,accessToken,organisationId,employees,departments,branches,onClose,onSaved,
 }: {
   config: ModuleConfig; row: DataRow | null; accessToken: string; organisationId: string;
-  employees: Option[]; departments: Option[]; onClose: () => void; onSaved: () => Promise<void>;
+  employees: Option[]; departments: Option[]; branches: Option[]; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [values,setValues] = useState<Record<string,string>>(() => Object.fromEntries(config.fields.map((field) => [field.key, String(row?.[field.key] ?? defaultValue(field))])));
   const [busy,setBusy] = useState(false);
@@ -114,7 +117,7 @@ function RecordDialog({
     const payload: DataRow = { organisation_id: organisationId };
     for (const field of config.fields) {
       const value = values[field.key];
-      payload[field.key] = value === "" ? null : field.type === "number" ? Number(value) : value;
+      payload[field.key] = value === "" ? null : field.type === "number" ? Number(value) : value === "true" ? true : value === "false" ? false : value;
     }
     try {
       if (row?.id) await updateRow(accessToken,config.table,String(row.id),payload);
@@ -129,7 +132,7 @@ function RecordDialog({
     <button className="modal-close" onClick={onClose} aria-label="Close">x</button>
     <span className="eyebrow">{row ? "Edit record" : "New record"}</span><h2 id="record-title">{row ? `Edit ${config.singular}` : `Add ${config.singular}`}</h2>
     <form onSubmit={submit} className="record-form">{config.fields.map((field) => {
-      const relationOptions = field.relation === "employees" ? employees : field.relation === "departments" ? departments : null;
+      const relationOptions = field.relation === "employees" ? employees : field.relation === "departments" ? departments : field.relation === "branches" ? branches : null;
       const options = relationOptions ?? field.options?.map((option) => ({value:option,label:option.replaceAll("_"," ")}));
       return <label key={field.key}>{field.label}{field.required && " *"}
         {field.type === "textarea" ? <textarea value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}/> :

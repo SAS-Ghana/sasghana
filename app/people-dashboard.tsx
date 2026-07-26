@@ -5,9 +5,27 @@ import type { UserProfile } from "./lib/supabase-auth";
 import { DashboardPage } from "./dashboard-page";
 import { ModulePage } from "./module-page";
 import { workspaceModules } from "./workspace-config";
+import { AccountManagementPage } from "./account-management-page";
 
-const workspaceNav = ["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","HR Requests","Announcements","Reports"];
-const adminNav = ["Settings","Security & audit"];
+const workspaceNav = ["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","HR Requests","Announcements","Policies","Reports"];
+const adminNav = ["User accounts","Branches","Settings","Security & audit"];
+
+const pagePermissions: Record<string,string[]> = {
+  Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],
+  Onboarding:["onboarding.manage","onboarding.assign","onboarding.review"],
+  Documents:["documents.upload","documents.verify","documents.download"],
+  Attendance:["attendance.manage","attendance.approve"],
+  Leave:["leave.manage","leave.approve"],
+  Performance:["performance.manage","performance.review_team"],
+  Assets:["assets.manage"],
+  Tasks:["tasks.manage"],
+  Payroll:["payroll.manage","payroll.view_self"],
+  Reports:["reports.view"],
+  "User accounts":["users.manage"],
+  Branches:["settings.manage"],
+  Settings:["settings.manage"],
+  "Security & audit":["audit.view","security.manage"],
+};
 
 export function PeopleDashboard({
   accessToken,profile,onLogout,onChangePassword,
@@ -18,6 +36,11 @@ export function PeopleDashboard({
   const [active,setActive]=useState("Dashboard");
   const [accountOpen,setAccountOpen]=useState(false);
   const [search,setSearch]=useState("");
+  const isAdmin=profile.roles.includes("SAS System Administrator")||profile.account_type==="administrator";
+  const canAccess=(page:string)=>isAdmin||page==="Dashboard"||!pagePermissions[page]||pagePermissions[page].some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(page);
+  const availableWorkspace=workspaceNav.filter(canAccess);
+  const availableAdmin=adminNav.filter(canAccess);
+  const primaryRole=profile.roles[0]??profile.account_type;
 
   function navigate(page:string){setActive(page);setDrawer(false);setSearch("");}
 
@@ -26,9 +49,9 @@ export function PeopleDashboard({
     <aside className={`sidebar ${drawer?"open":""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group"/><div><strong>SAS People</strong><small>People operations</small></div></div>
       <div className="nav-label">WORKSPACE</div>
-      <nav className="nav">{workspaceNav.map((label)=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{label.slice(0,1)}</span>{label}</button>)}</nav>
-      <div className="nav-label">ADMINISTRATION</div>
-      <nav className="nav">{adminNav.map((label)=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{label.slice(0,1)}</span>{label}</button>)}</nav>
+      <nav className="nav">{availableWorkspace.map((label)=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{label.slice(0,1)}</span>{label}</button>)}</nav>
+      {availableAdmin.length>0&&<><div className="nav-label">ADMINISTRATION</div>
+      <nav className="nav">{availableAdmin.map((label)=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{label.slice(0,1)}</span>{label}</button>)}</nav></>}
       <div className="sidebar-footer">SAS Finance Group Ghana<br/>Private & confidential</div>
     </aside>
     <main className="main">
@@ -37,12 +60,13 @@ export function PeopleDashboard({
         <input className="search" aria-label="Search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search employees, documents, requests..."/>
         <div className="profile">
           <button className="icon-btn" aria-label="Notifications" onClick={()=>navigate("Announcements")}>N</button>
-          <button className="account-button" onClick={()=>setAccountOpen(value=>!value)} aria-expanded={accountOpen}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small className="muted">System Administrator</small></div></button>
+          <button className="account-button" onClick={()=>setAccountOpen(value=>!value)} aria-expanded={accountOpen}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small className="muted">{primaryRole.replaceAll("_"," ")}</small></div></button>
           {accountOpen&&<div className="account-menu"><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
         </div>
       </header>
       <div className="content">
         {active==="Dashboard" ? <DashboardPage accessToken={accessToken} profile={profile} onNavigate={navigate}/> :
+          active==="User accounts" ? <AccountManagementPage accessToken={accessToken}/> :
           <ModulePage config={workspaceModules[active]} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>}
       </div>
     </main>

@@ -1,0 +1,77 @@
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { callFunction, DataRow, listNamedRows, listRows } from "./lib/supabase-data";
+
+type Option = { id: string; label: string };
+
+export function AccountManagementPage({ accessToken }: { accessToken: string }) {
+  const [accounts,setAccounts] = useState<DataRow[]>([]);
+  const [roles,setRoles] = useState<Option[]>([]);
+  const [permissions,setPermissions] = useState<Option[]>([]);
+  const [employees,setEmployees] = useState<Option[]>([]);
+  const [open,setOpen] = useState(false);
+  const [error,setError] = useState("");
+  const [notice,setNotice] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const [profileRows,roleRows,permissionRows,employeeRows] = await Promise.all([
+        listRows(accessToken,"profiles","id,username,display_name,status,account_type,job_title,invitation_status,last_login_at,created_at"),
+        listNamedRows(accessToken,"roles","id,name"),
+        listNamedRows(accessToken,"permissions","id,key,description","key"),
+        listNamedRows(accessToken,"employees","id,first_name,last_name,employee_number","first_name"),
+      ]);
+      setAccounts(profileRows); setRoles(roleRows.map(r=>({id:String(r.id),label:String(r.name)})));
+      setPermissions(permissionRows.map(r=>({id:String(r.id),label:String(r.key)})));
+      setEmployees(employeeRows.map(r=>({id:String(r.id),label:`${r.first_name} ${r.last_name} (${r.employee_number})`})));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Accounts could not be loaded."); }
+  },[accessToken]);
+  useEffect(()=>{void Promise.resolve().then(load);},[load]);
+
+  async function setStatus(row:DataRow,status:string) {
+    setError(""); setNotice("");
+    try {
+      await callFunction(accessToken,"manage-user",{action:"status",user_id:row.id,status});
+      setNotice(`${row.display_name} is now ${status.replaceAll("_"," ")}.`); await load();
+    } catch(cause){setError(cause instanceof Error?cause.message:"Account update failed.");}
+  }
+
+  return <section>
+    <header className="page-header"><div><span className="eyebrow">Administration</span><h1>User accounts</h1><p className="muted">Create private logins and assign exactly what each person can access.</p></div><button className="primary" onClick={()=>setOpen(true)}>Create account</button></header>
+    <div className="summary-strip"><div><strong>{accounts.length}</strong><span>Total accounts</span></div><div><strong>{accounts.filter(x=>x.status==="active").length}</strong><span>Active</span></div><div><strong>{accounts.filter(x=>x.status!=="active").length}</strong><span>Restricted / invited</span></div></div>
+    {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
+    <article className="card data-panel"><div className="panel-head"><div><h2>Account directory</h2><p className="muted">Authentication and access are stored in Supabase</p></div><button className="text-btn" onClick={()=>void load()}>Refresh</button></div>
+      <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Username</th><th>Account type</th><th>Job title</th><th>Status</th><th>Invitation</th><th>Actions</th></tr></thead>
+      <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}</td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions">{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button></div></td></tr>)}</tbody></table></div>
+    </article>
+    {open&&<CreateAccountDialog accessToken={accessToken} roles={roles} permissions={permissions} employees={employees} onClose={()=>setOpen(false)} onCreated={async()=>{setOpen(false);setNotice("Account created securely.");await load();}}/>}
+  </section>;
+}
+
+function CreateAccountDialog({accessToken,roles,permissions,employees,onClose,onCreated}:{accessToken:string;roles:Option[];permissions:Option[];employees:Option[];onClose:()=>void;onCreated:()=>Promise<void>}) {
+  const [values,setValues]=useState({display_name:"",username:"",email:"",password:"",job_title:"",account_type:"employee",employee_id:""});
+  const [roleIds,setRoleIds]=useState<string[]>([]);
+  const [permissionIds,setPermissionIds]=useState<string[]>([]);
+  const [dashboards,setDashboards]=useState<string[]>(["Dashboard"]);
+  const [invite,setInvite]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  const grouped=useMemo(()=>permissions.reduce<Record<string,Option[]>>((all,p)=>{const group=p.label.split(".")[0];(all[group]??=[]).push(p);return all;},{}),[permissions]);
+  function toggle(list:string[],value:string,setter:(next:string[])=>void){setter(list.includes(value)?list.filter(x=>x!==value):[...list,value]);}
+  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{await callFunction(accessToken,"manage-user",{action:"create",...values,send_invite:invite,role_ids:roleIds,permission_ids:permissionIds,dashboard_access:dashboards});await onCreated();}catch(cause){setError(cause instanceof Error?cause.message:"Account creation failed.");}finally{setBusy(false);}}
+  const dashboardOptions=["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","HR Requests","Announcements","Policies","Reports"];
+  return <div className="modal-backdrop"><section className="modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={onClose} aria-label="Close">x</button><span className="eyebrow">Private account</span><h2 id="account-title">Create employee login</h2>
+    <form onSubmit={submit} className="record-form account-form">
+      <label>Full name *<input required value={values.display_name} onChange={e=>setValues({...values,display_name:e.target.value})}/></label>
+      <label>Username *<input required value={values.username} onChange={e=>setValues({...values,username:e.target.value})}/></label>
+      <label>Email for invitations<input type="email" value={values.email} onChange={e=>setValues({...values,email:e.target.value})}/></label>
+      <label>Temporary password {!invite&&"*"}<input type="password" required={!invite} minLength={10} value={values.password} onChange={e=>setValues({...values,password:e.target.value})}/></label>
+      <label>Account type *<select value={values.account_type} onChange={e=>setValues({...values,account_type:e.target.value})}><option value="employee">Employee</option><option value="hr">Human Resources</option><option value="manager">Manager</option><option value="auditor">Auditor / Compliance</option><option value="administrator">Administrator</option></select></label>
+      <label>Employee record<select value={values.employee_id} onChange={e=>setValues({...values,employee_id:e.target.value})}><option value="">Not linked</option>{employees.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+      <label>Job title<input value={values.job_title} onChange={e=>setValues({...values,job_title:e.target.value})}/></label>
+      <label className="check"><input type="checkbox" checked={invite} onChange={e=>setInvite(e.target.checked)}/> Send secure invitation by email</label>
+      <fieldset className="permission-group"><legend>Roles</legend>{roles.map(x=><label className="check" key={x.id}><input type="checkbox" checked={roleIds.includes(x.id)} onChange={()=>toggle(roleIds,x.id,setRoleIds)}/>{x.label}</label>)}</fieldset>
+      <fieldset className="permission-group"><legend>Dashboard access</legend><div className="checkbox-grid">{dashboardOptions.map(x=><label className="check" key={x}><input type="checkbox" checked={dashboards.includes(x)} onChange={()=>toggle(dashboards,x,setDashboards)}/>{x}</label>)}</div></fieldset>
+      <fieldset className="permission-group wide"><legend>Custom access permissions</legend>{Object.entries(grouped).map(([group,items])=><div key={group}><strong>{group}</strong><div className="checkbox-grid">{items.map(x=><label className="check" key={x.id}><input type="checkbox" checked={permissionIds.includes(x.id)} onChange={()=>toggle(permissionIds,x.id,setPermissionIds)}/>{x.label}</label>)}</div></div>)}</fieldset>
+      {error&&<p className="form-error wide">{error}</p>}<div className="form-actions wide"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Creating securely...":invite?"Create & send invitation":"Create account"}</button></div>
+    </form></section></div>;
+}

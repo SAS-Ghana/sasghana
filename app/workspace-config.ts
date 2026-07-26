@@ -4,7 +4,7 @@ export type FieldConfig = {
   type?: "text" | "date" | "number" | "textarea" | "select" | "email";
   required?: boolean;
   options?: string[];
-  relation?: "employees" | "departments";
+  relation?: "employees" | "departments" | "branches";
 };
 
 export type ModuleConfig = {
@@ -22,7 +22,7 @@ export const workspaceModules: Record<string, ModuleConfig> = {
     title: "Employees", singular: "employee", table: "employees", icon: "E",
     subtitle: "Manage active and archived employee records.",
     columns: [{key:"employee_number",label:"Employee ID"},{key:"first_name",label:"First name"},{key:"last_name",label:"Last name"},{key:"work_email",label:"Work email"},{key:"position_title",label:"Position"},{key:"employment_status",label:"Status"}],
-    fields: [{key:"employee_number",label:"Employee ID",required:true},{key:"first_name",label:"First name",required:true},{key:"last_name",label:"Last name",required:true},{key:"work_email",label:"Work email",type:"email",required:true},{key:"department_id",label:"Department",type:"select",relation:"departments"},{key:"position_title",label:"Position title"},{key:"phone",label:"Phone"},{key:"branch",label:"Branch"},{key:"start_date",label:"Start date",type:"date"},{key:"employment_status",label:"Status",type:"select",options:["active","probation","leave","ended"],required:true}],
+    fields: [{key:"employee_number",label:"Employee ID",required:true},{key:"first_name",label:"First name",required:true},{key:"middle_name",label:"Middle name"},{key:"last_name",label:"Last name",required:true},{key:"preferred_name",label:"Preferred name"},{key:"work_email",label:"Work email",type:"email",required:true},{key:"personal_email",label:"Personal email",type:"email"},{key:"phone",label:"Phone"},{key:"date_of_birth",label:"Date of birth",type:"date"},{key:"gender",label:"Gender",type:"select",options:["Female","Male","Non-binary","Prefer not to say"]},{key:"nationality",label:"Nationality"},{key:"marital_status",label:"Marital status",type:"select",options:["Single","Married","Divorced","Widowed","Prefer not to say"]},{key:"residential_address",label:"Residential address",type:"textarea"},{key:"digital_address",label:"Digital address"},{key:"department_id",label:"Department",type:"select",relation:"departments"},{key:"position_title",label:"Position title"},{key:"manager_id",label:"Manager",type:"select",relation:"employees"},{key:"branch",label:"Branch"},{key:"employment_type",label:"Employment type",type:"select",options:["Full time","Part time","Contract","Internship","Consultant"]},{key:"start_date",label:"Start date",type:"date"},{key:"probation_end_date",label:"Probation end date",type:"date"},{key:"contract_end_date",label:"Contract end date",type:"date"},{key:"emergency_contact_name",label:"Emergency contact"},{key:"emergency_contact_phone",label:"Emergency phone"},{key:"emergency_contact_relationship",label:"Emergency relationship"},{key:"skills",label:"Skills",type:"textarea"},{key:"qualifications",label:"Qualifications",type:"textarea"},{key:"ghana_card_number",label:"Ghana Card number"},{key:"ssnit_number",label:"SSNIT number"},{key:"bank_name",label:"Bank name"},{key:"bank_account_name",label:"Bank account name"},{key:"bank_account_number",label:"Bank account number"},{key:"internal_notes",label:"Confidential HR notes",type:"textarea"},{key:"employment_status",label:"Status",type:"select",options:["active","probation","leave","suspended","ended","archived"],required:true}],
   },
   Onboarding: {
     title:"Onboarding",singular:"onboarding journey",table:"employee_onboarding",icon:"O",subtitle:"Track every new employee through a structured onboarding journey.",
@@ -64,6 +64,26 @@ export const workspaceModules: Record<string, ModuleConfig> = {
     columns:[{key:"title",label:"Title"},{key:"audience",label:"Audience"},{key:"status",label:"Status"},{key:"publish_at",label:"Publish date"},{key:"created_at",label:"Created"}],
     fields:[{key:"title",label:"Title",required:true},{key:"body",label:"Message",type:"textarea",required:true},{key:"audience",label:"Audience",type:"select",options:["all","employees","managers","hr","department_heads"],required:true},{key:"status",label:"Status",type:"select",options:["draft","published","archived"],required:true},{key:"publish_at",label:"Publish date"}],
   },
+  Tasks: {
+    title:"Tasks",singular:"task",table:"tasks",icon:"T",subtitle:"Assign, prioritise, and track work across employee dashboards.",
+    columns:[{key:"title",label:"Task"},{key:"employee_name",label:"Assigned to"},{key:"category",label:"Category"},{key:"priority",label:"Priority"},{key:"status",label:"Status"},{key:"due_date",label:"Due"}],
+    fields:[{key:"title",label:"Task title",required:true},{key:"description",label:"Description",type:"textarea"},{key:"assigned_to_employee_id",label:"Assigned employee",type:"select",relation:"employees"},{key:"category",label:"Category",type:"select",options:["general","onboarding","documents","performance","compliance","training"],required:true},{key:"priority",label:"Priority",type:"select",options:["low","normal","high","urgent"],required:true},{key:"status",label:"Status",type:"select",options:["not_started","in_progress","blocked","completed","cancelled"],required:true},{key:"due_date",label:"Due date",type:"date"}],
+  },
+  Payroll: {
+    title:"Payroll",singular:"payroll record",table:"payroll_records",icon:"P",subtitle:"Prepare and track confidential Ghana payroll records and payslip data.",
+    columns:[{key:"employee_name",label:"Employee"},{key:"pay_period",label:"Pay period"},{key:"basic_salary",label:"Basic salary"},{key:"allowances",label:"Allowances"},{key:"other_deductions",label:"Deductions"},{key:"net_pay",label:"Net pay"},{key:"status",label:"Status"}],
+    fields:[{key:"employee_id",label:"Employee",type:"select",relation:"employees",required:true},{key:"pay_period",label:"Pay period (YYYY-MM)",required:true},{key:"currency",label:"Currency",type:"select",options:["GHS","USD","GBP","EUR"],required:true},{key:"basic_salary",label:"Basic salary",type:"number",required:true},{key:"allowances",label:"Allowances",type:"number"},{key:"bonuses",label:"Bonuses",type:"number"},{key:"overtime",label:"Overtime",type:"number"},{key:"tax_deduction",label:"Tax deduction",type:"number"},{key:"ssnit_deduction",label:"SSNIT deduction",type:"number"},{key:"other_deductions",label:"Other deductions",type:"number"},{key:"status",label:"Status",type:"select",options:["draft","reviewed","approved","paid","void"],required:true},{key:"payment_date",label:"Payment date",type:"date"},{key:"notes",label:"Payroll notes",type:"textarea"}],
+  },
+  Policies: {
+    title:"Policies",singular:"policy",table:"policies",icon:"P",subtitle:"Publish controlled HR policies and acknowledgement requirements.",
+    columns:[{key:"title",label:"Policy"},{key:"category",label:"Category"},{key:"version",label:"Version"},{key:"status",label:"Status"},{key:"requires_acknowledgement",label:"Acknowledgement"},{key:"effective_date",label:"Effective"}],
+    fields:[{key:"title",label:"Policy title",required:true},{key:"category",label:"Category",type:"select",options:["HR","Security","Compliance","Leave","Attendance","Workplace","Privacy"],required:true},{key:"version",label:"Version",required:true},{key:"summary",label:"Summary",type:"textarea"},{key:"content",label:"Policy content",type:"textarea"},{key:"status",label:"Status",type:"select",options:["draft","published","archived"],required:true},{key:"requires_acknowledgement",label:"Requires acknowledgement",type:"select",options:["true","false"],required:true},{key:"effective_date",label:"Effective date",type:"date"}],
+  },
+  Branches: {
+    title:"Branches",singular:"branch",table:"branches",icon:"B",subtitle:"Maintain SAS offices and employee work locations.",
+    columns:[{key:"name",label:"Branch"},{key:"location",label:"Location"},{key:"status",label:"Status"},{key:"updated_at",label:"Updated"}],
+    fields:[{key:"name",label:"Branch name",required:true},{key:"location",label:"Location"},{key:"status",label:"Status",type:"select",options:["active","inactive"],required:true}],
+  },
   Reports: {
     title:"Reports",singular:"saved report",table:"saved_reports",icon:"R",subtitle:"Create and maintain reusable SAS reporting views.",
     columns:[{key:"name",label:"Report name"},{key:"report_type",label:"Type"},{key:"format",label:"Format"},{key:"last_generated_at",label:"Last generated"},{key:"created_at",label:"Created"}],
@@ -72,7 +92,7 @@ export const workspaceModules: Record<string, ModuleConfig> = {
   Settings: {
     title:"Settings",singular:"setting",table:"system_settings",icon:"S",subtitle:"Configure organisation-wide SAS People behaviour.",
     columns:[{key:"setting_key",label:"Setting"},{key:"setting_value",label:"Value"},{key:"category",label:"Category"},{key:"description",label:"Description"},{key:"updated_at",label:"Updated"}],
-    fields:[{key:"setting_key",label:"Setting key",required:true},{key:"setting_value",label:"Value"},{key:"category",label:"Category",type:"select",options:["general","attendance","leave","documents","security","notifications"],required:true},{key:"description",label:"Description",type:"textarea"}],
+    fields:[{key:"setting_key",label:"Setting key",required:true},{key:"setting_value",label:"Value"},{key:"category",label:"Category",type:"select",options:["company","general","employees","localisation","attendance","leave","performance","documents","payroll","security","notifications","integrations"],required:true},{key:"description",label:"Description",type:"textarea"}],
   },
   "Security & audit": {
     title:"Security & audit",singular:"security event",table:"security_events",icon:"S",subtitle:"Review security signals and protected administrative activity.",
