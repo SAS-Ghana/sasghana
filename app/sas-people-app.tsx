@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Image from "next/image";
 import {
   AuthSession,
   changePassword,
@@ -72,7 +71,7 @@ export function SasPeopleApp() {
     return (
       <main className="login-shell">
         <section className="login-brand">
-          <Image src="/logo.png" alt="SAS Finance Group" width={330} height={92} priority />
+          <img src="/logo.png" alt="SAS Finance Group" width="330" height="92" />
           <div>
             <span className="eyebrow">Private employee portal</span>
             <h1>People operations,<br />made effortless.</h1>

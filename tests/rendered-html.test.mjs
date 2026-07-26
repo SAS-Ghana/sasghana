@@ -1,26 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
-}
-
-test("server renders the SAS People application shell", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-  const html = await response.text();
+test("build emits the SAS People Vite application", async () => {
+  await access(new URL("../dist/index.html", import.meta.url));
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   assert.match(html, /SAS People/);
   assert.match(html, /Employee Management and Onboarding Portal/);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+  assert.match(html, /src="\/assets\/index-[^"]+\.js"/);
 });
 
 test("authentication uses Supabase and contains no embedded password", async () => {

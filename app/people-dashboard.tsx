@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Image from "next/image";
 import type { UserProfile } from "./lib/supabase-auth";
 
 const nav = ["Dashboard","Employees","Onboarding","Documents","Attendance","Leave","Performance","Assets","HR Requests","Announcements","Reports"];
@@ -14,7 +13,7 @@ export function PeopleDashboard({profile,onLogout,onChangePassword}:{profile:Use
   return <div className="app">
     <div className={`drawer-backdrop ${drawer?"open":""}`} onClick={()=>setDrawer(false)}/>
     <aside className={`sidebar ${drawer?"open":""}`} aria-label="Primary navigation">
-      <div className="brand"><Image src="/logo.png" width={56} height={40} alt="SAS Finance Group"/><div><strong>SAS People</strong><small>People operations</small></div></div>
+      <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group"/><div><strong>SAS People</strong><small>People operations</small></div></div>
       <div className="nav-label">WORKSPACE</div>
       <nav className="nav">{nav.map((label)=><button key={label} className={active===label?"active":""} onClick={()=>{setActive(label);setDrawer(false)}}><span className="nav-icon">{label.slice(0,1)}</span>{label}</button>)}</nav>
       <div className="nav-label">ADMINISTRATION</div><nav className="nav"><button onClick={onChangePassword}><span className="nav-icon">S</span>Settings</button><button><span className="nav-icon">A</span>Security & audit</button></nav>
