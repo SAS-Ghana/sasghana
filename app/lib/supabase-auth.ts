@@ -1,184 +1,21 @@
-export type AuthSession = {
-  access_token: string;
-  refresh_token: string;
-  user: { id: string; email?: string };
-};
+export type AuthSession = { access_token:string; refresh_token:string; user:{id:string;email?:string} };
+export type UserProfile = { id:string;organisation_id:string;username:string;display_name:string;status:string;account_type:string;job_title?:string;employee_id?:string;dashboard_access:string[];roles:string[];permissions:string[];preferred_dashboard?:string;self_service_enabled?:boolean };
 
-export type UserProfile = {
-  id: string;
-  organisation_id: string;
-  username: string;
-  display_name: string;
-  status: string;
-  account_type: string;
-  job_title?: string;
-  employee_id?: string;
-  dashboard_access: string[];
-  roles: string[];
-  permissions: string[];
-};
-
-const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL ??
-  "https://nbuqipukkpbcxkofnaib.supabase.co";
-const publishableKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ??
-  "sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
-
-const jsonHeaders = {
-  apikey: publishableKey,
-  "Content-Type": "application/json",
-};
-
-function loginEmail(username: string) {
-  const clean = username.trim();
-  return clean.includes("@")
-    ? clean.toLowerCase()
-    : `${clean.toLowerCase()}@saspeople.local`;
-}
-
-export async function resolveLoginEmail(usernameOrEmail: string) {
-  const clean = usernameOrEmail.trim().toLowerCase();
-  if (clean.includes("@")) return clean;
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/resolve_login_email`, {
-    method: "POST",
-    headers: jsonHeaders,
-    body: JSON.stringify({ login_name: clean }),
-  });
-  if (!response.ok) return loginEmail(clean);
-  const email = await response.json() as string | null;
-  return email || loginEmail(clean);
-}
-
-export async function signIn(
-  username: string,
-  password: string,
-): Promise<{ session: AuthSession; profile: UserProfile }> {
-  const response = await fetch(
-    `${supabaseUrl}/auth/v1/token?grant_type=password`,
-    {
-      method: "POST",
-      headers: jsonHeaders,
-      body: JSON.stringify({ email: await resolveLoginEmail(username), password }),
-    },
-  );
-  if (!response.ok) {
-    void recordLoginEvent(username,false);
-    throw new Error("The username or password is incorrect.");
-  }
-  const session = (await response.json()) as AuthSession;
-  const profile = await fetchProfile(session.access_token, session.user.id);
-  if (!profile || !["active", "password_change_required"].includes(profile.status)) {
-    throw new Error("This account is not active. Contact an administrator.");
-  }
-  void recordLoginEvent(username,true,session.access_token);
-  return { session, profile };
-}
-
-async function recordLoginEvent(login:string,success:boolean,accessToken?:string) {
-  await fetch(`${supabaseUrl}/rest/v1/rpc/record_login_event`,{
-    method:"POST",
-    headers:{...jsonHeaders,...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})},
-    body:JSON.stringify({login_name:login,was_successful:success,client_agent:navigator.userAgent}),
-  }).catch(()=>undefined);
-}
-
-export async function requestPasswordReset(usernameOrEmail: string) {
-  const email=await resolveLoginEmail(usernameOrEmail);
-  await fetch(`${supabaseUrl}/rest/v1/rpc/request_password_reset_notice`, {
-    method: "POST",
-    headers: jsonHeaders,
-    body: JSON.stringify({login_name:usernameOrEmail.trim()}),
-  });
-  const response=await fetch(`${supabaseUrl}/auth/v1/recover`,{
-    method:"POST",headers:jsonHeaders,
-    body:JSON.stringify({email,redirect_to:`${window.location.origin}/`}),
-  });
-  if(!response.ok)throw new Error("Password reset email could not be sent. Confirm that this account has a valid email.");
-  return "If the account exists and has an email, a secure reset link has been sent. An administrator has also been notified.";
-}
-
-export async function fetchProfile(accessToken: string, userId: string) {
-  const [profileResponse, permissionsResponse, rolesResponse] = await Promise.all([
-    fetch(`${supabaseUrl}/rest/v1/profiles?select=id,organisation_id,username,display_name,status,account_type,job_title,employee_id,dashboard_access&id=eq.${userId}`, {
-      headers: {
-        apikey: publishableKey,
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }),
-    fetch(`${supabaseUrl}/rest/v1/rpc/current_permissions`, {
-      method: "POST", headers: { ...jsonHeaders, Authorization: `Bearer ${accessToken}` }, body: "{}",
-    }),
-    fetch(`${supabaseUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`, {
-      headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
-    }),
-  ]);
-  if (!profileResponse.ok) return null;
-  const profiles = (await profileResponse.json()) as Omit<UserProfile, "roles" | "permissions">[];
-  if (!profiles[0]) return null;
-  const permissionRows = permissionsResponse.ok ? await permissionsResponse.json() as {permission_key:string}[] : [];
-  const roleRows = rolesResponse.ok ? await rolesResponse.json() as {roles:{name:string}|null}[] : [];
-  return {
-    ...profiles[0],
-    dashboard_access: profiles[0].dashboard_access ?? [],
-    permissions: permissionRows.map((row) => row.permission_key),
-    roles: roleRows.flatMap((row) => row.roles?.name ? [row.roles.name] : []),
-  };
-}
-
-export async function changePassword(
-  accessToken: string,
-  newPassword: string,
-) {
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    method: "PUT",
-    headers: {
-      ...jsonHeaders,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ password: newPassword }),
-  });
-  if (!response.ok) {
-    const body = (await response.json()) as { msg?: string; message?: string };
-    throw new Error(body.msg ?? body.message ?? "Password could not be changed.");
-  }
-  const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent((await response.json()).id)}`, {
-    method: "PATCH",
-    headers: {
-      ...jsonHeaders,
-      Authorization: `Bearer ${accessToken}`,
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({ status: "active", force_password_change: false }),
-  });
-  if (!profileResponse.ok) throw new Error("Password changed, but the account status could not be updated. Contact your administrator.");
-}
-
-export async function signOut(accessToken: string) {
-  await fetch(`${supabaseUrl}/auth/v1/logout`, {
-    method: "POST",
-    headers: { ...jsonHeaders, Authorization: `Bearer ${accessToken}` },
-  });
-}
-
-export function saveSession(session: AuthSession, remember: boolean) {
-  const storage = remember ? localStorage : sessionStorage;
-  storage.setItem("sas-people-session", JSON.stringify(session));
-}
-
-export function readSession(): AuthSession | null {
-  const raw =
-    sessionStorage.getItem("sas-people-session") ??
-    localStorage.getItem("sas-people-session");
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthSession;
-  } catch {
-    return null;
-  }
-}
-
-export function clearSession() {
-  sessionStorage.removeItem("sas-people-session");
-  localStorage.removeItem("sas-people-session");
-}
+const supabaseUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
+const publishableKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+const jsonHeaders={apikey:publishableKey,"Content-Type":"application/json"};
+function loginEmail(username:string){const clean=username.trim();return clean.includes("@")?clean.toLowerCase():`${clean.toLowerCase()}@saspeople.local`;}
+export async function resolveLoginEmail(usernameOrEmail:string){const clean=usernameOrEmail.trim().toLowerCase();if(clean.includes("@"))return clean;const response=await fetch(`${supabaseUrl}/rest/v1/rpc/resolve_login_email`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:clean})});if(!response.ok)return loginEmail(clean);const email=await response.json() as string|null;return email||loginEmail(clean);}
+export async function signIn(username:string,password:string):Promise<{session:AuthSession;profile:UserProfile}>{const response=await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email:await resolveLoginEmail(username),password})});if(!response.ok){void recordLoginEvent(username,false);throw new Error("The username or password is incorrect.");}const session=await response.json() as AuthSession;const profile=await fetchProfile(session.access_token,session.user.id);if(!profile||!["active","password_change_required"].includes(profile.status))throw new Error("This account is not active. Contact an administrator.");void recordLoginEvent(username,true,session.access_token);return{session,profile};}
+async function recordLoginEvent(login:string,success:boolean,accessToken?:string){await fetch(`${supabaseUrl}/rest/v1/rpc/record_login_event`,{method:"POST",headers:{...jsonHeaders,...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})},body:JSON.stringify({login_name:login,was_successful:success,client_agent:navigator.userAgent})}).catch(()=>undefined);}
+export async function requestPasswordReset(usernameOrEmail:string){const email=await resolveLoginEmail(usernameOrEmail);await fetch(`${supabaseUrl}/rest/v1/rpc/request_password_reset_notice`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:usernameOrEmail.trim()})});const response=await fetch(`${supabaseUrl}/auth/v1/recover`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,redirect_to:`${window.location.origin}/`})});if(!response.ok)throw new Error("Password reset email could not be sent. Confirm that this account has a valid email.");return "If the account exists and has an email, a secure reset link has been sent. An administrator has also been notified.";}
+export async function fetchProfile(accessToken:string,userId:string){const [profileResponse,permissionsResponse,rolesResponse]=await Promise.all([
+  fetch(`${supabaseUrl}/rest/v1/profiles?select=id,organisation_id,username,display_name,status,account_type,job_title,employee_id,dashboard_access,preferred_dashboard,self_service_enabled&id=eq.${userId}`,{headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`}}),
+  fetch(`${supabaseUrl}/rest/v1/rpc/current_permissions`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:"{}"}),
+  fetch(`${supabaseUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`,{headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`}})
+]);if(!profileResponse.ok)return null;const profiles=await profileResponse.json() as Omit<UserProfile,"roles"|"permissions">[];if(!profiles[0])return null;const permissionRows=permissionsResponse.ok?await permissionsResponse.json() as {permission_key:string}[]:[];const roleRows=rolesResponse.ok?await rolesResponse.json() as {roles:{name:string}|null}[]:[];return{...profiles[0],dashboard_access:profiles[0].dashboard_access??[],preferred_dashboard:profiles[0].preferred_dashboard??"Dashboard",self_service_enabled:profiles[0].self_service_enabled!==false,permissions:permissionRows.map(row=>row.permission_key),roles:roleRows.flatMap(row=>row.roles?.name?[row.roles.name]:[])};}
+export async function changePassword(accessToken:string,newPassword:string){const response=await fetch(`${supabaseUrl}/auth/v1/user`,{method:"PUT",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:JSON.stringify({password:newPassword})});if(!response.ok){const body=await response.json() as {msg?:string;message?:string};throw new Error(body.msg??body.message??"Password could not be changed.");}const user=await response.json();const profileResponse=await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}`,{method:"PATCH",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`,Prefer:"return=minimal"},body:JSON.stringify({status:"active",force_password_change:false})});if(!profileResponse.ok)throw new Error("Password changed, but the account status could not be updated. Contact your administrator.");}
+export async function signOut(accessToken:string){await fetch(`${supabaseUrl}/auth/v1/logout`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`}});}
+export function saveSession(session:AuthSession,remember:boolean){(remember?localStorage:sessionStorage).setItem("sas-people-session",JSON.stringify(session));}
+export function readSession():AuthSession|null{const raw=sessionStorage.getItem("sas-people-session")??localStorage.getItem("sas-people-session");if(!raw)return null;try{return JSON.parse(raw) as AuthSession;}catch{return null;}}
+export function clearSession(){sessionStorage.removeItem("sas-people-session");localStorage.removeItem("sas-people-session");}
