@@ -53,6 +53,7 @@ export function SasPeopleApp() {
           if (storedProfile && ["active", "password_change_required"].includes(storedProfile.status)) {
             setSession(stored);
             setProfile(storedProfile);
+            if (storedProfile.status === "password_change_required") setPasswordOpen(true);
           } else {
             clearSession();
           }
@@ -73,6 +74,7 @@ export function SasPeopleApp() {
       saveSession(result.session, remember);
       setSession(result.session);
       setProfile(result.profile);
+      if (result.profile.status === "password_change_required") setPasswordOpen(true);
       setPassword("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Sign in failed.");
@@ -137,7 +139,9 @@ export function SasPeopleApp() {
       {passwordOpen && (
         <PasswordDialog
           accessToken={session.access_token}
+          forced={profile.status === "password_change_required"}
           onClose={() => setPasswordOpen(false)}
+          onUpdated={() => setProfile((current) => current ? { ...current, status: "active" } : current)}
         />
       )}
     </>
@@ -150,7 +154,7 @@ function ResetDialog({initialLogin,onClose,onSent}:{initialLogin:string;onClose:
   return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal reset-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><span className="eyebrow">Account recovery</span><h2>Reset your password</h2><p className="muted">Enter your username or work email. We will notify an administrator and send a secure reset link to your email.</p><form onSubmit={submit}><label>Username or email<input autoFocus required value={login} onChange={event=>setLogin(event.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Sending…":"Send reset email"}</button></div></form></section></div>;
 }
 
-function PasswordDialog({ accessToken, onClose }: { accessToken: string; onClose: () => void }) {
+function PasswordDialog({ accessToken, onClose, onUpdated, forced = false }: { accessToken: string; onClose: () => void; onUpdated: () => void; forced?: boolean }) {
   const [nextPassword, setNextPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
@@ -164,9 +168,11 @@ function PasswordDialog({ accessToken, onClose }: { accessToken: string; onClose
     setMessage("");
     try {
       await changePassword(accessToken, nextPassword);
+      onUpdated();
       setMessage("Password updated securely in Supabase.");
       setNextPassword("");
       setConfirm("");
+      window.setTimeout(onClose, 700);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Password change failed.");
     } finally {
@@ -174,11 +180,11 @@ function PasswordDialog({ accessToken, onClose }: { accessToken: string; onClose
     }
   }
 
-  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
-    <button className="modal-close" onClick={onClose} aria-label="Close">x</button>
+  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(!forced&&event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
+    {!forced&&<button className="modal-close" onClick={onClose} aria-label="Close">x</button>}
     <span className="eyebrow">Account security</span>
     <h2 id="password-title">Change password</h2>
-    <p className="muted">Your new password is saved directly to your Supabase account.</p>
+    <p className="muted">{forced ? "Your administrator issued a temporary password. Set your private password before continuing." : "Your new password is saved directly to your Supabase account."}</p>
     <form onSubmit={submit}>
       <label>New password<input type="password" value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} autoComplete="new-password" required /></label>
       <label>Confirm new password<input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="new-password" required /></label>

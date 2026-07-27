@@ -142,6 +142,16 @@ export async function changePassword(
     const body = (await response.json()) as { msg?: string; message?: string };
     throw new Error(body.msg ?? body.message ?? "Password could not be changed.");
   }
+  const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent((await response.json()).id)}`, {
+    method: "PATCH",
+    headers: {
+      ...jsonHeaders,
+      Authorization: `Bearer ${accessToken}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ status: "active", force_password_change: false }),
+  });
+  if (!profileResponse.ok) throw new Error("Password changed, but the account status could not be updated. Contact your administrator.");
 }
 
 export async function signOut(accessToken: string) {
