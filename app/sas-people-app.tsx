@@ -10,6 +10,7 @@ import {
   saveSession,
   signIn,
   signOut,
+  requestPasswordReset,
   UserProfile,
 } from "./lib/supabase-auth";
 import { PeopleDashboard } from "./people-dashboard";
@@ -25,9 +26,27 @@ export function SasPeopleApp() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [resetOpen,setResetOpen]=useState(false);
+  const [notice,setNotice]=useState("");
 
   useEffect(() => {
     void Promise.resolve().then(() => {
+      const hash=new URLSearchParams(window.location.hash.replace(/^#/,""));
+      const recoveryToken=hash.get("access_token");
+      const recoveryRefresh=hash.get("refresh_token");
+      if(hash.get("type")==="recovery"&&recoveryToken&&recoveryRefresh){
+        const recovered:AuthSession={access_token:recoveryToken,refresh_token:recoveryRefresh,user:{id:hash.get("user_id")??""}};
+        const authUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
+        const authKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+        fetch(`${authUrl}/auth/v1/user`,{headers:{apikey:authKey,Authorization:`Bearer ${recoveryToken}`}})
+          .then(response=>response.json()).then(async user=>{
+            recovered.user={id:user.id,email:user.email};
+            const recoveredProfile=await fetchProfile(recoveryToken,user.id);
+            if(recoveredProfile){setSession(recovered);setProfile(recoveredProfile);setPasswordOpen(true);window.history.replaceState(null,"",window.location.pathname);}
+            setReady(true);
+          }).catch(()=>setReady(true));
+        return;
+      }
       const stored = readSession();
       if (stored) {
         void fetchProfile(stored.access_token, stored.user.id).then((storedProfile) => {
@@ -99,12 +118,14 @@ export function SasPeopleApp() {
             </label>
             <div className="login-options">
               <label className="check"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Remember me</label>
-              <button type="button" className="link-button">Forgot password?</button>
+              <button type="button" className="link-button" onClick={()=>setResetOpen(true)}>Forgot password?</button>
             </div>
+            {notice&&<p className="form-message" role="status">{notice}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="primary login-submit" disabled={busy}>{busy ? "Signing in..." : "Sign in"}</button>
             <p className="login-help">Need help? Contact your SAS system administrator.</p>
           </form>
+          {resetOpen&&<ResetDialog initialLogin={username} onClose={()=>setResetOpen(false)} onSent={message=>{setResetOpen(false);setNotice(message);}}/>}
         </section>
       </main>
     );
@@ -121,6 +142,12 @@ export function SasPeopleApp() {
       )}
     </>
   );
+}
+
+function ResetDialog({initialLogin,onClose,onSent}:{initialLogin:string;onClose:()=>void;onSent:(message:string)=>void}) {
+  const [login,setLogin]=useState(initialLogin);const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{onSent(await requestPasswordReset(login));}catch(cause){setError(cause instanceof Error?cause.message:"Reset request failed.");}finally{setBusy(false);}}
+  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal reset-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><span className="eyebrow">Account recovery</span><h2>Reset your password</h2><p className="muted">Enter your username or work email. We will notify an administrator and send a secure reset link to your email.</p><form onSubmit={submit}><label>Username or email<input autoFocus required value={login} onChange={event=>setLogin(event.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Sending…":"Send reset email"}</button></div></form></section></div>;
 }
 
 function PasswordDialog({ accessToken, onClose }: { accessToken: string; onClose: () => void }) {

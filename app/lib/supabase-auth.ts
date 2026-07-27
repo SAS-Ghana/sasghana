@@ -37,6 +37,19 @@ function loginEmail(username: string) {
     : `${clean.toLowerCase()}@saspeople.local`;
 }
 
+export async function resolveLoginEmail(usernameOrEmail: string) {
+  const clean = usernameOrEmail.trim().toLowerCase();
+  if (clean.includes("@")) return clean;
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/resolve_login_email`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ login_name: clean }),
+  });
+  if (!response.ok) return loginEmail(clean);
+  const email = await response.json() as string | null;
+  return email || loginEmail(clean);
+}
+
 export async function signIn(
   username: string,
   password: string,
@@ -46,7 +59,7 @@ export async function signIn(
     {
       method: "POST",
       headers: jsonHeaders,
-      body: JSON.stringify({ email: loginEmail(username), password }),
+      body: JSON.stringify({ email: await resolveLoginEmail(username), password }),
     },
   );
   if (!response.ok) throw new Error("The username or password is incorrect.");
@@ -56,6 +69,21 @@ export async function signIn(
     throw new Error("This account is not active. Contact an administrator.");
   }
   return { session, profile };
+}
+
+export async function requestPasswordReset(usernameOrEmail: string) {
+  const email=await resolveLoginEmail(usernameOrEmail);
+  await fetch(`${supabaseUrl}/rest/v1/rpc/request_password_reset_notice`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({login_name:usernameOrEmail.trim()}),
+  });
+  const response=await fetch(`${supabaseUrl}/auth/v1/recover`,{
+    method:"POST",headers:jsonHeaders,
+    body:JSON.stringify({email,redirect_to:`${window.location.origin}/`}),
+  });
+  if(!response.ok)throw new Error("Password reset email could not be sent. Confirm that this account has a valid email.");
+  return "If the account exists and has an email, a secure reset link has been sent. An administrator has also been notified.";
 }
 
 export async function fetchProfile(accessToken: string, userId: string) {

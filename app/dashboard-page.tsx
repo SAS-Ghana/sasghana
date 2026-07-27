@@ -6,10 +6,10 @@ import type { UserProfile } from "./lib/supabase-auth";
 
 type DashboardData = {
   employees: DataRow[]; onboarding: DataRow[]; documents: DataRow[];
-  leave: DataRow[]; departments: DataRow[]; audits: DataRow[]; backups:DataRow[];
+  leave: DataRow[]; departments: DataRow[]; audits: DataRow[]; backups:DataRow[]; attendance:DataRow[];
 };
 
-const emptyData: DashboardData = {employees:[],onboarding:[],documents:[],leave:[],departments:[],audits:[],backups:[]};
+const emptyData: DashboardData = {employees:[],onboarding:[],documents:[],leave:[],departments:[],audits:[],backups:[],attendance:[]};
 
 export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:string;profile:UserProfile;onNavigate:(page:string)=>void}) {
   const [data,setData]=useState<DashboardData>(emptyData);
@@ -19,13 +19,14 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   const load=useCallback(async()=>{
     setLoading(true);setError("");
     try {
-      const [employees,onboarding,documents,leave,departments,audits,backups]=await Promise.all([
+      const [employees,onboarding,documents,leave,departments,audits,backups,attendance]=await Promise.all([
         listRows(accessToken,"employees"),listRows(accessToken,"employee_onboarding"),
         listRows(accessToken,"employee_documents"),listRows(accessToken,"leave_requests"),
         listNamedRows(accessToken,"departments","id,name"),listRows(accessToken,"audit_logs","*",12),
         listRows(accessToken,"backup_records","*",10),
+        listRows(accessToken,"attendance_records","*",250),
       ]);
-      setData({employees,onboarding,documents,leave,departments,audits,backups});
+      setData({employees,onboarding,documents,leave,departments,audits,backups,attendance});
     } catch(cause){setError(cause instanceof Error?cause.message:"Dashboard data could not be loaded.");}
     finally{setLoading(false);}
   },[accessToken]);
@@ -43,6 +44,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   const compliance=data.documents.length?Math.round(data.documents.filter((row)=>row.status==="verified").length/data.documents.length*100):0;
   const today=new Date().toISOString().slice(0,10);
   const onLeave=data.leave.filter((row)=>row.status==="approved"&&String(row.start_date)<=today&&String(row.end_date)>=today).length;
+  const todayAttendance=data.attendance.filter(row=>String(row.attendance_date)===today);
   const recentBackup=data.backups.find(row=>row.status==="completed"&&new Date(String(row.completed_at??row.created_at)).getTime()>Date.now()-30*86400000);
   const tasks=[
     ...data.documents.filter((row)=>row.status==="pending").slice(0,2).map((row)=>({title:"Verify employee document",meta:String(row.document_name),due:String(row.expiry_date??"Pending")})),
@@ -58,6 +60,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
       {[["Total employees",data.employees.length,"Live headcount"],["Active onboarding",activeOnboarding.length,"Open journeys"],["On leave today",onLeave,"Approved today"],["Document compliance",`${compliance}%`,`${data.documents.length} documents`]].map(([label,value,note])=><article className="card metric" key={label}><div className="metric-top"><span>{label}</span><b>{String(label).slice(0,1)}</b></div><div className="metric-value">{value}</div><div className="trend">{note}</div></article>)}
     </section>
     <section className="quick"><button onClick={()=>onNavigate("Employees")}><span>+</span>Add employee</button><button onClick={()=>onNavigate("Employees")}><span>UP</span>Import records</button><button onClick={()=>onNavigate("Documents")}><span>DOC</span>Generate document</button><button onClick={()=>onNavigate("Onboarding")}><span>OK</span>Review onboarding</button></section>
+    <article className="card dashboard-attendance"><div className="panel-head"><div><h2>Today’s attendance</h2><p className="muted">Quick live view of clock-ins, clock-outs and working time</p></div><button className="text-btn" onClick={()=>onNavigate("Attendance")}>View more</button></div><div className="attendance-kpis"><div><strong>{todayAttendance.filter(row=>row.clock_in).length}</strong><span>Clocked in</span></div><div><strong>{todayAttendance.filter(row=>row.clock_out).length}</strong><span>Clocked out</span></div><div><strong>{todayAttendance.filter(row=>row.status==="late").length}</strong><span>Late</span></div><div><strong>{todayAttendance.filter(row=>!row.clock_out&&row.clock_in).length}</strong><span>Working now</span></div></div><div className="attendance-preview">{todayAttendance.slice(0,5).map(row=>{const employee=data.employees.find(item=>item.id===row.employee_id);const duration=row.clock_in&&row.clock_out?(new Date(String(row.clock_out)).getTime()-new Date(String(row.clock_in)).getTime())/3600000:null;return <div key={String(row.id)}><strong>{employee?`${employee.first_name} ${employee.last_name}`:"Employee"}</strong><span>{row.clock_in?new Date(String(row.clock_in)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Not clocked in"}</span><span>{row.clock_out?new Date(String(row.clock_out)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Working"}</span><b>{duration!==null?`${duration.toFixed(1)}h`:"—"}</b></div>})}{!todayAttendance.length&&<p className="muted">No attendance has been recorded today.</p>}</div></article>
     <section className="grid">
       <article className="card panel"><div className="panel-head"><div><h2>Workforce by department</h2><p className="muted">Live employee distribution</p></div><button className="text-btn" onClick={()=>onNavigate("Reports")}>View report</button></div>{departmentCounts.length===0?<Empty label="No departments available"/>:<div className="bars">{departmentCounts.map((item)=><div className="bar-wrap" key={item.name}><strong>{item.count}</strong><div className="bar" style={{height:`${Math.max(8,item.count/maxDepartment*85)}%`}}/><span>{item.name}</span></div>)}</div>}</article>
       <article className="card panel"><div className="panel-head"><div><h2>Onboarding health</h2><p className="muted">{activeOnboarding.length} active journeys</p></div><button className="text-btn" onClick={()=>onNavigate("Onboarding")}>Details</button></div><div className="onboarding-stats"><strong>{activeOnboarding.length?Math.round(onTrack/activeOnboarding.length*100):0}%</strong><span>{onTrack} on track</span><span>{attention} need attention</span><span>{overdue} overdue</span></div></article>

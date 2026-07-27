@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { callFunction, DataRow, listNamedRows, listRows } from "./lib/supabase-data";
+import { callFunction, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
 
 type Option = { id: string; label: string };
 
@@ -9,13 +9,14 @@ export function AccountManagementPage({ accessToken }: { accessToken: string }) 
   const [permissions,setPermissions] = useState<Option[]>([]);
   const [employees,setEmployees] = useState<Option[]>([]);
   const [open,setOpen] = useState(false);
+  const [editing,setEditing]=useState<DataRow|null>(null);
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
 
   const load = useCallback(async () => {
     try {
       const [profileRows,roleRows,permissionRows,employeeRows] = await Promise.all([
-        listRows(accessToken,"profiles","id,username,display_name,status,account_type,job_title,invitation_status,last_login_at,created_at"),
+        listRows(accessToken,"profiles","id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,invitation_status,last_login_at,created_at"),
         listNamedRows(accessToken,"roles","id,name"),
         listNamedRows(accessToken,"permissions","id,key,description","key"),
         listNamedRows(accessToken,"employees","id,first_name,last_name,employee_number","first_name"),
@@ -48,10 +49,18 @@ export function AccountManagementPage({ accessToken }: { accessToken: string }) 
     {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
     <article className="card data-panel"><div className="panel-head"><div><h2>Account directory</h2><p className="muted">Authentication and access are stored in Supabase</p></div><button className="text-btn" onClick={()=>void load()}>Refresh</button></div>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Username</th><th>Account type</th><th>Job title</th><th>Status</th><th>Invitation</th><th>Actions</th></tr></thead>
-          <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}</td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions">{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button><button className="danger" onClick={()=>void deleteAccount(row)}>Delete account</button></div></td></tr>)}</tbody></table></div>
+          <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}<small className="table-subline">{String(row.email??"")}</small></td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions"><button onClick={()=>setEditing(row)}>Edit</button>{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button><button className="danger" onClick={()=>void deleteAccount(row)}>Delete account</button></div></td></tr>)}</tbody></table></div>
     </article>
     {open&&<CreateAccountDialog accessToken={accessToken} roles={roles} permissions={permissions} employees={employees} onClose={()=>setOpen(false)} onCreated={async()=>{setOpen(false);setNotice("Account created securely.");await load();}}/>}
+    {editing&&<EditAccountDialog accessToken={accessToken} row={editing} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);setNotice("Account details and login identity updated.");await load();}}/>}
   </section>;
+}
+
+function EditAccountDialog({accessToken,row,onClose,onSaved}:{accessToken:string;row:DataRow;onClose:()=>void;onSaved:()=>Promise<void>}) {
+  const [values,setValues]=useState({display_name:String(row.display_name??""),username:String(row.username??""),email:String(row.email??""),job_title:String(row.job_title??""),account_type:String(row.account_type??"employee"),status:String(row.status??"active")});
+  const [password,setPassword]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{await updateRow(accessToken,"profiles",String(row.id),{display_name:values.display_name,username:values.username,job_title:values.job_title||null,account_type:values.account_type,status:values.status});if(password)await callFunction(accessToken,"manage-user",{action:"reset_password",user_id:row.id,password});await onSaved();}catch(cause){setError(cause instanceof Error?cause.message:"Account update failed.");}finally{setBusy(false);}}
+  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Administration</span><h2>Edit user account</h2><form className="record-form" onSubmit={submit}><label>Full name<input required value={values.display_name} onChange={e=>setValues({...values,display_name:e.target.value})}/></label><label>Username<input required value={values.username} onChange={e=>setValues({...values,username:e.target.value})}/></label><label>Login email<input disabled type="email" value={values.email}/><small>Verified authentication email</small></label><label>Job title<input value={values.job_title} onChange={e=>setValues({...values,job_title:e.target.value})}/></label><label>Account type<select value={values.account_type} onChange={e=>setValues({...values,account_type:e.target.value})}><option value="employee">Employee</option><option value="hr">Human Resources</option><option value="manager">Manager</option><option value="auditor">Auditor</option><option value="administrator">Administrator</option></select></label><label>Status<select value={values.status} onChange={e=>setValues({...values,status:e.target.value})}><option value="active">Active</option><option value="password_change_required">Password change required</option><option value="suspended">Suspended</option><option value="disabled">Disabled</option></select></label><label className="wide">New temporary password (optional)<input type="password" minLength={10} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Leave blank to keep current password"/></label>{error&&<p className="form-error wide">{error}</p>}<div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Saving…":"Save account changes"}</button></div></form></section></div>;
 }
 
 function CreateAccountDialog({accessToken,roles,permissions,employees,onClose,onCreated}:{accessToken:string;roles:Option[];permissions:Option[];employees:Option[];onClose:()=>void;onCreated:()=>Promise<void>}) {

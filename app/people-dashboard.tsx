@@ -18,6 +18,7 @@ import { CalendarHub } from "./calendar-hub";
 import { OnboardingHub } from "./onboarding-hub";
 import { DepartmentHub } from "./department-hub";
 import { TeamHub } from "./team-hub";
+import { BackupCenter } from "./backup-center";
 
 const workspaceNav = ["Dashboard","Calendar","Directory","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Document Studio","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
 const adminNav = ["User accounts","Departments","Branches","Backups","Settings","Security & audit"];
@@ -103,6 +104,7 @@ export function PeopleDashboard({
           active==="Departments" ? <DepartmentHub accessToken={accessToken} profile={profile}/> :
           active==="Employees" && profile.account_type==="manager" ? <TeamHub accessToken={accessToken}/> :
           active==="User accounts" ? <AccountManagementPage accessToken={accessToken}/> :
+          active==="Backups" ? <BackupCenter accessToken={accessToken} profile={profile}/> :
           active==="Document Studio" ? <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/> :
           <ModulePage config={workspaceModules[active]} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>}
       </div>

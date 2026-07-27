@@ -26,17 +26,17 @@ async function handleRequest(request: Request) {
       if (!username) return json({ error: "Username is required." }, 400);
       if (body.send_invite && !body.email) return json({ error: "An email address is required when sending an invitation." }, 400);
       if (!body.send_invite && String(body.password ?? "").length < 10) return json({ error: "Temporary passwords must contain at least 10 characters." }, 400);
+      const { data: organisation } = await admin.from("profiles").select("organisation_id").eq("id", (await caller.auth.getUser()).data.user!.id).single();
       const authResult = body.send_invite
-        ? await admin.auth.admin.inviteUserByEmail(email, { data: { username, display_name: body.display_name } })
+        ? await admin.auth.admin.inviteUserByEmail(email, { data: { username, display_name: body.display_name, organisation_id: organisation!.organisation_id } })
         : await admin.auth.admin.createUser({
             email, password: body.password, email_confirm: true,
-            user_metadata: { username, display_name: body.display_name },
+            user_metadata: { username, display_name: body.display_name, organisation_id: organisation!.organisation_id },
           });
       if (authResult.error) throw authResult.error;
       const userId = authResult.data.user.id;
-      const { data: organisation } = await admin.from("profiles").select("organisation_id").eq("id", (await caller.auth.getUser()).data.user!.id).single();
       const { error: profileError } = await admin.from("profiles").insert({
-        id: userId, organisation_id: organisation!.organisation_id, username,
+        id: userId, organisation_id: organisation!.organisation_id, username, email,
         display_name: body.display_name, status: body.send_invite ? "invited" : "password_change_required",
         account_type: body.account_type, employee_id: body.employee_id || null,
         job_title: body.job_title || null, force_password_change: !body.send_invite,
@@ -51,6 +51,30 @@ async function handleRequest(request: Request) {
       if (body.permission_ids?.length) await admin.from("user_permission_overrides").insert(body.permission_ids.map((permission_id: string) => ({ profile_id: userId, permission_id, granted: true })));
       await admin.from("audit_logs").insert({ organisation_id: organisation!.organisation_id, actor_id: (await caller.auth.getUser()).data.user!.id, action: "user.created", resource: "profiles", resource_id: userId, outcome: "success", metadata: { username, account_type: body.account_type } });
       return json({ id: userId, username, email }, 201);
+    }
+
+    if (body.action === "update") {
+      if (!body.user_id || !body.username || !body.email) return json({ error: "User, username and email are required." }, 400);
+      const authChanges: Record<string, unknown> = {
+        email: String(body.email).trim().toLowerCase(),
+        email_confirm: true,
+        user_metadata: { username: String(body.username).trim().toLowerCase(), display_name: body.display_name },
+      };
+      if (body.password) {
+        if (String(body.password).length < 10) return json({ error: "Temporary passwords must contain at least 10 characters." }, 400);
+        authChanges.password = body.password;
+      }
+      const { error: authError } = await admin.auth.admin.updateUserById(body.user_id, authChanges);
+      if (authError) throw authError;
+      const profileChanges = {
+        username: String(body.username).trim().toLowerCase(), email: String(body.email).trim().toLowerCase(),
+        display_name: body.display_name, job_title: body.job_title || null,
+        account_type: body.account_type, status: body.password ? "password_change_required" : body.status,
+        force_password_change: Boolean(body.password),
+      };
+      const { error: updateError } = await admin.from("profiles").update(profileChanges).eq("id", body.user_id);
+      if (updateError) throw updateError;
+      return json({ ok: true });
     }
 
     if (body.action === "status") {
