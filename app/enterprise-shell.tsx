@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { enterpriseNavigation } from "./enterprise-navigation";
+import { MenuIcon } from "./menu-icon";
 
 export function EnterpriseSidebar({profile,active,onNavigate,companyName,logoUrl}:{profile:UserProfile;active:string;onNavigate:(page:string)=>void;companyName:string;logoUrl:string}) {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
@@ -12,7 +13,7 @@ export function EnterpriseSidebar({profile,active,onNavigate,companyName,logoUrl
   })})).filter(group=>group.items.length),[profile,isAdmin]);
   return <aside className="enterprise-sidebar">
     <div className="enterprise-brand"><img src={logoUrl||"/logo.png"} alt={companyName}/><div><strong>{companyName||"SAS People"}</strong><small>People operations</small></div></div>
-    <nav className="enterprise-nav">{groups.map(group=><section key={group.label}><button className="enterprise-group" onClick={()=>setCollapsed(current=>({...current,[group.label]:!current[group.label]}))}><span>{group.label}</span><b>{collapsed[group.label]?"+":"−"}</b></button>{!collapsed[group.label]&&<div className="enterprise-items">{group.items.map(item=><button key={item.label} className={active===item.label?"active":""} onClick={()=>onNavigate(item.label)}><span className="enterprise-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span></button>)}</div>}</section>)}</nav>
+    <nav className="enterprise-nav">{groups.map(group=><section key={group.label}><button className="enterprise-group" onClick={()=>setCollapsed(current=>({...current,[group.label]:!current[group.label]}))}><span>{group.label}</span><b>{collapsed[group.label]?"+":"−"}</b></button>{!collapsed[group.label]&&<div className="enterprise-items">{group.items.map(item=><button key={item.label} className={active===item.label?"active":""} onClick={()=>onNavigate(item.label)}><span className="enterprise-icon"><MenuIcon name={item.icon as Parameters<typeof MenuIcon>[0]["name"]}/></span><span>{item.label}</span></button>)}</div>}</section>)}</nav>
     <footer>{companyName||"SAS Finance Group Ghana"}<br/>Private & confidential</footer>
   </aside>;
 }
