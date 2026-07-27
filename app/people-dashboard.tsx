@@ -52,6 +52,7 @@ const managerGroups=[
 const aliases:Record<string,string>={"Leave Management":"Leave","Time Off Calendar":"Calendar","Performance Reviews":"Performance","1:1 Meetings":"Meetings","Recruitment":"Hiring","HR Reports & Analytics":"Reports","Advanced Reports":"Reports","Task Assignments":"Tasks","Onboarding & Training":"Onboarding","User Management":"User accounts","Audit Logs":"Security & audit","Backup & Restore":"Backups","My Profile":"Self-Service Hub"};
 const hrPages=new Set(adminHrGroups.flatMap(([,items])=>items.map(([label])=>label)).filter(label=>!["Audit Logs","Backup & Restore","Settings"].includes(label)));
 const adminOnlyPages=new Set(["Audit Logs","Backup & Restore","Settings"]);
+const permanentlyDisabledPages=new Set(["Billing","Billings","Subscription","Subscriptions","Billing & Subscriptions","Plans & Billing"]);
 const pagePermissions:Record<string,string[]>={Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],Onboarding:["onboarding.manage","onboarding.assign","onboarding.review"],Attendance:["attendance.manage","attendance.approve","attendance.clock_self"],Leave:["leave.manage","leave.approve","leave.view_self"],Performance:["performance.manage","performance.review_team","performance.view_self"],Assets:["assets.manage","assets.view_assigned"],Tasks:["tasks.manage","tasks.view_self"],Payroll:["payroll.manage","payroll.view_self"],Hiring:["hiring.manage","hiring.view"],Benefits:["benefits.manage","benefits.view_self"],Compensation:["compensation.manage"],Reports:["reports.view"],"User accounts":["users.manage"],Branches:["settings.manage"],Departments:["departments.manage","departments.view"],Settings:["settings.manage"],"Security & audit":["audit.view","security.manage"],Calendar:["calendar.view","calendar.manage"]};
 
 export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:{accessToken:string;profile:UserProfile;onLogout:()=>void;onChangePassword:()=>void}){
@@ -66,18 +67,20 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   const managerLabels=new Set(managerGroups.flatMap(([,items])=>items.map(([label])=>label)));
 
   const canAccess=(label:string)=>{
+    const normalized=aliases[label]||label;
+    if(permanentlyDisabledPages.has(label)||permanentlyDisabledPages.has(normalized))return false;
     if(isEmployeeOnly)return label==="Dashboard"||label==="My Profile"||label==="Self-Service Hub";
     if(isManager&&!isHr&&!isAdmin)return managerLabels.has(label);
     if(label==="My Profile"||label==="Self-Service Hub")return profile.self_service_enabled!==false;
     if(isAdmin)return true;
     if(adminOnlyPages.has(label))return false;
     if(!hrPages.has(label))return false;
-    const page=aliases[label]||label;const required=pagePermissions[page];
-    return !required||required.some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(label)||profile.dashboard_access.includes(page);
+    const required=pagePermissions[normalized];
+    return !required||required.some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(label)||profile.dashboard_access.includes(normalized);
   };
 
   function navigate(label:string){if(!canAccess(label))return;setActive(label);setDrawer(false);setSearch("");requestAnimationFrame(()=>mainRef.current?.scrollTo({top:0,behavior:"smooth"}));}
-  useEffect(()=>{if(isManager&&!isHr&&!isAdmin&&!managerLabels.has(active))setActive("Manager Dashboard");else if(!canAccess(active))setActive("Dashboard");},[active,profile.id]);
+  useEffect(()=>{if(permanentlyDisabledPages.has(active))setActive(isManager&&!isHr&&!isAdmin?"Manager Dashboard":"Dashboard");else if(isManager&&!isHr&&!isAdmin&&!managerLabels.has(active))setActive("Manager Dashboard");else if(!canAccess(active))setActive("Dashboard");},[active,profile.id]);
   useEffect(()=>{function closeAccount(event:PointerEvent){if(accountRef.current&&!accountRef.current.contains(event.target as Node))setAccountOpen(false);}document.addEventListener("pointerdown",closeAccount);return()=>document.removeEventListener("pointerdown",closeAccount);},[]);
 
   if(isEmployeeOnly){return <div className="app employee-app-shell"><main className="main employee-main" ref={mainRef}><div className="content employee-content"><EmployeeHome accessToken={accessToken} profile={profile} onNavigate={()=>undefined} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/></div><ChatPopup accessToken={accessToken} profile={profile}/>{notificationSettings&&<NotificationSettings accessToken={accessToken} profile={profile} onClose={()=>setNotificationSettings(false)}/>}</main></div>}
