@@ -1,0 +1,49 @@
+type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings";
+
+const paths:Record<IconName,string[]> = {
+  dashboard:["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
+  branch:["M6 3v12","M6 7h8a4 4 0 0 0 4-4","M6 15h8a4 4 0 0 1 4 4"],
+  department:["M4 4h6v6H4z","M14 4h6v6h-6z","M4 14h6v6H4z","M14 14h6v6h-6z"],
+  asset:["M4 7h16v13H4z","M8 7V4h8v3","M9 11h6"],
+  category:["M12 3 3 8l9 5 9-5-9-5z","M3 12l9 5 9-5","M3 16l9 5 9-5"],
+  leave:["M4 5h16v15H4z","M8 3v4","M16 3v4","M4 9h16"],
+  calendar:["M4 5h16v15H4z","M8 3v4","M16 3v4","M8 13h3","M8 17h6"],
+  attendance:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M12 7v5l3 2"],
+  expense:["M12 2v20","M17 6.5c0-2-2-3.5-5-3.5s-5 1.5-5 3.5 2 3.5 5 3.5 5 1.5 5 3.5S15 18 12 18s-5-1.5-5-3.5"],
+  compensation:["M3 17l6-6 4 4 8-8","M15 7h6v6"],
+  paygrade:["M12 2v20","M17 6H9.5a3.5 3.5 0 1 0 0 7H14a3.5 3.5 0 1 1 0 7H7"],
+  financial:["M4 5h16v15H4z","M8 3v4","M16 3v4","M4 9h16"],
+  payroll:["M12 2v20","M17 6H9.5a3.5 3.5 0 1 0 0 7H14a3.5 3.5 0 1 1 0 7H7"],
+  tax:["M6 3h9l4 4v14H6z","M14 3v5h5","M9 13h6","M9 17h4"],
+  benefit:["M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"],
+  performance:["M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9z"],
+  goal:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z","M12 12h.01"],
+  feedback:["M4 4h16v12H8l-4 4z","M8 8h8","M8 12h5"],
+  meeting:["M7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z","M17 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M2 21v-2a5 5 0 0 1 10 0v2","M14 21v-2a4 4 0 0 1 8 0v2"],
+  workflow:["M5 5h6v6H5z","M13 13h6v6h-6z","M11 8h4a4 4 0 0 1 4 4v1","M13 16H9a4 4 0 0 1-4-4v-1"],
+  automation:["M12 3l1.5 3.2 3.5.5-2.5 2.4.6 3.4L12 11l-3.1 1.5.6-3.4L7 6.7l3.5-.5z","M4 17h16","M7 21h10"],
+  recruitment:["M11 4a4 4 0 1 0 0 8 4 4 0 0 0 0 0-8z","M3 21v-2a6 6 0 0 1 12 0v2","M19 8v6","M16 11h6"],
+  disciplinary:["M12 3 2 21h20L12 3z","M12 9v4","M12 17h.01"],
+  report:["M4 20V10","M10 20V4","M16 20v-7","M22 20H2"],
+  compliance:["M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z","M9 12l2 2 4-4"],
+  task:["M5 4h14v16H5z","M8 9l2 2 4-4","M8 15h8"],
+  global:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M3 12h18","M12 3a15 15 0 0 1 0 18","M12 3a15 15 0 0 0 0 18"],
+  training:["M3 8l9-5 9 5-9 5z","M7 10v5c3 2 7 2 10 0v-5","M21 8v7"],
+  survey:["M5 4h14v16H5z","M8 8h8","M8 12h8","M8 16h5"],
+  analytics:["M4 19V9","M10 19V5","M16 19v-7","M22 19H2"],
+  announcement:["M3 11v2h3l5 4V7l-5 4z","M15 8a5 5 0 0 1 0 8","M18 5a9 9 0 0 1 0 14"],
+  message:["M4 4h16v14H7l-3 3z","M8 9h8","M8 13h5"],
+  employees:["M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z","M16 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M2 21v-2a6 6 0 0 1 12 0v2","M14 21v-2a5 5 0 0 1 8-4"],
+  users:["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z","M4 21a8 8 0 0 1 16 0","M19 8v6","M16 11h6"],
+  "profile-request":["M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z","M4 21a8 8 0 0 1 16 0","M3 7v4h4","M3 11a9 9 0 0 1 15-6"],
+  "self-service":["M3 11l9-8 9 8","M5 10v10h14V10","M9 20v-6h6v6"],
+  profile:["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z","M4 21a8 8 0 0 1 16 0"],
+  audit:["M5 4h14v16H5z","M9 8h6","M9 12h6","M9 16h4"],
+  backup:["M4 7v5h5","M20 17v-5h-5","M6.5 17.5A8 8 0 0 0 20 12","M17.5 6.5A8 8 0 0 0 4 12"],
+  billing:["M4 6h16v12H4z","M4 10h16","M8 15h4"],
+  settings:["M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z","M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 3.4-.2-.1a1.7 1.7 0 0 0-2 .2l-1.2.7a1.7 1.7 0 0 0-1 1.6V23h-4v-.3a1.7 1.7 0 0 0-1-1.6l-1.2-.7a1.7 1.7 0 0 0-2-.2l-.2.1-2-3.4.1-.1a1.7 1.7 0 0 0 .3-1.9v-1.4a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-3.4.2.1a1.7 1.7 0 0 0 2-.2l1.2-.7a1.7 1.7 0 0 0 1-1.6V1h4v.3a1.7 1.7 0 0 0 1 1.6l1.2.7a1.7 1.7 0 0 0 2 .2l.2-.1 2 3.4-.1.1a1.7 1.7 0 0 0-.3 1.9z"]
+};
+
+export function MenuIcon({name}:{name:IconName}){
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name].map((d,index)=><path key={index} d={d}/>)}</svg>;
+}
