@@ -38,32 +38,11 @@ const groups=[
 ] as const;
 
 const aliases:Record<string,string>={"Leave Management":"Leave","Time Off Calendar":"Calendar","Performance Reviews":"Performance","1:1 Meetings":"Meetings","Recruitment":"Hiring","HR Reports & Analytics":"Reports","Advanced Reports":"Reports","Task Assignments":"Tasks","Onboarding & Training":"Onboarding","User Management":"User accounts","Audit Logs":"Security & audit","Backup & Restore":"Backups","My Profile":"Self-Service Hub"};
-
-const employeePages=new Set(["Dashboard","My Profile","Self-Service Hub","Leave Management","Time Off Calendar","Attendance","Payroll","Benefits","Performance Reviews","Goals & OKRs","1:1 Meetings","Onboarding & Training","Surveys & Feedback","Announcements","Messages"]);
-const managerPages=new Set([...employeePages,"Employees","Departments","OT & Expenses","360° Feedback","Workflows & Approvals","Task Assignments","HR Reports & Analytics","Profile Requests"]);
+const managerPages=new Set(["Dashboard","My Profile","Self-Service Hub","Employees","Departments","Leave Management","Time Off Calendar","Attendance","OT & Expenses","Payroll","Benefits","Performance Reviews","Goals & OKRs","360° Feedback","1:1 Meetings","Workflows & Approvals","Task Assignments","HR Reports & Analytics","Onboarding & Training","Surveys & Feedback","Announcements","Messages","Profile Requests"]);
 const hrPages=new Set([...managerPages,"Branches","Assets","Asset Categories","Compensation","Pay Grades","Financial Years","Tax Configuration","Automation & Workflows","Recruitment","Disciplinary","Advanced Reports","Labour Act Compliance","Global Hiring Apps","Engagement Analytics","User Management"]);
 const adminOnlyPages=new Set(["Audit Logs","Backup & Restore","Settings"]);
 
-const pagePermissions:Record<string,string[]>={
-  Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],
-  Onboarding:["onboarding.manage","onboarding.assign","onboarding.review"],
-  Attendance:["attendance.manage","attendance.approve","attendance.clock_self"],
-  Leave:["leave.manage","leave.approve","leave.view_self"],
-  Performance:["performance.manage","performance.review_team","performance.view_self"],
-  Assets:["assets.manage","assets.view_assigned"],
-  Tasks:["tasks.manage","tasks.view_self"],
-  Payroll:["payroll.manage","payroll.view_self"],
-  Hiring:["hiring.manage","hiring.view"],
-  Benefits:["benefits.manage","benefits.view_self"],
-  Compensation:["compensation.manage"],
-  Reports:["reports.view"],
-  "User accounts":["users.manage"],
-  Branches:["settings.manage"],
-  Departments:["departments.manage","departments.view"],
-  Settings:["settings.manage"],
-  "Security & audit":["audit.view","security.manage"],
-  Calendar:["calendar.view","calendar.manage"],
-};
+const pagePermissions:Record<string,string[]>={Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],Onboarding:["onboarding.manage","onboarding.assign","onboarding.review"],Attendance:["attendance.manage","attendance.approve","attendance.clock_self"],Leave:["leave.manage","leave.approve","leave.view_self"],Performance:["performance.manage","performance.review_team","performance.view_self"],Assets:["assets.manage","assets.view_assigned"],Tasks:["tasks.manage","tasks.view_self"],Payroll:["payroll.manage","payroll.view_self"],Hiring:["hiring.manage","hiring.view"],Benefits:["benefits.manage","benefits.view_self"],Compensation:["compensation.manage"],Reports:["reports.view"],"User accounts":["users.manage"],Branches:["settings.manage"],Departments:["departments.manage","departments.view"],Settings:["settings.manage"],"Security & audit":["audit.view","security.manage"],Calendar:["calendar.view","calendar.manage"]};
 
 export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:{accessToken:string;profile:UserProfile;onLogout:()=>void;onChangePassword:()=>void}){
   const [drawer,setDrawer]=useState(false),[active,setActive]=useState(profile.preferred_dashboard||"Dashboard"),[accountOpen,setAccountOpen]=useState(false),[search,setSearch]=useState(""),[notificationSettings,setNotificationSettings]=useState(false);
@@ -72,13 +51,15 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   const isAdmin=profile.roles.includes("SAS System Administrator")||accountType==="administrator";
   const isHr=accountType==="hr"||profile.roles.some(role=>/human resources|\bhr\b/i.test(role));
   const isManager=accountType==="manager"||profile.roles.some(role=>/manager|supervisor|team lead/i.test(role));
-  const isPeopleLeader=isAdmin||isHr||isManager||accountType==="auditor";
+  const isEmployeeOnly=!isAdmin&&!isHr&&!isManager&&accountType!=="auditor";
+  const isPeopleLeader=!isEmployeeOnly;
 
   const canAccess=(label:string)=>{
+    if(isEmployeeOnly)return label==="Dashboard"||label==="My Profile"||label==="Self-Service Hub";
     if(label==="My Profile"||label==="Self-Service Hub")return profile.self_service_enabled!==false;
     if(isAdmin)return true;
     if(adminOnlyPages.has(label))return false;
-    const roleAllows=isHr?hrPages.has(label):isManager?managerPages.has(label):employeePages.has(label);
+    const roleAllows=isHr?hrPages.has(label):isManager?managerPages.has(label):false;
     if(!roleAllows)return false;
     const page=aliases[label]||label;
     const required=pagePermissions[page];
@@ -89,11 +70,25 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   function navigate(label:string){if(!canAccess(label))return;setActive(label);setDrawer(false);setSearch("");requestAnimationFrame(()=>mainRef.current?.scrollTo({top:0,behavior:"smooth"}));}
   useEffect(()=>{if(!canAccess(active))setActive("Dashboard");},[active,profile.id]);
   useEffect(()=>{function closeAccount(event:PointerEvent){if(accountRef.current&&!accountRef.current.contains(event.target as Node))setAccountOpen(false);}document.addEventListener("pointerdown",closeAccount);return()=>document.removeEventListener("pointerdown",closeAccount);},[]);
+
+  if(isEmployeeOnly){
+    return <div className="app employee-app-shell">
+      <main className="main employee-main" ref={mainRef}>
+        <header className="topbar employee-topbar">
+          <div className="brand employee-brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group"/><div><strong>SAS People</strong><small>Employee self service</small></div></div>
+          <div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile}/><button className="account-button" onClick={()=>setAccountOpen(value=>!value)}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0]??"Employee"}</small></div></button>{accountOpen&&<div className="account-menu"><button onClick={()=>setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div>
+        </header>
+        <div className="content employee-content"><EmployeeHome accessToken={accessToken} profile={profile} onNavigate={()=>undefined}/></div>
+        <ChatPopup accessToken={accessToken} profile={profile}/>
+        {notificationSettings&&<NotificationSettings accessToken={accessToken} profile={profile} onClose={()=>setNotificationSettings(false)}/>} 
+      </main>
+    </div>;
+  }
+
   const route=aliases[active]||active;
   const moduleConfig=workspaceModules[route];
-
   return <div className="app"><div className={`drawer-backdrop ${drawer?"open":""}`} onClick={()=>setDrawer(false)}/><aside className={`sidebar ${drawer?"open":""}`} aria-label="Primary navigation"><div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group"/><div><strong>SAS People</strong><small>People operations</small></div></div>{groups.map(([group,items])=>{const visible=items.filter(([label])=>canAccess(label));return visible.length?<div key={group}><div className="nav-label">{group}</div><nav className="nav">{visible.map(([label,icon])=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{icon}</span>{label}</button>)}</nav></div>:null;})}<div className="sidebar-footer">SAS Finance Group Ghana<br/>Private & confidential</div></aside>
-    <main className="main" ref={mainRef}><header className="topbar"><button className="mobile-menu" onClick={()=>setDrawer(true)}>Menu</button><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search your authorised workspace..."/><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile}/><button className="account-button" onClick={()=>setAccountOpen(v=>!v)}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0]??profile.account_type}</small></div></button>{accountOpen&&<div className="account-menu"><button onClick={()=>navigate("My Profile")}>My profile</button><button onClick={()=>setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header><div className="content">{search.trim()?<GlobalSearch accessToken={accessToken} query={search} onNavigate={navigate} onClear={()=>setSearch("")}/>:
+    <main className="main" ref={mainRef}><header className="topbar"><button className="mobile-menu" onClick={()=>setDrawer(true)}>Menu</button><input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search your authorised workspace..."/><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile}/><button className="account-button" onClick={()=>setAccountOpen(value=>!value)}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0]??profile.account_type}</small></div></button>{accountOpen&&<div className="account-menu"><button onClick={()=>navigate("My Profile")}>My profile</button><button onClick={()=>setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header><div className="content">{search.trim()?<GlobalSearch accessToken={accessToken} query={search} onNavigate={navigate} onClear={()=>setSearch("")}/>:
       route==="Dashboard"?(isPeopleLeader?<DashboardPage accessToken={accessToken} profile={profile} onNavigate={navigate}/>:<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate}/>):
       active==="My Profile"||active==="Self-Service Hub"?<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate}/>:route==="Directory"?<PeopleDirectory accessToken={accessToken}/>:route==="Performance"?<PerformanceHub accessToken={accessToken} profile={profile}/>:route==="Calendar"?<CalendarHub accessToken={accessToken} profile={profile}/>:route==="Onboarding"?<OnboardingHub accessToken={accessToken} profile={profile}/>:route==="Departments"?<DepartmentHub accessToken={accessToken} profile={profile}/>:route==="Employees"&&isManager&&!isHr&&!isAdmin?<TeamHub accessToken={accessToken}/>:route==="User accounts"?<AccountManagementPage accessToken={accessToken}/>:route==="Backups"?<BackupCenter accessToken={accessToken} profile={profile}/>:route==="Attendance"?<AttendanceHub accessToken={accessToken}/>:route==="Security & audit"?<AuditHub accessToken={accessToken}/>:route==="Settings"?<SettingsConfigurationPage accessToken={accessToken} organisationId={profile.organisation_id}/>:route==="Document Studio"?<DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/>:moduleConfig?<ModulePage config={moduleConfig} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>:<section className="card"><h2>Access unavailable</h2><p>This page is not configured for your role.</p></section>}</div><ChatPopup accessToken={accessToken} profile={profile}/>{notificationSettings&&<NotificationSettings accessToken={accessToken} profile={profile} onClose={()=>setNotificationSettings(false)}/>}</main></div>;
 }
