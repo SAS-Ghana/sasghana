@@ -1,5 +1,6 @@
 "use client";
 
+import "./theme-fixes.css";
 import { useEffect, useRef, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { ChatPopup } from "./realtime-chat";
@@ -24,6 +25,7 @@ import { HRDashboard } from "./hr-dashboard";
 import { HRSectionPage } from "./hr-section-page";
 import { AdminDashboard } from "./admin-dashboard";
 import { AdminSectionPage } from "./admin-section-page";
+import { ApprovalWorkflowsPage } from "./approval-workflows-page";
 
 const forbidden=/billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
 const managerGroups=[
@@ -89,6 +91,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
    if(active==="Onboarding")return <OnboardingHub accessToken={accessToken} profile={profile}/>;
    if(active==="Performance Management")return <PerformanceHub accessToken={accessToken} profile={profile}/>;
    if(active==="Documents & Templates")return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/>;
+   if(active==="Approval Workflows")return <ApprovalWorkflowsPage accessToken={accessToken} organisationId={profile.organisation_id}/>;
    if(active==="Settings Centre")return <SettingsConfigurationPage accessToken={accessToken} organisationId={profile.organisation_id}/>;
    if(active==="Audit Logs")return <AuditHub accessToken={accessToken}/>;
    return <AdminSectionPage label={active} accessToken={accessToken} organisationId={profile.organisation_id}/>;
@@ -102,6 +105,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
    if(active==="Performance Management")return <PerformanceHub accessToken={accessToken} profile={profile}/>;
    if(active==="Documents & Templates")return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/>;
    if(active==="Organization Structure")return <DepartmentHub accessToken={accessToken} profile={profile}/>;
+   if(active==="Workflows & Approvals")return <ApprovalWorkflowsPage accessToken={accessToken} organisationId={profile.organisation_id} scope="hr"/>;
    return <HRSectionPage label={active} accessToken={accessToken} organisationId={profile.organisation_id}/>;
   }
   return active==="Manager Dashboard"?<ManagerDashboard accessToken={accessToken} profile={profile} onNavigate={navigate}/>:active==="My Profile"?<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/>:active==="My Team"?<TeamHub accessToken={accessToken}/>:active==="Team Attendance"?<AttendanceHub accessToken={accessToken}/>:active==="Team Performance"?<PerformanceHub accessToken={accessToken} profile={profile}/>:active==="Team Calendar"||active==="One to One Meetings"?<CalendarHub accessToken={accessToken} profile={profile}/>:<ManagerSectionPage label={active} accessToken={accessToken}/>;
