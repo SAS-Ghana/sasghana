@@ -19,6 +19,7 @@ export function EmployeeHome({accessToken,profile,onNavigate}:{accessToken:strin
   const [busy,setBusy]=useState("");
   const [error,setError]=useState("");
   const [profileOpen,setProfileOpen]=useState(false);
+  const [now,setNow]=useState(Date.now());
   const load=useCallback(async()=>{
     try {
       const [employees,attendance,announcements,jobs,meetings,requests]=await Promise.all([
@@ -34,10 +35,13 @@ export function EmployeeHome({accessToken,profile,onNavigate}:{accessToken:strin
     } catch(cause){setError(cause instanceof Error?cause.message:"Your workspace could not be loaded.");}
   },[accessToken,profile.employee_id]);
   useEffect(()=>{void load();},[load]);
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer);},[]);
 
   const today=new Date().toISOString().slice(0,10);
   const todayRecord=data.attendance.find(row=>String(row.attendance_date)===today);
   const clockedIn=Boolean(todayRecord?.clock_in&&!todayRecord?.clock_out);
+  const liveSeconds=clockedIn?Math.max(0,Math.floor((now-new Date(String(todayRecord?.clock_in)).getTime())/1000)):0;
+  const liveTime=`${String(Math.floor(liveSeconds/3600)).padStart(2,"0")}:${String(Math.floor(liveSeconds%3600/60)).padStart(2,"0")}:${String(liveSeconds%60).padStart(2,"0")}`;
   const hours=useMemo(()=>data.attendance.reduce((total,row)=>{
     if(!row.clock_in||!row.clock_out)return total;
     return total+(new Date(String(row.clock_out)).getTime()-new Date(String(row.clock_in)).getTime())/3600000;
@@ -72,7 +76,7 @@ export function EmployeeHome({accessToken,profile,onNavigate}:{accessToken:strin
   return <section className="employee-home">
     <header className="employee-welcome">
       <div><span className="eyebrow">My SAS People</span><h1>Welcome back, {firstName}</h1><p>Your workday, people, updates and requests in one secure place.</p></div>
-      <div className="clock-card"><span>{new Date().toLocaleDateString("en-GH",{weekday:"long",day:"numeric",month:"long"})}</span><strong>{clockedIn?"You are clocked in":todayRecord?.clock_out?"Workday completed":"Ready to start?"}</strong><div><button className="primary" disabled={Boolean(todayRecord?.clock_in)||Boolean(busy)} onClick={()=>void clock("in")}>{busy==="in"?"Saving…":"Clock in"}</button><button className="secondary" disabled={!clockedIn||Boolean(busy)} onClick={()=>void clock("out")}>{busy==="out"?"Saving…":"Clock out"}</button></div></div>
+      <div className="clock-card"><span>{new Date().toLocaleDateString("en-GH",{weekday:"long",day:"numeric",month:"long"})}</span><strong>{clockedIn?liveTime:todayRecord?.clock_out?"Workday completed":"Ready to start?"}</strong>{clockedIn&&<small>Live time since clock-in</small>}<div><button className="primary" disabled={Boolean(todayRecord?.clock_in)||Boolean(busy)} onClick={()=>void clock("in")}>{busy==="in"?"Saving…":"Clock in"}</button><button className="secondary" disabled={!clockedIn||Boolean(busy)} onClick={()=>void clock("out")}>{busy==="out"?"Saving…":"Clock out"}</button></div></div>
     </header>
     {error&&<p className={error.includes("submitted")?"form-message":"form-error"}>{error}</p>}
     <div className="personal-metrics">

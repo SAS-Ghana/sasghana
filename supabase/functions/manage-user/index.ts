@@ -90,6 +90,15 @@ async function handleRequest(request: Request) {
       await admin.from("profiles").update({ status: "password_change_required", force_password_change: true }).eq("id", body.user_id);
       return json({ ok: true });
     }
+    if (body.action === "resend_invite") {
+      const { data: profile, error: lookupError } = await admin.from("profiles").select("email,username,display_name").eq("id",body.user_id).single();
+      if (lookupError || !profile?.email) return json({error:"This account does not have a valid email address."},400);
+      const redirectTo=String(body.redirect_to||"https://sasghana.vercel.app/");
+      const { error }=await admin.auth.resetPasswordForEmail(profile.email,{redirectTo});
+      if(error)throw error;
+      await admin.from("profiles").update({invitation_status:"resent"}).eq("id",body.user_id);
+      return json({ok:true});
+    }
     if (body.action === "delete") {
       if (body.user_id === (await caller.auth.getUser()).data.user!.id) return json({ error: "You cannot delete the account currently in use." }, 400);
       await admin.from("employees").update({profile_id:null}).eq("profile_id",body.user_id);

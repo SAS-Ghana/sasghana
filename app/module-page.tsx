@@ -228,7 +228,7 @@ function RecordDialog({
       const options = relationOptions ?? field.options?.map((option) => ({value:option,label:option.replaceAll("_"," ")}));
       return <label key={field.key}>{field.label}{field.required && " *"}
         {field.type === "textarea" ? <textarea value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}/> :
-        options ? <select value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}><option value="">Select {field.label.toLowerCase()}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> :
+        options ? <><select value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}><option value="">Select {field.label.toLowerCase()}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>{!relationOptions&&options.length<=8&&<span className="quick-choices">{options.map(option=><button type="button" className={values[field.key]===option.value?"selected":""} key={option.value} onClick={()=>setValues({...values,[field.key]:option.value})}>{option.label}</button>)}</span>}</> :
         field.type==="file" ? <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event)=>setFile(event.target.files?.[0]??null)} required={field.required&&!row?.[field.key]}/> :
         <input type={field.type ?? "text"} value={values[field.key]} onChange={(event) => setValues({...values,[field.key]:event.target.value})} required={field.required}/>}
       </label>;

@@ -43,13 +43,27 @@ export function AccountManagementPage({ accessToken }: { accessToken: string }) 
     catch(cause){setError(cause instanceof Error?cause.message:"Account deletion failed.");}
   }
 
+  async function resetPassword(row:DataRow){
+    const password=`Sas@${crypto.randomUUID().replaceAll("-","").slice(0,12)}9`;
+    if(!window.confirm(`Create a secure temporary password for ${row.display_name}? They must change it after signing in.`))return;
+    setError("");setNotice("");
+    try{await callFunction(accessToken,"manage-user",{action:"reset_password",user_id:row.id,password});await navigator.clipboard.writeText(password).catch(()=>undefined);setNotice(`Temporary password for ${row.display_name}: ${password} — copied to clipboard. Share it securely; it is shown only now.`);await load();}
+    catch(cause){setError(cause instanceof Error?cause.message:"Password reset failed.");}
+  }
+
+  async function resendInvite(row:DataRow){
+    setError("");setNotice("");
+    try{await callFunction(accessToken,"manage-user",{action:"resend_invite",user_id:row.id,redirect_to:`${window.location.origin}/`});setNotice(`A fresh secure sign-in link was sent to ${row.display_name}.`);await load();}
+    catch(cause){setError(cause instanceof Error?cause.message:"Invitation could not be resent.");}
+  }
+
   return <section>
     <header className="page-header"><div><span className="eyebrow">Administration</span><h1>User accounts</h1><p className="muted">Create private logins and assign exactly what each person can access.</p></div><button className="primary" onClick={()=>setOpen(true)}>Create account</button></header>
     <div className="summary-strip"><div><strong>{accounts.length}</strong><span>Total accounts</span></div><div><strong>{accounts.filter(x=>x.status==="active").length}</strong><span>Active</span></div><div><strong>{accounts.filter(x=>x.status!=="active").length}</strong><span>Restricted / invited</span></div></div>
     {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
     <article className="card data-panel"><div className="panel-head"><div><h2>Account directory</h2><p className="muted">Authentication and access are stored in Supabase</p></div><button className="text-btn" onClick={()=>void load()}>Refresh</button></div>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Username</th><th>Account type</th><th>Job title</th><th>Status</th><th>Invitation</th><th>Actions</th></tr></thead>
-          <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}<small className="table-subline">{String(row.email??"")}</small></td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions"><button onClick={()=>setEditing(row)}>Edit</button>{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button><button className="danger" onClick={()=>void deleteAccount(row)}>Delete account</button></div></td></tr>)}</tbody></table></div>
+          <tbody>{accounts.map(row=><tr key={String(row.id)}><td>{String(row.display_name)}</td><td>{String(row.username??"—")}<small className="table-subline">{String(row.email??"")}</small></td><td>{String(row.account_type??"employee")}</td><td>{String(row.job_title??"—")}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td>{String(row.invitation_status??"—")}</td><td><div className="row-actions"><button onClick={()=>setEditing(row)}>Edit</button><button onClick={()=>void resetPassword(row)}>Random password</button><button onClick={()=>void resendInvite(row)}>Resend invite</button>{row.status!=="active"&&<button onClick={()=>void setStatus(row,"active")}>Activate</button>}{row.status==="active"&&<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>}{row.status==="locked"&&<button onClick={()=>void setStatus(row,"active")}>Unlock</button>}<button className="danger" onClick={()=>void setStatus(row,"disabled")}>Disable</button><button className="danger" onClick={()=>void deleteAccount(row)}>Delete account</button></div></td></tr>)}</tbody></table></div>
     </article>
     {open&&<CreateAccountDialog accessToken={accessToken} roles={roles} permissions={permissions} employees={employees} onClose={()=>setOpen(false)} onCreated={async()=>{setOpen(false);setNotice("Account created securely.");await load();}}/>}
     {editing&&<EditAccountDialog accessToken={accessToken} row={editing} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);setNotice("Account details and login identity updated.");await load();}}/>}

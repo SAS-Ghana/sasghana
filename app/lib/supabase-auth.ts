@@ -62,13 +62,25 @@ export async function signIn(
       body: JSON.stringify({ email: await resolveLoginEmail(username), password }),
     },
   );
-  if (!response.ok) throw new Error("The username or password is incorrect.");
+  if (!response.ok) {
+    void recordLoginEvent(username,false);
+    throw new Error("The username or password is incorrect.");
+  }
   const session = (await response.json()) as AuthSession;
   const profile = await fetchProfile(session.access_token, session.user.id);
   if (!profile || !["active", "password_change_required"].includes(profile.status)) {
     throw new Error("This account is not active. Contact an administrator.");
   }
+  void recordLoginEvent(username,true,session.access_token);
   return { session, profile };
+}
+
+async function recordLoginEvent(login:string,success:boolean,accessToken?:string) {
+  await fetch(`${supabaseUrl}/rest/v1/rpc/record_login_event`,{
+    method:"POST",
+    headers:{...jsonHeaders,...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})},
+    body:JSON.stringify({login_name:login,was_successful:success,client_agent:navigator.userAgent}),
+  }).catch(()=>undefined);
 }
 
 export async function requestPasswordReset(usernameOrEmail: string) {

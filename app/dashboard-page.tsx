@@ -15,6 +15,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   const [data,setData]=useState<DashboardData>(emptyData);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
+  const [now,setNow]=useState(new Date());
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
@@ -32,6 +33,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   },[accessToken]);
 
   useEffect(()=>{void load();},[load]);
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),1000);return()=>window.clearInterval(timer);},[]);
 
   const departmentCounts=useMemo(()=>data.departments.map((department)=>({
     name:String(department.name),count:data.employees.filter((employee)=>employee.department_id===department.id).length,
@@ -53,7 +55,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
   ].slice(0,4);
 
   return <section>
-    <header className="hero"><div><span className="eyebrow">SAS Finance Group Ghana</span><h1>Good afternoon, {profile.display_name}.</h1><p className="muted">{loading?"Loading live organisation data...":"Here is what needs your attention across SAS People today."}</p></div><button className="primary" onClick={()=>onNavigate("Employees")}>Add employee</button></header>
+    <header className="hero"><div><span className="eyebrow">SAS Finance Group Ghana</span><h1>Good afternoon, {profile.display_name}.</h1><p className="muted">{loading?"Loading live organisation data...":"Here is what needs your attention across SAS People today."}</p></div><div className="dashboard-clock"><strong>{now.toLocaleTimeString()}</strong><span>{now.toLocaleDateString("en-GH",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span><button className="primary" onClick={()=>onNavigate("Employees")}>Add employee</button></div></header>
     {!recentBackup&&profile.roles.includes("SAS System Administrator")&&<aside className="backup-alert"><div><strong>Backup review required</strong><p>No completed backup has been recorded in the last 30 days. Create a backup record and verify restoration readiness.</p></div><button onClick={()=>onNavigate("Backups")}>Review backups</button></aside>}
     {error&&<p className="form-error">{error}</p>}
     <section className="metrics" aria-label="Organisation summary">
@@ -61,6 +63,7 @@ export function DashboardPage({accessToken,profile,onNavigate}:{accessToken:stri
     </section>
     <section className="quick"><button onClick={()=>onNavigate("Employees")}><span>+</span>Add employee</button><button onClick={()=>onNavigate("Employees")}><span>UP</span>Import records</button><button onClick={()=>onNavigate("Documents")}><span>DOC</span>Generate document</button><button onClick={()=>onNavigate("Onboarding")}><span>OK</span>Review onboarding</button></section>
     <article className="card dashboard-attendance"><div className="panel-head"><div><h2>Today’s attendance</h2><p className="muted">Quick live view of clock-ins, clock-outs and working time</p></div><button className="text-btn" onClick={()=>onNavigate("Attendance")}>View more</button></div><div className="attendance-kpis"><div><strong>{todayAttendance.filter(row=>row.clock_in).length}</strong><span>Clocked in</span></div><div><strong>{todayAttendance.filter(row=>row.clock_out).length}</strong><span>Clocked out</span></div><div><strong>{todayAttendance.filter(row=>row.status==="late").length}</strong><span>Late</span></div><div><strong>{todayAttendance.filter(row=>!row.clock_out&&row.clock_in).length}</strong><span>Working now</span></div></div><div className="attendance-preview">{todayAttendance.slice(0,5).map(row=>{const employee=data.employees.find(item=>item.id===row.employee_id);const duration=row.clock_in&&row.clock_out?(new Date(String(row.clock_out)).getTime()-new Date(String(row.clock_in)).getTime())/3600000:null;return <div key={String(row.id)}><strong>{employee?`${employee.first_name} ${employee.last_name}`:"Employee"}</strong><span>{row.clock_in?new Date(String(row.clock_in)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Not clocked in"}</span><span>{row.clock_out?new Date(String(row.clock_out)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Working"}</span><b>{duration!==null?`${duration.toFixed(1)}h`:"—"}</b></div>})}{!todayAttendance.length&&<p className="muted">No attendance has been recorded today.</p>}</div></article>
+    <article className="card dashboard-calendar"><div className="panel-head"><div><h2>Work calendar</h2><p className="muted">{now.toLocaleDateString("en-GH",{month:"long",year:"numeric"})}</p></div><button className="text-btn" onClick={()=>onNavigate("Calendar")}>Open full calendar</button></div><div className="mini-week">{Array.from({length:7},(_,index)=>{const day=new Date(now);day.setDate(now.getDate()-now.getDay()+index);const dateKey=day.toISOString().slice(0,10);const away=data.leave.filter(row=>row.status==="approved"&&String(row.start_date)<=dateKey&&String(row.end_date)>=dateKey).length;return <button key={index} className={day.toDateString()===now.toDateString()?"today":""} onClick={()=>onNavigate("Calendar")}><span>{day.toLocaleDateString("en-GH",{weekday:"short"})}</span><strong>{day.getDate()}</strong><small>{away?`${away} away`:"Available"}</small></button>})}</div></article>
     <section className="grid">
       <article className="card panel"><div className="panel-head"><div><h2>Workforce by department</h2><p className="muted">Live employee distribution</p></div><button className="text-btn" onClick={()=>onNavigate("Reports")}>View report</button></div>{departmentCounts.length===0?<Empty label="No departments available"/>:<div className="bars">{departmentCounts.map((item)=><div className="bar-wrap" key={item.name}><strong>{item.count}</strong><div className="bar" style={{height:`${Math.max(8,item.count/maxDepartment*85)}%`}}/><span>{item.name}</span></div>)}</div>}</article>
       <article className="card panel"><div className="panel-head"><div><h2>Onboarding health</h2><p className="muted">{activeOnboarding.length} active journeys</p></div><button className="text-btn" onClick={()=>onNavigate("Onboarding")}>Details</button></div><div className="onboarding-stats"><strong>{activeOnboarding.length?Math.round(onTrack/activeOnboarding.length*100):0}%</strong><span>{onTrack} on track</span><span>{attention} need attention</span><span>{overdue} overdue</span></div></article>
