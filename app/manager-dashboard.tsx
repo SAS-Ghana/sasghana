@@ -1,0 +1,42 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { UserProfile } from "./lib/supabase-auth";
+import { DataRow, listNamedRows, listRows } from "./lib/supabase-data";
+
+type ManagerData={team:DataRow[];attendance:DataRow[];leave:DataRow[];expenses:DataRow[];reviews:DataRow[];tasks:DataRow[];training:DataRow[];announcements:DataRow[]};
+const empty:ManagerData={team:[],attendance:[],leave:[],expenses:[],reviews:[],tasks:[],training:[],announcements:[]};
+
+export function ManagerDashboard({accessToken,profile,onNavigate}:{accessToken:string;profile:UserProfile;onNavigate:(page:string)=>void}){
+  const [data,setData]=useState<ManagerData>(empty);const [error,setError]=useState("");const [loading,setLoading]=useState(true);
+  const load=useCallback(async()=>{setLoading(true);setError("");try{
+    const team=await listNamedRows(accessToken,"managed_team_directory","*","full_name");
+    const teamIds=new Set(team.map(row=>String(row.id)));
+    const scoped=async(table:string,key="employee_id")=>(await listRows(accessToken,table,"*",500).catch(()=>[])).filter(row=>teamIds.has(String(row[key]??row.employee_id??row.assigned_to_employee_id??row.subject_employee_id)));
+    const [attendance,leave,expenses,reviews,tasks,training,announcements]=await Promise.all([
+      scoped("attendance_records"),scoped("leave_requests"),scoped("expense_claims"),scoped("performance_reviews"),scoped("tasks","assigned_to_employee_id"),scoped("employee_onboarding"),listRows(accessToken,"announcements","*",30).catch(()=>[])
+    ]);
+    setData({team,attendance,leave,expenses,reviews,tasks,training,announcements});
+  }catch(cause){setError(cause instanceof Error?cause.message:"Manager dashboard could not be loaded.");}finally{setLoading(false);}},[accessToken]);
+  useEffect(()=>{void load();},[load]);
+  const today=new Date().toISOString().slice(0,10);
+  const metrics=useMemo(()=>{
+    const todayRows=data.attendance.filter(row=>String(row.attendance_date)===today);
+    return {present:todayRows.filter(row=>["present","late","remote"].includes(String(row.status))).length,late:todayRows.filter(row=>String(row.status)==="late").length,onLeave:data.leave.filter(row=>String(row.status)==="approved"&&String(row.start_date)<=today&&String(row.end_date)>=today).length,pendingLeave:data.leave.filter(row=>String(row.status)==="pending").length,pendingExpenses:data.expenses.filter(row=>["submitted","pending","manager_review"].includes(String(row.status))).length,reviewsDue:data.reviews.filter(row=>["draft","self_assessment","manager_review"].includes(String(row.status))).length,overdueTasks:data.tasks.filter(row=>String(row.status)!=="completed"&&row.due_date&&String(row.due_date)<today).length,trainingDue:data.training.filter(row=>String(row.status)!=="completed"&&row.due_date&&String(row.due_date)<=today).length};
+  },[data,today]);
+  const birthdays=data.team.filter(person=>{if(!person.date_of_birth)return false;const d=new Date(String(person.date_of_birth)),n=new Date();return d.getMonth()===n.getMonth()&&d.getDate()>=n.getDate();}).slice(0,5);
+  return <section>
+    <header className="page-header"><div><span className="eyebrow">Manager workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">Your authorised team, approvals, performance and workload in one place.</p></div><button className="secondary" onClick={()=>void load()}>Refresh</button></header>
+    {error&&<p className="form-error">{error}</p>}{loading&&<p className="form-message">Loading team information…</p>}
+    <div className="metrics manager-metrics">
+      {[["Total team members",data.team.length],["Present today",metrics.present],["Absent today",Math.max(0,data.team.length-metrics.present-metrics.onLeave)],["On leave",metrics.onLeave],["Late today",metrics.late],["Pending leave approvals",metrics.pendingLeave],["Pending expense claims",metrics.pendingExpenses],["Reviews due",metrics.reviewsDue],["Overdue tasks",metrics.overdueTasks],["Training due",metrics.trainingDue]].map(([label,value])=><article className="card metric" key={String(label)}><div className="metric-top"><span>{label}</span></div><div className="metric-value">{value}</div></article>)}
+    </div>
+    <div className="quick manager-quick">
+      {[["Leave Approvals","Approve leave"],["Team Attendance","Review attendance"],["Tasks","Assign task"],["Team Performance","Start performance review"],["One to One Meetings","Schedule one to one"],["Recruitment & Onboarding","Submit recruitment request"],["Expense Approvals","Approve expense"],["Learning & Development","Assign training"],["Team Communication","Send team message"],["Team Calendar","View team calendar"],["Documents","Request employee document"],["Employee Requests","Report issue to HR"]].map(([page,label])=><button key={page} onClick={()=>onNavigate(page)}><span>→</span>{label}</button>)}
+    </div>
+    <div className="grid">
+      <article className="card panel"><div className="panel-head"><h2>Tasks requiring attention</h2><button className="text-btn" onClick={()=>onNavigate("Tasks")}>View all</button></div><div className="tasks">{data.tasks.filter(row=>String(row.status)!=="completed").slice(0,6).map(row=><div className="task" key={String(row.id)}><div className="task-icon">✓</div><div><strong>{String(row.title??"Task")}</strong><small>{String(row.due_date??"No due date")}</small></div><span className="badge">{String(row.priority??row.status??"open")}</span></div>)}{!data.tasks.length&&<p className="muted">No team tasks require attention.</p>}</div></article>
+      <article className="card panel"><div className="panel-head"><h2>Upcoming birthdays</h2></div><div className="activity">{birthdays.map(person=><div className="activity-row" key={String(person.id)}><div className="avatar">{String(person.full_name??"TM").slice(0,2).toUpperCase()}</div><p><strong>{String(person.full_name)}</strong><br/><span className="muted">{String(person.position_title??"Team member")}</span></p><time>{new Date(String(person.date_of_birth)).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</time></div>)}{!birthdays.length&&<p className="muted">No upcoming birthdays this month.</p>}</div></article>
+      <article className="card panel"><div className="panel-head"><h2>Important announcements</h2></div><div className="activity">{data.announcements.filter(row=>String(row.status)==="published").slice(0,5).map(row=><div className="activity-row" key={String(row.id)}><div className="task-icon">i</div><p><strong>{String(row.title)}</strong><br/><span className="muted">{String(row.body??"").slice(0,90)}</span></p></div>)}{!data.announcements.length&&<p className="muted">No published announcements.</p>}</div></article>
+      <article className="card panel"><div className="panel-head"><h2>AI manager insights</h2></div><p className="muted">AI suggestions support decisions but never approve, reject, discipline, terminate or promote employees automatically.</p><div className="tasks"><div className="task"><div className="task-icon">AI</div><div><strong>Team performance summary</strong><small>Review workload, attendance and goal patterns.</small></div></div><div className="task"><div className="task-icon">AI</div><div><strong>Leave conflict detection</strong><small>Check availability before approving overlapping leave.</small></div></div></div></article>
+    </div>
+  </section>;
+}
