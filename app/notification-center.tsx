@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import type { UserProfile } from "./lib/supabase-auth";
 import { DataRow, listRows, updateRow } from "./lib/supabase-data";
-
-const url=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
-const key=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 export function NotificationCenter({accessToken,profile}:{accessToken:string;profile:UserProfile}) {
   const [open,setOpen]=useState(false);
@@ -13,8 +10,7 @@ export function NotificationCenter({accessToken,profile}:{accessToken:string;pro
   const load=useCallback(async()=>setItems(await listRows(accessToken,"notifications","*",50)),[accessToken]);
   useEffect(()=>{void Promise.resolve().then(load);},[load]);
   useEffect(()=>{
-    const client=createClient(url,key,{global:{headers:{Authorization:`Bearer ${accessToken}`}}});
-    void client.realtime.setAuth(accessToken);
+    const client=realtimeClient(accessToken);
     const channel=client.channel(`notifications-${profile.id}`).on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`recipient_id=eq.${profile.id}`},payload=>{
       const item=payload.new as DataRow;setItems(current=>[item,...current]);
       if("Notification" in window&&Notification.permission==="granted")new Notification(String(item.title),{body:String(item.body)});

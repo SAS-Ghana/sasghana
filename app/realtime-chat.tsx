@@ -1,10 +1,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import type { UserProfile } from "./lib/supabase-auth";
 import { createRow, DataRow, listRows } from "./lib/supabase-data";
-
-const url=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
-const key=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 export function ChatPopup({accessToken,profile}:{accessToken:string;profile:UserProfile}) {
   const [open,setOpen]=useState(false);
@@ -27,8 +24,7 @@ export function ChatPopup({accessToken,profile}:{accessToken:string;profile:User
   });},[accessToken,loadMessages]);
 
   useEffect(()=>{
-    const client=createClient(url,key,{global:{headers:{Authorization:`Bearer ${accessToken}`}}});
-    void client.realtime.setAuth(accessToken);
+    const client=realtimeClient(accessToken);
     const subscription=client.channel(`sas-chat-${profile.organisation_id}`)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"chat_messages",filter:`organisation_id=eq.${profile.organisation_id}`},payload=>{
         const row=payload.new as DataRow;
