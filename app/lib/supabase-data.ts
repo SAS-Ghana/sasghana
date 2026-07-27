@@ -63,6 +63,22 @@ export function listRows(
   );
 }
 
+export function listRowsWhere(
+  accessToken: string,
+  table: string,
+  filters: Record<string, string>,
+  select = "*",
+  limit = 250,
+) {
+  const filterQuery = Object.entries(filters)
+    .map(([key, value]) => `${encodeURIComponent(key)}=eq.${encodeURIComponent(value)}`)
+    .join("&");
+  return request<DataRow[]>(
+    accessToken,
+    `${table}?select=${encodeURIComponent(select)}&${filterQuery}&order=created_at.desc&limit=${limit}`,
+  );
+}
+
 export function listNamedRows(
   accessToken: string,
   table: string,

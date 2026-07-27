@@ -11,8 +11,10 @@ import { NotificationSettings } from "./notification-settings";
 import { NotificationCenter } from "./notification-center";
 import { DocumentStudio } from "./document-studio";
 import { GlobalSearch } from "./global-search";
+import { EmployeeHome } from "./employee-home";
+import { PeopleDirectory } from "./people-directory";
 
-const workspaceNav = ["Dashboard","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Document Studio","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
+const workspaceNav = ["Dashboard","Directory","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Document Studio","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
 const adminNav = ["User accounts","Branches","Backups","Settings","Security & audit"];
 
 const pagePermissions: Record<string,string[]> = {
@@ -39,6 +41,7 @@ const pagePermissions: Record<string,string[]> = {
   Branches:["settings.manage"],
   Settings:["settings.manage"],
   "Security & audit":["audit.view","security.manage"],
+  Directory:["directory.view"],
 };
 
 export function PeopleDashboard({
@@ -54,6 +57,7 @@ export function PeopleDashboard({
   const mainRef=useRef<HTMLElement>(null);
   const accountRef=useRef<HTMLDivElement>(null);
   const isAdmin=profile.roles.includes("SAS System Administrator")||profile.account_type==="administrator";
+  const isPeopleLeader=isAdmin||["hr","manager","auditor"].includes(profile.account_type);
   const canAccess=(page:string)=>isAdmin||page==="Dashboard"||!pagePermissions[page]||pagePermissions[page].some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(page);
   const availableWorkspace=workspaceNav.filter(canAccess);
   const availableAdmin=adminNav.filter(canAccess);
@@ -84,7 +88,8 @@ export function PeopleDashboard({
       </header>
       <div className="content">
         {search.trim() ? <GlobalSearch accessToken={accessToken} query={search} onNavigate={navigate} onClear={()=>setSearch("")}/> :
-          active==="Dashboard" ? <DashboardPage accessToken={accessToken} profile={profile} onNavigate={navigate}/> :
+          active==="Dashboard" ? isPeopleLeader?<DashboardPage accessToken={accessToken} profile={profile} onNavigate={navigate}/>:<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate}/> :
+          active==="Directory" ? <PeopleDirectory accessToken={accessToken}/> :
           active==="User accounts" ? <AccountManagementPage accessToken={accessToken}/> :
           active==="Document Studio" ? <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/> :
           <ModulePage config={workspaceModules[active]} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>}

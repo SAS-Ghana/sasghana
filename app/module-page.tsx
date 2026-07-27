@@ -68,6 +68,24 @@ export function ModulePage({
     }
   }
 
+  function exportRecords(format:"csv"|"word"|"pdf"){
+    const columns=config.columns;
+    const rowsHtml=visibleRows.map(row=>`<tr>${columns.map(c=>`<td>${escapeHtml(formatValue(row[c.key]))}</td>`).join("")}</tr>`).join("");
+    const table=`<table><thead><tr>${columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join("")}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+    if(format==="pdf"){
+      const popup=window.open("","_blank","width=1100,height=800");
+      popup?.document.write(`<!doctype html><html><head><title>${escapeHtml(config.title)} report</title><style>body{font:12px Arial;padding:32px;color:#0b1426}h1{border-bottom:3px solid #00afe3;padding-bottom:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #d7dee8;text-align:left}th{background:#0b1426;color:#fff}</style></head><body><h1>${escapeHtml(config.title)} report</h1><p>Generated ${new Date().toLocaleString()}</p>${table}<script>window.onload=()=>window.print()</script></body></html>`);
+      popup?.document.close();return;
+    }
+    const content=format==="csv"
+      ?[columns.map(c=>csvCell(c.label)).join(","),...visibleRows.map(row=>columns.map(c=>csvCell(formatValue(row[c.key]))).join(","))].join("\n")
+      :`<html><body><h1>${escapeHtml(config.title)} report</h1>${table}</body></html>`;
+    const link=document.createElement("a");
+    link.href=URL.createObjectURL(new Blob([content],{type:format==="csv"?"text/csv;charset=utf-8":"application/msword"}));
+    link.download=`sas-${config.table}-${new Date().toISOString().slice(0,10)}.${format==="csv"?"csv":"doc"}`;
+    link.click();URL.revokeObjectURL(link.href);
+  }
+
   async function printRecord(row:DataRow) {
     let employeeRow=row;
     if(config.table==="payroll_records"){
@@ -97,7 +115,7 @@ export function ModulePage({
   return <section>
     <header className="page-header">
       <div><span className="eyebrow">SAS People workspace</span><h1>{config.title}</h1><p className="muted">{config.subtitle}</p></div>
-      <button className="primary" onClick={() => setEditing(null)}>Add {config.singular}</button>
+      <div className="page-actions"><button className="secondary" onClick={()=>exportRecords("csv")}>Excel / CSV</button><button className="secondary" onClick={()=>exportRecords("word")}>Word</button><button className="secondary" onClick={()=>exportRecords("pdf")}>PDF</button><button className="primary" onClick={() => setEditing(null)}>Add {config.singular}</button></div>
     </header>
     <div className="summary-strip">
       <div><strong>{rows.length}</strong><span>Total records</span></div>
@@ -130,6 +148,7 @@ function formatValue(value: DataRow[string]) {
 }
 
 function money(value:DataRow[string]){return new Intl.NumberFormat("en-GH",{style:"currency",currency:"GHS"}).format(Number(value??0));}
+function csvCell(value:string){return `"${value.replaceAll('"','""')}"`;}
 function mergeTemplate(template:string,employee:DataRow,payroll:DataRow){
   const values:Record<string,string>={
     "{{today}}":new Date().toLocaleDateString("en-GB"),
