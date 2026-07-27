@@ -192,6 +192,16 @@ function RecordDialog({
       payload[field.key] = value === "" ? null : field.type === "number" ? Number(value) : value === "true" ? true : value === "false" ? false : value;
     }
     try {
+      if(config.table==="meetings"&&values.starts_at&&values.ends_at){
+        const [holidayRows,blockRows]=await Promise.all([
+          listRows(accessToken,"company_holidays","*",500).catch(()=>[]),
+          listRows(accessToken,"availability_blocks","*",500).catch(()=>[]),
+        ]);
+        const starts=new Date(values.starts_at),ends=new Date(values.ends_at);
+        const holiday=holidayRows.find(item=>item.blocks_meetings&&String(item.holiday_date)===values.starts_at.slice(0,10));
+        const conflicts=blockRows.filter(item=>starts<new Date(String(item.ends_at))&&ends>new Date(String(item.starts_at)));
+        if((holiday||conflicts.length)&&!window.confirm(`${holiday?`This date is blocked for ${holiday.name}. `:""}${conflicts.length?`${conflicts.length} attendee availability block(s) overlap. `:""}Create the meeting anyway?`)){setBusy(false);return;}
+      }
       let recordId=String(row?.id??"");
       if (row?.id) await updateRow(accessToken,config.table,recordId,payload);
       else {

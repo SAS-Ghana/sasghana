@@ -51,6 +51,17 @@ export async function callFunction<T>(
   return result;
 }
 
+export function callRpc<T>(
+  accessToken:string,
+  functionName:string,
+  body:Record<string,unknown>,
+) {
+  return request<T>(accessToken,`rpc/${functionName}`,{
+    method:"POST",
+    body:JSON.stringify(body),
+  });
+}
+
 export function listRows(
   accessToken: string,
   table: string,
@@ -100,6 +111,18 @@ export function createRow(
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(row),
+  });
+}
+
+export function createRows(
+  accessToken: string,
+  table: string,
+  rows: DataRow[],
+) {
+  return request<DataRow[]>(accessToken, table, {
+    method: "POST",
+    headers: { Prefer: "return=representation,resolution=ignore-duplicates" },
+    body: JSON.stringify(rows),
   });
 }
 

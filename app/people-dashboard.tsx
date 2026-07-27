@@ -13,9 +13,14 @@ import { DocumentStudio } from "./document-studio";
 import { GlobalSearch } from "./global-search";
 import { EmployeeHome } from "./employee-home";
 import { PeopleDirectory } from "./people-directory";
+import { PerformanceHub } from "./performance-hub";
+import { CalendarHub } from "./calendar-hub";
+import { OnboardingHub } from "./onboarding-hub";
+import { DepartmentHub } from "./department-hub";
+import { TeamHub } from "./team-hub";
 
-const workspaceNav = ["Dashboard","Directory","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Document Studio","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
-const adminNav = ["User accounts","Branches","Backups","Settings","Security & audit"];
+const workspaceNav = ["Dashboard","Calendar","Directory","Employees","Hiring","Candidates","Onboarding","Onboarding media","Documents","Document Studio","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports"];
+const adminNav = ["User accounts","Departments","Branches","Backups","Settings","Security & audit"];
 
 const pagePermissions: Record<string,string[]> = {
   Employees:["employees.view_all","employees.view_department","employees.view_team","employees.view_self"],
@@ -39,9 +44,11 @@ const pagePermissions: Record<string,string[]> = {
   Reports:["reports.view"],
   "User accounts":["users.manage"],
   Branches:["settings.manage"],
+  Departments:["departments.manage"],
   Settings:["settings.manage"],
   "Security & audit":["audit.view","security.manage"],
   Directory:["directory.view"],
+  Calendar:["calendar.view","calendar.manage"],
 };
 
 export function PeopleDashboard({
@@ -90,6 +97,11 @@ export function PeopleDashboard({
         {search.trim() ? <GlobalSearch accessToken={accessToken} query={search} onNavigate={navigate} onClear={()=>setSearch("")}/> :
           active==="Dashboard" ? isPeopleLeader?<DashboardPage accessToken={accessToken} profile={profile} onNavigate={navigate}/>:<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate}/> :
           active==="Directory" ? <PeopleDirectory accessToken={accessToken}/> :
+          active==="Performance" ? <PerformanceHub accessToken={accessToken} profile={profile}/> :
+          active==="Calendar" ? <CalendarHub accessToken={accessToken} profile={profile}/> :
+          active==="Onboarding" ? <OnboardingHub accessToken={accessToken} profile={profile}/> :
+          active==="Departments" ? <DepartmentHub accessToken={accessToken} profile={profile}/> :
+          active==="Employees" && profile.account_type==="manager" ? <TeamHub accessToken={accessToken}/> :
           active==="User accounts" ? <AccountManagementPage accessToken={accessToken}/> :
           active==="Document Studio" ? <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id}/> :
           <ModulePage config={workspaceModules[active]} accessToken={accessToken} organisationId={profile.organisation_id} search={search}/>}
