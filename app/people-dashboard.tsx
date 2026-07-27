@@ -34,7 +34,7 @@ const groups=[
   ["DEVELOPMENT",[["Onboarding & Training","↗"]]],
   ["ENGAGEMENT",[["Surveys & Feedback","◌"],["Engagement Analytics","▤"],["Announcements","◫"],["Messages","✉"]]],
   ["PEOPLE",[["Employees","♟"],["User Management","⚙"],["Profile Requests","↺"]]],
-  ["SYSTEM",[["Audit Logs","▤"],["Backup & Restore","↻"],["Billings & Subscriptions","¤"],["Settings","⚙"]]],
+  ["SYSTEM",[["Audit Logs","▤"],["Backup & Restore","↻"],["Settings","⚙"]]],
 ] as const;
 
 const aliases:Record<string,string>={"Leave Management":"Leave","Time Off Calendar":"Calendar","Performance Reviews":"Performance","1:1 Meetings":"Meetings","Recruitment":"Hiring","HR Reports & Analytics":"Reports","Advanced Reports":"Reports","Task Assignments":"Tasks","Onboarding & Training":"Onboarding","User Management":"User accounts","Audit Logs":"Security & audit","Backup & Restore":"Backups","My Profile":"Self-Service Hub"};
@@ -45,7 +45,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   const mainRef=useRef<HTMLElement>(null),accountRef=useRef<HTMLDivElement>(null);
   const isAdmin=profile.roles.includes("SAS System Administrator")||profile.account_type==="administrator";
   const isPeopleLeader=isAdmin||["hr","manager","auditor"].includes(profile.account_type);
-  const canAccess=(label:string)=>{const page=aliases[label]||label;if(label==="Billings & Subscriptions")return isAdmin;if(label==="My Profile"||label==="Self-Service Hub")return profile.self_service_enabled!==false;if(isAdmin)return true;const required=pagePermissions[page];return !required||required.some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(label)||profile.dashboard_access.includes(page);};
+  const canAccess=(label:string)=>{const page=aliases[label]||label;if(label==="My Profile"||label==="Self-Service Hub")return profile.self_service_enabled!==false;if(isAdmin)return true;const required=pagePermissions[page];return !required||required.some(permission=>profile.permissions.includes(permission))||profile.dashboard_access.includes(label)||profile.dashboard_access.includes(page);};
   function navigate(label:string){setActive(label);setDrawer(false);setSearch("");requestAnimationFrame(()=>mainRef.current?.scrollTo({top:0,behavior:"smooth"}));}
   useEffect(()=>{function closeAccount(event:PointerEvent){if(accountRef.current&&!accountRef.current.contains(event.target as Node))setAccountOpen(false);}document.addEventListener("pointerdown",closeAccount);return()=>document.removeEventListener("pointerdown",closeAccount);},[]);
   const route=aliases[active]||active;
