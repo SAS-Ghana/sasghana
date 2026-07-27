@@ -10,17 +10,27 @@ export function ChatPopup({accessToken,profile}:{accessToken:string;profile:User
   const [messages,setMessages]=useState<DataRow[]>([]);
   const [text,setText]=useState("");
   const [unread,setUnread]=useState(0);
+  const [error,setError]=useState("");
   const openRef=useRef(open);
   useEffect(()=>{openRef.current=open;},[open]);
 
   const loadMessages=useCallback(async(id:string)=>{
-    const rows=await listRows(accessToken,"chat_messages","*",100);
-    setMessages(rows.filter(row=>row.channel_id===id&& !row.deleted_at).reverse());
+    if(!id)return;
+    try{
+      setError("");
+      const rows=await listRows(accessToken,"chat_messages_with_sender","*",100);
+      setMessages(rows.filter(row=>String(row.channel_id)===id&&!row.deleted_at).reverse());
+    }catch(cause){
+      setError(cause instanceof Error?cause.message:"Messages could not be loaded.");
+    }
   },[accessToken]);
 
   useEffect(()=>{void Promise.resolve().then(async()=>{
-    const rows=await listRows(accessToken,"chat_channels","*",50);
-    setChannels(rows); if(rows[0]){setChannelId(String(rows[0].id));await loadMessages(String(rows[0].id));}
+    try{
+      const rows=await listRows(accessToken,"chat_channels","*",50);
+      setChannels(rows);
+      if(rows[0]){const first=String(rows[0].id);setChannelId(first);await loadMessages(first);}
+    }catch(cause){setError(cause instanceof Error?cause.message:"Chat channels could not be loaded.");}
   });},[accessToken,loadMessages]);
 
   useEffect(()=>{
@@ -28,16 +38,19 @@ export function ChatPopup({accessToken,profile}:{accessToken:string;profile:User
     const subscription=client.channel(`sas-chat-${profile.organisation_id}`)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"chat_messages",filter:`organisation_id=eq.${profile.organisation_id}`},payload=>{
         const row=payload.new as DataRow;
-        if(String(row.channel_id)===channelId)setMessages(current=>[...current,row]);
+        if(String(row.channel_id)===channelId)void loadMessages(channelId);
         if(!openRef.current){setUnread(value=>value+1);playNotificationTone();}
       }).subscribe();
     return()=>{void client.removeChannel(subscription);};
-  },[accessToken,channelId,profile.organisation_id]);
+  },[accessToken,channelId,loadMessages,profile.organisation_id]);
 
   async function send(event:FormEvent){
-    event.preventDefault(); if(!text.trim()||!channelId)return;
-    const message=text.trim();setText("");
-    await createRow(accessToken,"chat_messages",{organisation_id:profile.organisation_id,channel_id:channelId,sender_id:profile.id,message});
+    event.preventDefault();if(!text.trim()||!channelId)return;
+    const message=text.trim();setText("");setError("");
+    try{
+      await createRow(accessToken,"chat_messages",{organisation_id:profile.organisation_id,channel_id:channelId,sender_id:profile.id,message});
+      await loadMessages(channelId);
+    }catch(cause){setText(message);setError(cause instanceof Error?cause.message:"Message could not be sent.");}
   }
 
   function toggle(){setOpen(value=>!value);setUnread(0);}
@@ -46,7 +59,8 @@ export function ChatPopup({accessToken,profile}:{accessToken:string;profile:User
     {open&&<section className="chat-panel" aria-label="Employee chat">
       <header><div><strong>Employee chat</strong><small>Messages expire after 30 days</small></div><button onClick={toggle} aria-label="Close chat">×</button></header>
       <select value={channelId} onChange={e=>{setChannelId(e.target.value);void loadMessages(e.target.value);}}>{channels.map(row=><option key={String(row.id)} value={String(row.id)}>{String(row.name??"Conversation")}</option>)}</select>
-      <div className="chat-messages">{messages.length===0?<p>No messages yet. Start the conversation.</p>:messages.map(row=><article className={row.sender_id===profile.id?"mine":""} key={String(row.id)}><strong>{row.sender_id===profile.id?"You":"Team member"}</strong><p>{String(row.message??"")}</p><time>{new Date(String(row.created_at)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</time></article>)}</div>
+      {error&&<p className="form-error">{error}</p>}
+      <div className="chat-messages">{messages.length===0?<p>No messages yet. Start the conversation.</p>:messages.map(row=>{const mine=String(row.sender_id)===profile.id;const sender=mine?"You":String(row.sender_display_name||row.sender_username||"Team member");return <article className={mine?"mine":""} key={String(row.id)}><strong>{sender}</strong>{!mine&&row.sender_username&&row.sender_display_name&&<small>@{String(row.sender_username)}</small>}<p>{String(row.message??"")}</p><time>{new Date(String(row.created_at)).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</time></article>;})}</div>
       <form onSubmit={send}><input aria-label="Chat message" value={text} onChange={e=>setText(e.target.value)} placeholder="Write a message..."/><button className="primary">Send</button></form>
     </section>}
   </aside>;
