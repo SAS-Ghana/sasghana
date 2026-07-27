@@ -17,6 +17,7 @@ import { AttendanceHub } from "./attendance-hub";
 import { AuditHub } from "./audit-hub";
 import { SettingsConfigurationPage } from "./settings-configuration-page";
 import { DocumentStudio } from "./document-studio";
+import { AccountManagementPage } from "./account-management-page";
 import { ManagerDashboard } from "./manager-dashboard";
 import { ManagerSectionPage } from "./manager-section-page";
 import { HRDashboard } from "./hr-dashboard";
@@ -60,7 +61,7 @@ const adminGroups=[
 
 type GroupSet=typeof managerGroups|typeof hrGroups|typeof adminGroups;
 export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:{accessToken:string;profile:UserProfile;onLogout:()=>void;onChangePassword:()=>void}){
- const [drawer,setDrawer]=useState(false),[active,setActive]=useState(profile.preferred_dashboard||"Administrator Dashboard"),[accountOpen,setAccountOpen]=useState(false),[search,setSearch]=useState(""),[notificationSettings,setNotificationSettings]=useState(false);
+ const [drawer,setDrawer]=useState(false),[active,setActive]=useState(profile.preferred_dashboard||"Dashboard"),[accountOpen,setAccountOpen]=useState(false),[search,setSearch]=useState(""),[notificationSettings,setNotificationSettings]=useState(false);
  const mainRef=useRef<HTMLElement>(null),accountRef=useRef<HTMLDivElement>(null);
  const accountType=(profile.account_type||"employee").toLowerCase();
  const isAdmin=profile.roles.includes("SAS System Administrator")||accountType==="administrator";
@@ -81,6 +82,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   if(mode==="admin"){
    if(active==="Administrator Dashboard")return <AdminDashboard accessToken={accessToken} profile={profile} onNavigate={navigate}/>;
    if(active==="My Profile")return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/>;
+   if(active==="User & Account Management")return <AccountManagementPage accessToken={accessToken}/>;
    if(active==="Employee Management")return <PeopleDirectory accessToken={accessToken}/>;
    if(active==="Organization Structure")return <DepartmentHub accessToken={accessToken} profile={profile}/>;
    if(active==="Attendance Management")return <AttendanceHub accessToken={accessToken}/>;
@@ -94,7 +96,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
   if(mode==="hr"){
    if(active==="HR Dashboard")return <HRDashboard accessToken={accessToken} profile={profile} onNavigate={navigate}/>;
    if(active==="My Profile")return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/>;
-   if(active==="Employee Directory")return <PeopleDirectory accessToken={accessToken}/>;
+   if(active==="Employee Directory"||active==="Employee Management")return <PeopleDirectory accessToken={accessToken}/>;
    if(active==="Onboarding")return <OnboardingHub accessToken={accessToken} profile={profile}/>;
    if(active==="Attendance Management")return <AttendanceHub accessToken={accessToken}/>;
    if(active==="Performance Management")return <PerformanceHub accessToken={accessToken} profile={profile}/>;
@@ -102,7 +104,7 @@ export function PeopleDashboard({accessToken,profile,onLogout,onChangePassword}:
    if(active==="Organization Structure")return <DepartmentHub accessToken={accessToken} profile={profile}/>;
    return <HRSectionPage label={active} accessToken={accessToken} organisationId={profile.organisation_id}/>;
   }
-  return active==="Manager Dashboard"?<ManagerDashboard accessToken={accessToken} profile={profile} onNavigate={navigate}/>:active==="My Profile"?<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/>:active==="My Team"?<TeamHub accessToken={accessToken}/>:active==="Team Performance"?<PerformanceHub accessToken={accessToken} profile={profile}/>:active==="Team Calendar"||active==="One to One Meetings"?<CalendarHub accessToken={accessToken} profile={profile}/>:<ManagerSectionPage label={active} accessToken={accessToken}/>;
+  return active==="Manager Dashboard"?<ManagerDashboard accessToken={accessToken} profile={profile} onNavigate={navigate}/>:active==="My Profile"?<EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={()=>setNotificationSettings(true)} onLogout={onLogout}/>:active==="My Team"?<TeamHub accessToken={accessToken}/>:active==="Team Attendance"?<AttendanceHub accessToken={accessToken}/>:active==="Team Performance"?<PerformanceHub accessToken={accessToken} profile={profile}/>:active==="Team Calendar"||active==="One to One Meetings"?<CalendarHub accessToken={accessToken} profile={profile}/>:<ManagerSectionPage label={active} accessToken={accessToken}/>;
  };
  return <div className="app"><div className={`drawer-backdrop ${drawer?"open":""}`} onClick={()=>setDrawer(false)}/><aside className={`sidebar ${drawer?"open":""}`} aria-label="Primary navigation"><div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group"/><div><strong>SAS People</strong><small>{mode==="admin"?"Organization control":mode==="hr"?"HR administration":"Manager workspace"}</small></div></div>{groups.map(([group,items])=><div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label])=>canAccess(label)).map(([label,icon])=><button key={label} className={active===label?"active":""} onClick={()=>navigate(label)}><span className="nav-icon">{icon}</span>{label}</button>)}</nav></div>)}<div className="sidebar-footer">SAS Finance Group Ghana<br/>Private & confidential</div></aside><main className="main" ref={mainRef}><header className="topbar"><button className="mobile-menu" onClick={()=>setDrawer(true)}>Menu</button><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder={mode==="admin"?"Search organization administration...":mode==="hr"?"Search HR workspace...":"Search your team workspace..."}/><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile}/><button className="account-button" onClick={()=>setAccountOpen(v=>!v)}><div className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0]??profile.account_type}</small></div></button>{accountOpen&&<div className="account-menu"><button onClick={()=>navigate("My Profile")}>My profile</button><button onClick={()=>setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header><div className="content">{render()}</div><ChatPopup accessToken={accessToken} profile={profile}/>{notificationSettings&&<NotificationSettings accessToken={accessToken} profile={profile} onClose={()=>setNotificationSettings(false)}/>}</main></div>;
 }
