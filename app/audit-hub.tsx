@@ -10,7 +10,11 @@ function formatDate(value: unknown) {
 }
 
 function accountName(row: DataRow) {
-  return String(row.actor_name ?? row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>).username ?? "Account" : "Account");
+  if (row.actor_name) return String(row.actor_name);
+  if (row.metadata && typeof row.metadata === "object") {
+    return String((row.metadata as Record<string, unknown>).username ?? "Account");
+  }
+  return "Account";
 }
 
 export function AuditHub({ accessToken }: { accessToken: string }) {
