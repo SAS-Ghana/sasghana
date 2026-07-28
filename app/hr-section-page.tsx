@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { callRpc, DataRow, listRows, updateRow } from "./lib/supabase-data";
 import { AdminSectionPage } from "./admin-section-page";
 
@@ -8,12 +8,6 @@ type Config = {
   description: string;
   columns: [string, string][];
   actions: string[];
-};
-
-type SettingDraft = {
-  settingGroup: string;
-  settingKey: string;
-  settingValue: string;
 };
 
 const configs: Record<string, Config> = {
@@ -38,7 +32,6 @@ const configs: Record<string, Config> = {
   "Organization Structure": { table: "departments", title: "Organization Structure", description: "Manage branches, departments, teams, positions, job titles, locations and reporting relationships.", columns: [["name", "Department"], ["code", "Code"], ["manager_name", "Manager"], ["branch_name", "Branch"], ["status", "Status"]], actions: ["Add department", "Organization chart"] },
   "Workflows & Approvals": { table: "approval_workflows", title: "Workflows & Approvals", description: "Configure leave, expense, attendance, recruitment, transfer, document, training and offboarding approvals.", columns: [["name", "Workflow"], ["workflow_type", "Type"], ["steps", "Steps"], ["status", "Status"], ["updated_at", "Updated"]], actions: ["Create workflow"] },
   Notifications: { table: "notifications", title: "HR Notifications", description: "Review workforce alerts, deadlines, requests, document expiry and HR operational notifications.", columns: [["title", "Notification"], ["category", "Category"], ["created_at", "Created"], ["read_at", "Read"], ["priority", "Priority"]], actions: ["Mark all read"] },
-  "HR Settings": { table: "hr_settings", title: "HR Settings", description: "Manage HR operational settings. Organization wide security and ownership settings remain Admin controlled.", columns: [["setting_group", "Group"], ["setting_key", "Setting"], ["setting_value", "Value"], ["updated_at", "Updated"]], actions: ["Add setting"] },
 };
 
 const validatedAliases: Record<string, string> = {
@@ -55,8 +48,7 @@ const validatedAliases: Record<string, string> = {
   "Reports & Analytics": "Reports & Analytics",
 };
 
-const blocked = /billing|subscription|tenant|developer|audit log|supabase|payment credential/i;
-const emptySetting: SettingDraft = { settingGroup: "", settingKey: "", settingValue: "" };
+const blocked = /billing|subscription|tenant|developer|audit log|supabase|payment credential|hr settings/i;
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
@@ -77,8 +69,6 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [settingOpen, setSettingOpen] = useState(false);
-  const [settingDraft, setSettingDraft] = useState<SettingDraft>(emptySetting);
 
   const load = useCallback(async () => {
     if (!config) return;
@@ -93,13 +83,10 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
 
   useEffect(() => { void load(); }, [load]);
 
-  const visible = useMemo(
-    () => rows.filter((row) =>
-      (status === "all" || String(row.status) === status) &&
-      (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
-    ),
-    [rows, query, status],
-  );
+  const visible = useMemo(() => rows.filter((row) =>
+    (status === "all" || String(row.status) === status) &&
+    (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
+  ), [rows, query, status]);
 
   if (!config || blocked.test(label)) {
     return <section className="card data-panel"><h2>Access unavailable</h2><p>This module is not available to HR.</p></section>;
@@ -145,12 +132,6 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
       return;
     }
 
-    if (label === "HR Settings" && action === "Add setting") {
-      setSettingDraft(emptySetting);
-      setSettingOpen(true);
-      return;
-    }
-
     setNotice(`${action} is available from its full validated management page.`);
   }
 
@@ -168,44 +149,6 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
       setNotice(isRead ? "Notification marked as read." : "Notification marked as unread.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Notification could not be updated.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function editSetting(row: DataRow) {
-    setSettingDraft({
-      settingGroup: String(row.setting_group ?? ""),
-      settingKey: String(row.setting_key ?? ""),
-      settingValue: typeof row.setting_value === "object" ? JSON.stringify(row.setting_value, null, 2) : String(row.setting_value ?? ""),
-    });
-    setSettingOpen(true);
-  }
-
-  async function saveSetting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      let settingValue: unknown = settingDraft.settingValue.trim();
-      if (settingDraft.settingValue.trim()) {
-        try { settingValue = JSON.parse(settingDraft.settingValue); } catch { settingValue = settingDraft.settingValue.trim(); }
-      } else {
-        settingValue = {};
-      }
-
-      await callRpc(accessToken, "upsert_hr_setting", {
-        p_setting_group: settingDraft.settingGroup.trim(),
-        p_setting_key: settingDraft.settingKey.trim(),
-        p_setting_value: settingValue,
-      });
-      setSettingOpen(false);
-      setSettingDraft(emptySetting);
-      await load();
-      setNotice("HR setting saved successfully.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "HR setting could not be saved.");
     } finally {
       setBusy(false);
     }
@@ -239,108 +182,13 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
     }
   }
 
-  return (
-    <section>
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">HR administration</span>
-          <h1>{config.title}</h1>
-          <p className="muted">{config.description}</p>
-        </div>
-        <div className="row-actions">
-          {config.actions.map((action) => (
-            <button key={action} type="button" className={action === config.actions[0] ? "primary" : "secondary"} disabled={busy} onClick={() => void quickAction(action)}>
-              {action}
-            </button>
-          ))}
-        </div>
-      </header>
+  return <section>
+    <header className="page-header"><div><span className="eyebrow">HR administration</span><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="row-actions">{config.actions.map((action) => <button key={action} type="button" className={action === config.actions[0] ? "primary" : "secondary"} disabled={busy} onClick={() => void quickAction(action)}>{action}</button>)}</div></header>
+    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
-      {error && <p className="form-error" role="alert">{error}</p>}
-      {notice && <p className="form-message" aria-live="polite">{notice}</p>}
-
-      <article className="card data-panel">
-        <div className="filter-toolbar">
-          <input id={`search-${config.table}`} name={`search_${config.table}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}...`} />
-          <select id={`status-${config.table}`} name={`status_${config.table}`} value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="all">All statuses</option>
-            {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <button type="button" className="secondary" onClick={() => void load()}>Refresh</button>
-          <button type="button" className="secondary" onClick={exportCsv}>Export CSV</button>
-          <button type="button" className="secondary" onClick={() => window.print()}>Print</button>
-        </div>
-
-        {visible.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead><tr>{config.columns.map(([, name]) => <th key={name}>{name}</th>)}<th>Actions</th></tr></thead>
-              <tbody>
-                {visible.map((row, index) => (
-                  <tr key={String(row.id ?? index)}>
-                    {config.columns.map(([key]) => <td key={key}>{displayValue(row[key])}</td>)}
-                    <td>
-                      <div className="row-actions">
-                        {label === "Notifications" ? (
-                          <button type="button" disabled={busy} onClick={() => void setNotificationRead(row, !Boolean(row.is_read))}>
-                            {row.is_read ? "Mark unread" : "Mark read"}
-                          </button>
-                        ) : label === "HR Settings" ? (
-                          <button type="button" disabled={busy} onClick={() => editSetting(row)}>Edit</button>
-                        ) : label === "HR Help Desk" ? (
-                          <>
-                            <button type="button" onClick={() => void setRowStatus(row, "open")}>Open</button>
-                            <button type="button" onClick={() => void setRowStatus(row, "in_progress")}>In progress</button>
-                            <button type="button" onClick={() => void setRowStatus(row, "resolved")}>Resolve</button>
-                            <button type="button" onClick={() => void setRowStatus(row, "closed")}>Close</button>
-                            <button type="button" onClick={() => void setRowStatus(row, "reopened")}>Reopen</button>
-                          </>
-                        ) : "status" in row ? (
-                          <>
-                            <button type="button" onClick={() => void setRowStatus(row, "approved")}>Approve</button>
-                            <button type="button" onClick={() => void setRowStatus(row, "rejected")}>Reject</button>
-                          </>
-                        ) : null}
-                        <button type="button" onClick={() => window.print()}>Print</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="empty-state"><h3>No records yet</h3><p>No records are available in this module. Use the actions above to begin where permitted.</p></div>
-        )}
-      </article>
-
-      {settingOpen && (
-        <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingOpen(false); }}>
-          <section className="modal record-modal" role="dialog" aria-modal="true" aria-labelledby="hr-setting-title">
-            <button type="button" className="modal-close" aria-label="Close" onClick={() => setSettingOpen(false)}>×</button>
-            <span className="eyebrow">HR configuration</span>
-            <h2 id="hr-setting-title">Add or update HR setting</h2>
-            <form className="record-form" onSubmit={saveSetting}>
-              <label htmlFor="hr-setting-group">
-                Setting group
-                <input id="hr-setting-group" name="setting_group" required value={settingDraft.settingGroup} onChange={(event) => setSettingDraft({ ...settingDraft, settingGroup: event.target.value })} placeholder="Leave, attendance, onboarding..." />
-              </label>
-              <label htmlFor="hr-setting-key">
-                Setting name
-                <input id="hr-setting-key" name="setting_key" required value={settingDraft.settingKey} onChange={(event) => setSettingDraft({ ...settingDraft, settingKey: event.target.value })} placeholder="annual_leave_days" />
-              </label>
-              <label htmlFor="hr-setting-value">
-                Setting value
-                <textarea id="hr-setting-value" name="setting_value" required value={settingDraft.settingValue} onChange={(event) => setSettingDraft({ ...settingDraft, settingValue: event.target.value })} placeholder='Enter text, a number, or JSON such as {"days": 20}' />
-              </label>
-              <div className="form-actions">
-                <button type="button" className="secondary" onClick={() => setSettingOpen(false)}>Cancel</button>
-                <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save setting"}</button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-    </section>
-  );
+    <article className="card data-panel">
+      <div className="filter-toolbar"><input id={`search-${config.table}`} name={`search_${config.table}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}...`} /><select id={`status-${config.table}`} name={`status_${config.table}`} value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="secondary" onClick={() => void load()}>Refresh</button><button type="button" className="secondary" onClick={exportCsv}>Export CSV</button><button type="button" className="secondary" onClick={() => window.print()}>Print</button></div>
+      {visible.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map(([, name]) => <th key={name}>{name}</th>)}<th>Actions</th></tr></thead><tbody>{visible.map((row, index) => <tr key={String(row.id ?? index)}>{config.columns.map(([key]) => <td key={key}>{displayValue(row[key])}</td>)}<td><div className="row-actions">{label === "Notifications" ? <button type="button" disabled={busy} onClick={() => void setNotificationRead(row, !Boolean(row.is_read))}>{row.is_read ? "Mark unread" : "Mark read"}</button> : label === "HR Help Desk" ? <><button type="button" onClick={() => void setRowStatus(row, "open")}>Open</button><button type="button" onClick={() => void setRowStatus(row, "in_progress")}>In progress</button><button type="button" onClick={() => void setRowStatus(row, "resolved")}>Resolve</button><button type="button" onClick={() => void setRowStatus(row, "closed")}>Close</button><button type="button" onClick={() => void setRowStatus(row, "reopened")}>Reopen</button></> : "status" in row ? <><button type="button" onClick={() => void setRowStatus(row, "approved")}>Approve</button><button type="button" onClick={() => void setRowStatus(row, "rejected")}>Reject</button></> : null}<button type="button" onClick={() => window.print()}>Print</button></div></td></tr>)}</tbody></table></div> : <div className="empty-state"><h3>No records yet</h3><p>No records are available in this module. Use the actions above to begin where permitted.</p></div>}
+    </article>
+  </section>;
 }
