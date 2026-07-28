@@ -8,6 +8,7 @@ import { PreferencesRuntimeV2 } from "../app/preferences-runtime-v2";
 import { NavigationScrollEnhancer } from "../app/navigation-scroll-enhancer";
 import { EmployeeHeaderActionsEnhancer } from "../app/employee-header-actions-enhancer";
 import { EmployeeCalendarEnhancer } from "../app/employee-calendar-enhancer";
+import { EmployeeModuleCounterEnhancer } from "../app/employee-module-counter-enhancer";
 import "../app/globals.css";
 import "../app/employee-shell.css";
 import "../app/employee-portal-v2.css";
@@ -22,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
     <NavigationScrollEnhancer />
     <EmployeeHeaderActionsEnhancer />
     <EmployeeCalendarEnhancer />
+    <EmployeeModuleCounterEnhancer />
     <SasPeopleApp />
   </StrictMode>,
 );
