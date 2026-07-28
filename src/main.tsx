@@ -5,6 +5,7 @@ import { FormOtherEnhancer } from "../app/form-other-enhancer";
 import { DashboardPolishEnhancer } from "../app/dashboard-polish-enhancer";
 import { PreferencesRuntimeEnhancer } from "../app/preferences-runtime-enhancer";
 import { NavigationScrollEnhancer } from "../app/navigation-scroll-enhancer";
+import { EmployeeHeaderActionsEnhancer } from "../app/employee-header-actions-enhancer";
 import "../app/globals.css";
 import "../app/employee-shell.css";
 import "../app/employee-portal-v2.css";
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
     <DashboardPolishEnhancer />
     <PreferencesRuntimeEnhancer />
     <NavigationScrollEnhancer />
+    <EmployeeHeaderActionsEnhancer />
     <SasPeopleApp />
   </StrictMode>,
 );
