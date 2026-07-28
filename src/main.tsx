@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { SasPeopleApp } from "../app/sas-people-app";
 import { FormOtherEnhancer } from "../app/form-other-enhancer";
 import { DashboardPolishEnhancer } from "../app/dashboard-polish-enhancer";
-import { PreferencesRuntimeEnhancer } from "../app/preferences-runtime-enhancer";
+import { PreferencesRuntimeV2 } from "../app/preferences-runtime-v2";
 import { NavigationScrollEnhancer } from "../app/navigation-scroll-enhancer";
 import { EmployeeHeaderActionsEnhancer } from "../app/employee-header-actions-enhancer";
 import { EmployeeCalendarEnhancer } from "../app/employee-calendar-enhancer";
@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <FormOtherEnhancer />
     <DashboardPolishEnhancer />
-    <PreferencesRuntimeEnhancer />
+    <PreferencesRuntimeV2 />
     <NavigationScrollEnhancer />
     <EmployeeHeaderActionsEnhancer />
     <EmployeeCalendarEnhancer />
