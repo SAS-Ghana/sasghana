@@ -35,7 +35,16 @@ function applyNotificationShortcut(unread: number) {
     header.appendChild(shortcut);
   }
   shortcut.setAttribute("aria-label", unread ? `${unread} unread notifications` : "Notifications");
-  shortcut.innerHTML = `<span aria-hidden="true">♢</span>${unread > 0 ? `<b>${unread > 99 ? "99+" : unread}</b>` : ""}`;
+  shortcut.replaceChildren();
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "♢";
+  shortcut.appendChild(icon);
+  if (unread > 0) {
+    const badge = document.createElement("b");
+    badge.textContent = unread > 99 ? "99+" : String(unread);
+    shortcut.appendChild(badge);
+  }
 }
 
 function applyBadges(counts: Record<string, number>) {
@@ -58,7 +67,8 @@ function applyBadges(counts: Record<string, number>) {
       badge.className = "employee-tab-count";
       button.appendChild(badge);
     }
-    badge.textContent = value > 99 ? "99+" : String(value);
+    const nextText = value > 99 ? "99+" : String(value);
+    if (badge.textContent !== nextText) badge.textContent = nextText;
     badge.setAttribute("aria-label", `${value} pending or new items`);
   });
   applyNotificationShortcut(counts.Notifications ?? 0);
@@ -68,6 +78,7 @@ export function EmployeeModuleCounterEnhancer() {
   useEffect(() => {
     let cancelled = false;
     let loading = false;
+    let firstRenderObserver: MutationObserver | null = null;
 
     async function load() {
       if (loading) return;
@@ -132,20 +143,27 @@ export function EmployeeModuleCounterEnhancer() {
       }
     }
 
-    void load();
+    if (document.querySelector(".employee-module-tabs")) {
+      void load();
+    } else {
+      firstRenderObserver = new MutationObserver(() => {
+        if (!document.querySelector(".employee-module-tabs")) return;
+        firstRenderObserver?.disconnect();
+        firstRenderObserver = null;
+        void load();
+      });
+      firstRenderObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     const interval = window.setInterval(() => void load(), 30000);
     const refresh = () => void load();
-    const observer = new MutationObserver(() => {
-      if (document.querySelector(".employee-module-tabs")) void load();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("sas-data-changed", refresh);
     window.addEventListener("sas-notifications-changed", refresh);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
-      observer.disconnect();
+      firstRenderObserver?.disconnect();
       window.removeEventListener("sas-data-changed", refresh);
       window.removeEventListener("sas-notifications-changed", refresh);
     };
