@@ -86,7 +86,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const isManager = accountType === "manager" || profile.roles.some((role) => /manager|supervisor|team lead/i.test(role));
   const isEmployeeOnly = !isAdmin && !isHr && !isManager && accountType !== "auditor";
   const mode = isEmployeeOnly ? "employee" : isAdmin ? "admin" : isHr ? "hr" : isManager ? "manager" : "admin";
-  const counts = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
+  const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
   const groups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : managerGroups;
   const labels = new Set(groups.flatMap(([, items]) => items.map(([label]) => label)));
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Dashboard";
@@ -94,6 +94,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
+    markModuleSeen(label);
     setActive(label);
     setDrawer(false);
     setSearch("");
@@ -160,7 +161,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : "Manager workspace"}</small></div></div>
-      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label, icon]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon">{icon}</span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} pending or new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
+      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label, icon]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon">{icon}</span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
     </aside>
     <main className="main" ref={mainRef}>
