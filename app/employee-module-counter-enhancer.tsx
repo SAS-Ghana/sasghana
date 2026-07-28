@@ -95,7 +95,7 @@ export function EmployeeModuleCounterEnhancer() {
           safe(token, "payroll_records", profile.employee_id),
           safe(token, "employee_documents", profile.employee_id),
           safe(token, "performance_reviews", profile.employee_id),
-          safe(token, "employee_onboarding", profile.employee_id),
+          safe(token, "employee_training", profile.employee_id),
           safe(token, "tasks", profile.employee_id, "assigned_to_employee_id"),
           safe(token, "expense_claims", profile.employee_id),
           safe(token, "assets", profile.employee_id, "assigned_employee_id"),
