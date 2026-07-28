@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
+import { fetchProfile, getValidAccessToken, readSession } from "./lib/supabase-auth";
 import { createRow, DataRow, listNamedRows, listRows, listRowsWhere } from "./lib/supabase-data";
 
 type AssistantRole = "manager" | "hr";
@@ -10,7 +11,9 @@ const promptSets: Record<AssistantRole, string[]> = {
   hr: ["Summarise workforce risks", "Which HR approvals need attention?", "Draft an HR letter", "Create an onboarding checklist", "Show payroll and document readiness"],
 };
 
-export function AiAssistantPage({ role, accessToken, profile }: { role: AssistantRole; accessToken: string; profile: UserProfile }) {
+export function AiAssistantPage({ role, accessToken: providedToken, profile: providedProfile }: { role: AssistantRole; accessToken?: string; profile?: UserProfile }) {
+  const [accessToken, setAccessToken] = useState(providedToken ?? "");
+  const [profile, setProfile] = useState<UserProfile | null>(providedProfile ?? null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [data, setData] = useState<WorkspaceData>({});
@@ -18,7 +21,24 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (providedToken && providedProfile) { setAccessToken(providedToken); setProfile(providedProfile); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const session = readSession();
+        if (!session) throw new Error("Sign in again to use the assistant.");
+        const token = await getValidAccessToken(session.access_token);
+        const currentProfile = await fetchProfile(token, session.user.id);
+        if (!currentProfile) throw new Error("Your profile could not be loaded.");
+        if (!cancelled) { setAccessToken(token); setProfile(currentProfile); }
+      } catch (cause) { if (!cancelled) setError(cause instanceof Error ? cause.message : "The signed-in account could not be resolved."); }
+    })();
+    return () => { cancelled = true; };
+  }, [providedToken, providedProfile]);
+
   const load = useCallback(async () => {
+    if (!accessToken || !profile) return;
     setError("");
     const issues: string[] = [];
     const read = async (table: string, limit = 500) => {
@@ -26,11 +46,11 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
       catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; }
     };
     try {
+      let teamRows: DataRow[] = [];
       let teamIds: Set<string> | null = null;
       if (role === "manager") {
-        const team = await listNamedRows(accessToken, "managed_team_directory", "*", "full_name");
-        teamIds = new Set(team.map((row) => String(row.id)));
-        data.team = team;
+        teamRows = await listNamedRows(accessToken, "managed_team_directory", "*", "full_name");
+        teamIds = new Set(teamRows.map((row) => String(row.id)));
       }
       const [employees, leave, expenses, tasks, training, reviews, onboarding, offboarding, documents, tickets, jobs, announcements, meetings, payroll, assetRequests, benefits] = await Promise.all([
         read("employees"), read("leave_requests"), read("expense_claims"), read("tasks"), read("employee_training"), read("performance_reviews"),
@@ -39,7 +59,7 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
       ]);
       const scope = (rows: DataRow[], key = "employee_id") => role === "manager" && teamIds ? rows.filter((row) => teamIds.has(String(row[key] ?? row.employee_id ?? row.assigned_to_employee_id))) : rows;
       setData({
-        team: role === "manager" ? data.team ?? [] : employees,
+        team: role === "manager" ? teamRows : employees,
         employees: scope(employees, "id"), leave: scope(leave), expenses: scope(expenses), tasks: scope(tasks, "assigned_to_employee_id"),
         training: scope(training), reviews: scope(reviews), onboarding: scope(onboarding), offboarding: scope(offboarding), documents: scope(documents),
         tickets: scope(tickets), jobs, announcements, meetings, payroll: scope(payroll), assetRequests: scope(assetRequests), benefits: scope(benefits),
@@ -47,7 +67,7 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
       setHistory(await listRowsWhere(accessToken, "ai_assistant_logs", { profile_id: profile.id }, "*", 20));
       if (issues.length) setError(`Some live data could not be loaded. ${issues.slice(0, 3).join(" · ")}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The assistant workspace could not be loaded."); }
-  }, [accessToken, profile.id, role]);
+  }, [accessToken, profile, role]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
@@ -57,7 +77,7 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
   async function submit(event: FormEvent) {
     event.preventDefault();
     const clean = question.trim();
-    if (!clean) return;
+    if (!clean || !accessToken || !profile) return;
     setBusy(true); setError("");
     try {
       const response = buildAnswer(clean, role, data, summary);
@@ -69,11 +89,11 @@ export function AiAssistantPage({ role, accessToken, profile }: { role: Assistan
   }
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">Live Supabase assistance</span><h1>AI {role === "manager" ? "Manager" : "HR"} Assistant</h1><p className="muted">Guidance is generated from the records this account is authorised to access. Final employment decisions remain with authorised people.</p></div><button className="secondary" onClick={() => void load()}>Refresh live data</button></header>
+    <header className="page-header"><div><span className="eyebrow">Live Supabase assistance</span><h1>AI {role === "manager" ? "Manager" : "HR"} Assistant</h1><p className="muted">Guidance is generated from the records this account is authorised to access. Final employment decisions remain with authorised people.</p></div><button className="secondary" disabled={!accessToken} onClick={() => void load()}>Refresh live data</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="dashboard-metric-grid">{Object.entries(summary).slice(0, 8).map(([label, value]) => <article className="card metric dashboard-metric-card" key={label}><span>{label.replaceAll("_", " ")}</span><strong>{value}</strong><small>Live authorised records</small></article>)}</div>
     <div className="dashboard-content-grid">
-      <article className="card panel"><h2>Ask the assistant</h2><form onSubmit={submit}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Describe the task, document or decision support you need…" /><button className="primary" disabled={busy}>{busy ? "Analysing…" : "Generate guidance"}</button></form><div className="quick dashboard-quick-grid">{promptSets[role].map((prompt) => <button type="button" key={prompt} onClick={() => setQuestion(prompt)}><span>AI</span>{prompt}</button>)}</div></article>
+      <article className="card panel"><h2>Ask the assistant</h2><form onSubmit={submit}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Describe the task, document or decision support you need…" /><button className="primary" disabled={busy || !accessToken}>{busy ? "Analysing…" : "Generate guidance"}</button></form><div className="quick dashboard-quick-grid">{promptSets[role].map((prompt) => <button type="button" key={prompt} onClick={() => setQuestion(prompt)}><span>AI</span>{prompt}</button>)}</div></article>
       <article className="card panel"><h2>Response</h2>{answer ? <div className="ai-response"><p>{answer}</p><small className="muted">Review facts, permissions and company policy before using this output.</small></div> : <div className="empty-state"><h3>Ready to assist</h3><p>Select a prompt or enter your own request. The response will use current Supabase records.</p></div>}</article>
       <article className="card panel dashboard-wide-panel"><h2>Recent assistant activity</h2>{history.length ? <div className="activity">{history.slice(0, 8).map((row, index) => <div className="activity-row" key={String(row.id ?? index)}><div className="task-icon">AI</div><p><strong>{String(row.question)}</strong><br /><small>{String(row.response).slice(0, 160)}</small></p><time>{row.created_at ? new Date(String(row.created_at)).toLocaleString("en-GB") : ""}</time></div>)}</div> : <p className="muted">No assistant history yet.</p>}</article>
     </div>
