@@ -1,28 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
+import { setEmailTwoStep } from "./lib/supabase-auth";
 import { createRow, DataRow, listNamedRows, updateRowsWhere } from "./lib/supabase-data";
 
-const options=[
-  ["in_app","In-app notifications"],["email","Email notifications"],["sound","Play notification sound"],
-  ["desktop","Desktop notifications"],["leave_updates","Leave updates"],["payroll_updates","Payroll updates"],
-  ["task_updates","Task assignments"],["chat_updates","Chat messages"],["meeting_updates","Meeting responses"],
-] as const;
+const options=[["in_app","In-app notifications"],["email","Email notifications"],["sound","Play notification sound"],["desktop","Desktop notifications"],["leave_updates","Leave updates"],["payroll_updates","Payroll updates"],["task_updates","Task assignments"],["chat_updates","Chat messages"],["meeting_updates","Meeting responses"]] as const;
 
-export function NotificationSettings({accessToken,profile,onClose}:{accessToken:string;profile:UserProfile;onClose:()=>void}) {
-  const [row,setRow]=useState<DataRow|null>(null);
-  const [values,setValues]=useState<Record<string,boolean>>(Object.fromEntries(options.map(([key])=>[key,true])));
-  const [message,setMessage]=useState("");
-  useEffect(()=>{void Promise.resolve().then(async()=>{
-    const rows=await listNamedRows(accessToken,"notification_preferences","*","profile_id");
-    const current=rows.find(item=>item.profile_id===profile.id)??null;setRow(current);
-    if(current)setValues(Object.fromEntries(options.map(([key])=>[key,current[key]!==false])));
-  });},[accessToken,profile.id]);
-  async function save(event:FormEvent){event.preventDefault();setMessage("");
-    if(values.desktop&&"Notification" in window&&Notification.permission==="default")await Notification.requestPermission();
-    const payload={...values,profile_id:profile.id,organisation_id:profile.organisation_id};
-    if(row)await updateRowsWhere(accessToken,"notification_preferences","profile_id",profile.id,payload);
-    else await createRow(accessToken,"notification_preferences",payload);
-    setMessage("Notification preferences saved.");
-  }
-  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="notifications-title"><button className="modal-close" onClick={onClose} aria-label="Close">x</button><span className="eyebrow">Device and email</span><h2 id="notifications-title">Notification settings</h2><p className="muted">Choose what reaches this account and whether the device should play a sound.</p><form onSubmit={save}>{options.map(([key,label])=><label className="check preference-check" key={key}><input type="checkbox" checked={values[key]} onChange={e=>setValues({...values,[key]:e.target.checked})}/>{label}</label>)}{message&&<p className="form-message">{message}</p>}<button className="primary">Save preferences</button></form></section></div>;
+export function NotificationSettings({accessToken,profile,onClose}:{accessToken:string;profile:UserProfile;onClose:()=>void}){
+ const [row,setRow]=useState<DataRow|null>(null),[values,setValues]=useState<Record<string,boolean>>(Object.fromEntries(options.map(([key])=>[key,true]))),[twoStep,setTwoStep]=useState(Boolean(profile.two_step_email_enabled)),[message,setMessage]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+ useEffect(()=>{void Promise.resolve().then(async()=>{try{const rows=await listNamedRows(accessToken,"notification_preferences","*","profile_id"),current=rows.find(item=>item.profile_id===profile.id)??null;setRow(current);if(current)setValues(Object.fromEntries(options.map(([key])=>[key,current[key]!==false])));}catch(cause){setError(cause instanceof Error?cause.message:"Preferences could not be loaded.");}});},[accessToken,profile.id]);
+ async function save(event:FormEvent){event.preventDefault();setMessage("");setError("");setBusy(true);try{if(values.desktop&&"Notification" in window&&Notification.permission==="default")await Notification.requestPermission();const payload={...values,profile_id:profile.id,organisation_id:profile.organisation_id};if(row)await updateRowsWhere(accessToken,"notification_preferences","profile_id",profile.id,payload);else await createRow(accessToken,"notification_preferences",payload);if(twoStep!==Boolean(profile.two_step_email_enabled))await setEmailTwoStep(accessToken,twoStep);setMessage(twoStep?"Preferences saved. Email verification will be required at your next login.":"Preferences saved. Email verification is disabled.");}catch(cause){setError(cause instanceof Error?cause.message:"Preferences could not be saved.");}finally{setBusy(false);}}
+ return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="notifications-title"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><span className="eyebrow">Account settings</span><h2 id="notifications-title">Notifications and login security</h2><p className="muted">Choose what reaches this account and protect login with a code sent to your registered work email.</p><form onSubmit={save}><fieldset className="permission-group"><legend>Login security</legend><label className="check preference-check"><input type="checkbox" checked={twoStep} onChange={e=>setTwoStep(e.target.checked)}/><span><strong>Email two step verification</strong><small>After entering the correct password, require a six digit code sent to {profile.email||"your registered work email"}.</small></span></label></fieldset><fieldset className="permission-group"><legend>Notifications</legend>{options.map(([key,label])=><label className="check preference-check" key={key}><input type="checkbox" checked={values[key]} onChange={e=>setValues({...values,[key]:e.target.checked})}/>{label}</label>)}</fieldset>{error&&<p className="form-error">{error}</p>}{message&&<p className="form-message">{message}</p>}<button className="primary" disabled={busy}>{busy?"Saving...":"Save preferences"}</button></form></section></div>;
 }
