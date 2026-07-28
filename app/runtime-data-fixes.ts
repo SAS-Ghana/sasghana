@@ -21,6 +21,22 @@ function preferencesRpcBody(body: JsonRecord) {
   };
 }
 
+function requestBody(init?: RequestInit) {
+  if (typeof init?.body !== "string") return null;
+  try {
+    return JSON.parse(init.body) as JsonRecord;
+  } catch {
+    return null;
+  }
+}
+
+function inclusiveDays(start: unknown, end: unknown) {
+  const from = new Date(String(start ?? ""));
+  const to = new Date(String(end ?? ""));
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return 1;
+  return Math.max(1, Math.floor((to.getTime() - from.getTime()) / 86400000) + 1);
+}
+
 export function installRuntimeDataFixes() {
   if (installed || typeof window === "undefined") return;
   installed = true;
@@ -61,15 +77,42 @@ export function installRuntimeDataFixes() {
         if (session?.user.id) parsed.searchParams.set("recipient_id", `eq.${session.user.id}`);
       }
 
+      const body = requestBody(nextInit);
+      if (method === "POST" && body) {
+        if (parsed.pathname.endsWith("/rest/v1/leave_requests")) {
+          body.days = inclusiveDays(body.start_date, body.end_date);
+          body.status = body.status ?? "pending";
+          body.workflow_stage = body.workflow_stage ?? "manager_review";
+          nextInit = { ...nextInit, body: JSON.stringify(body) };
+        }
+
+        if (parsed.pathname.endsWith("/rest/v1/expense_claims")) {
+          body.category = body.category ?? body.expense_type ?? "Other";
+          body.expense_type = body.expense_type ?? body.category;
+          body.status = body.status === "pending" ? "submitted" : body.status ?? "submitted";
+          body.submitted_at = body.submitted_at ?? new Date().toISOString();
+          body.currency = body.currency ?? "GHS";
+          nextInit = { ...nextInit, body: JSON.stringify(body) };
+        }
+
+        if (parsed.pathname.endsWith("/rest/v1/asset_requests")) {
+          body.category = body.category ?? body.asset_type ?? "Other";
+          body.asset_type = body.asset_type ?? body.category;
+          body.priority = body.priority ?? "normal";
+          body.status = body.status ?? "pending";
+          nextInit = { ...nextInit, body: JSON.stringify(body) };
+        }
+      }
+
       if (
         parsed.pathname.endsWith("/rest/v1/employee_change_requests") &&
         method === "POST" &&
         session?.user.id &&
-        typeof init?.body === "string"
+        typeof nextInit?.body === "string"
       ) {
-        const body = JSON.parse(init.body) as JsonRecord;
-        body.requested_by = session.user.id;
-        nextInit = { ...init, body: JSON.stringify(body) };
+        const changeBody = JSON.parse(nextInit.body) as JsonRecord;
+        changeBody.requested_by = session.user.id;
+        nextInit = { ...nextInit, body: JSON.stringify(changeBody) };
       }
 
       url = parsed.toString();
