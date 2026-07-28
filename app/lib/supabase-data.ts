@@ -26,11 +26,16 @@ async function request<T>(accessToken:string,path:string,init:RequestInit={}):Pr
   if(response.status===204)return undefined as T;
   return response.json() as Promise<T>;
 }
+
+function whereQuery(filters:Record<string,string>){return Object.entries(filters).map(([key,value])=>`${encodeURIComponent(key)}=eq.${encodeURIComponent(value)}`).join("&");}
+function orderedSuffix(orderColumn:string|undefined,ascending:boolean,limit:number){return `${orderColumn?`&order=${encodeURIComponent(orderColumn)}.${ascending?"asc":"desc"}`:""}&limit=${limit}`;}
+
 export async function callFunction<T>(accessToken:string,functionName:string,body:Record<string,unknown>){const response=await authorisedFetch(accessToken,`${serviceUrl}/functions/v1/${functionName}`,{method:"POST",body:JSON.stringify(body)});const result=await response.json().catch(()=>({})) as T&{error?:string;message?:string};if(!response.ok)throw new Error(result.error??result.message??`Secure operation failed (${response.status}).`);return result;}
 export function callRpc<T>(accessToken:string,functionName:string,body:Record<string,unknown>){return request<T>(accessToken,`rpc/${functionName}`,{method:"POST",body:JSON.stringify(body)});}
-export function listRows(accessToken:string,table:string,select="*",limit=250){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&order=created_at.desc&limit=${limit}`);}
+export function listRows(accessToken:string,table:string,select="*",limit=250,orderColumn="created_at",ascending=false){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}${orderedSuffix(orderColumn,ascending,limit)}`);}
 export function listRowsUnordered(accessToken:string,table:string,select="*",limit=500){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&limit=${limit}`);}
-export function listRowsWhere(accessToken:string,table:string,filters:Record<string,string>,select="*",limit=250){const filterQuery=Object.entries(filters).map(([key,value])=>`${encodeURIComponent(key)}=eq.${encodeURIComponent(value)}`).join("&");return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&${filterQuery}&order=created_at.desc&limit=${limit}`);}
+export function listRowsWhere(accessToken:string,table:string,filters:Record<string,string>,select="*",limit=250,orderColumn="created_at",ascending=false){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&${whereQuery(filters)}${orderedSuffix(orderColumn,ascending,limit)}`);}
+export function listRowsWhereUnordered(accessToken:string,table:string,filters:Record<string,string>,select="*",limit=250){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&${whereQuery(filters)}&limit=${limit}`);}
 export function listNamedRows(accessToken:string,table:string,select:string,orderColumn="name"){return request<DataRow[]>(accessToken,`${table}?select=${encodeURIComponent(select)}&order=${orderColumn}.asc&limit=500`);}
 export function createRow(accessToken:string,table:string,row:DataRow){return request<DataRow[]>(accessToken,table,{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify(row)});}
 export function createRows(accessToken:string,table:string,rows:DataRow[]){return request<DataRow[]>(accessToken,table,{method:"POST",headers:{Prefer:"return=representation,resolution=ignore-duplicates"},body:JSON.stringify(rows)});}
