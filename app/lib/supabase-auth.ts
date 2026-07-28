@@ -4,6 +4,7 @@ export type UserProfile = { id:string;organisation_id:string;username:string;ema
 const serviceUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
 const publishableKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
 const jsonHeaders={apikey:publishableKey,"Content-Type":"application/json"};
+const browserSessionKey="sas-people-browser-session-id";
 let refreshPromise:Promise<AuthSession|null>|null=null;
 
 function loginEmail(username:string){const clean=username.trim();return clean.includes("@")?clean.toLowerCase():`${clean.toLowerCase()}@saspeople.local`;}
@@ -21,6 +22,45 @@ export async function sendEmailLoginCode(session:AuthSession,email:string){if(!e
 export async function verifyEmailLoginCode(email:string,token:string){const response=await fetch(`${serviceUrl}/auth/v1/verify`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,token:token.trim(),type:"email"})});if(!response.ok){const current=readSession();if(current)await recordVerificationEvent(current.access_token,"failed");const body=await response.json().catch(()=>({})) as {msg?:string;message?:string};throw new Error(body.msg??body.message??"The verification code is incorrect or expired.");}const session=normaliseSession(await response.json() as AuthSession);await recordVerificationEvent(session.access_token,"verified");return session;}
 export async function setEmailTwoStep(accessToken:string,enabled:boolean){const token=await getValidAccessToken(accessToken);const response=await fetch(`${serviceUrl}/rest/v1/rpc/set_email_two_step_enabled`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${token}`},body:JSON.stringify({p_enabled:enabled})});if(!response.ok){const body=await response.json().catch(()=>({})) as {message?:string;hint?:string};throw new Error(body.message??body.hint??"Security preference could not be updated.");}return (await response.json()) as {two_step_email_enabled:boolean;two_step_email_verified_at:string|null;email:string}[];}
 export async function changePassword(accessToken:string,newPassword:string){const token=await getValidAccessToken(accessToken);const response=await fetch(`${serviceUrl}/auth/v1/user`,{method:"PUT",headers:{...jsonHeaders,Authorization:`Bearer ${token}`},body:JSON.stringify({password:newPassword})});if(!response.ok){const body=await response.json() as {msg?:string;message?:string};throw new Error(body.msg??body.message??"Password could not be changed.");}const user=await response.json();const profileResponse=await fetch(`${serviceUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}`,{method:"PATCH",headers:{...jsonHeaders,Authorization:`Bearer ${token}`,Prefer:"return=minimal"},body:JSON.stringify({status:"active",force_password_change:false})});if(!profileResponse.ok)throw new Error("Password changed, but the account status could not be updated. Contact your administrator.");}
+
+export function getBrowserSessionIdentifier(){
+  const storage=localStorage;
+  const existing=storage.getItem(browserSessionKey);
+  if(existing)return existing;
+  const next=crypto.randomUUID();
+  storage.setItem(browserSessionKey,next);
+  return next;
+}
+
+function currentDeviceName(){
+  const platform=navigator.platform||"Browser device";
+  const mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  return `${mobile?"Mobile":"Desktop"} · ${platform}`.slice(0,200);
+}
+
+export async function registerCurrentSession(accessToken:string){
+  const token=await getValidAccessToken(accessToken);
+  const response=await fetch(`${serviceUrl}/rest/v1/rpc/register_current_session`,{
+    method:"POST",
+    headers:{...jsonHeaders,Authorization:`Bearer ${token}`},
+    body:JSON.stringify({p_session_identifier:getBrowserSessionIdentifier(),p_device_name:currentDeviceName(),p_user_agent:navigator.userAgent}),
+  });
+  if(!response.ok){const body=await response.json().catch(()=>({})) as {message?:string};throw new Error(body.message??"The active session could not be recorded.");}
+  return response.json() as Promise<string>;
+}
+
+export async function revokeCurrentSession(accessToken:string){
+  const token=await getValidAccessToken(accessToken).catch(()=>accessToken);
+  const identifier=localStorage.getItem(browserSessionKey);
+  if(!identifier)return false;
+  const response=await fetch(`${serviceUrl}/rest/v1/rpc/revoke_current_session`,{
+    method:"POST",
+    headers:{...jsonHeaders,Authorization:`Bearer ${token}`},
+    body:JSON.stringify({p_session_identifier:identifier}),
+  });
+  return response.ok;
+}
+
 export async function signOut(accessToken:string){const token=await getValidAccessToken(accessToken).catch(()=>accessToken);await fetch(`${serviceUrl}/auth/v1/logout`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${token}`}});clearSession();}
 function normaliseSession(session:AuthSession):AuthSession{return {...session,expires_at:session.expires_at??(session.expires_in?Math.floor(Date.now()/1000)+session.expires_in:undefined)};}
 function sessionStorageTarget(){return sessionStorage.getItem("sas-people-session")?sessionStorage:localStorage;}
