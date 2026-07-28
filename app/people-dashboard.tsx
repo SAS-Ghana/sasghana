@@ -29,6 +29,7 @@ import { ApprovalWorkflowsPage } from "./approval-workflows-page";
 import { PayrollSettingsPage } from "./payroll-settings-page";
 import { AiAssistantPage } from "./ai-assistant-page";
 import { ExpenseManagementPage } from "./expense-management-page";
+import { AssetManagementWorkspace } from "./asset-management-workspace";
 import { useDashboardModuleCounts } from "./module-counters";
 
 const forbidden = /billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
@@ -132,6 +133,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
       if (active === "Employee Management") return <PeopleDirectory accessToken={accessToken} canManage organisationId={profile.organisation_id} />;
       if (active === "Payroll & Payslips") return <PayrollSettingsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Expenses") return <ExpenseManagementPage accessToken={accessToken} organisationId={profile.organisation_id} />;
+      if (active === "Asset Management") return <AssetManagementWorkspace accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Organization Structure") return <DepartmentHub accessToken={accessToken} profile={profile} />;
       if (active === "Attendance Management") return <AttendanceHub accessToken={accessToken} />;
       if (active === "Onboarding") return <OnboardingHub accessToken={accessToken} profile={profile} />;
@@ -150,6 +152,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
       if (active === "Employee Management") return <PeopleDirectory accessToken={accessToken} canManage organisationId={profile.organisation_id} />;
       if (active === "Payroll Administration") return <PayrollSettingsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Expense Management") return <ExpenseManagementPage accessToken={accessToken} organisationId={profile.organisation_id} />;
+      if (active === "Asset Management") return <AssetManagementWorkspace accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Onboarding") return <OnboardingHub accessToken={accessToken} profile={profile} />;
       if (active === "Attendance Management") return <AttendanceHub accessToken={accessToken} />;
       if (active === "Performance Management") return <PerformanceHub accessToken={accessToken} profile={profile} />;
