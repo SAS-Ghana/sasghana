@@ -37,6 +37,10 @@ function inclusiveDays(start: unknown, end: unknown) {
   return Math.max(1, Math.floor((to.getTime() - from.getTime()) / 86400000) + 1);
 }
 
+function employeePortalIsVisible() {
+  return Boolean(document.querySelector(".employee-portal-v2"));
+}
+
 export function installRuntimeDataFixes() {
   if (installed || typeof window === "undefined") return;
   installed = true;
@@ -46,11 +50,14 @@ export function installRuntimeDataFixes() {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     let url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     let nextInit = init;
+    let mergeEmployeeAssetRequests = false;
+    let employeeIdForAssetRequests = "";
 
     try {
       const parsed = new URL(url, window.location.origin);
       const session = readSession();
       const method = (init?.method || "GET").toUpperCase();
+      const inEmployeePortal = employeePortalIsVisible();
 
       if (parsed.pathname.endsWith("/rest/v1/user_preferences")) {
         if (parsed.searchParams.get("order")?.startsWith("created_at")) parsed.searchParams.delete("order");
@@ -75,6 +82,18 @@ export function installRuntimeDataFixes() {
       if (parsed.pathname.endsWith("/rest/v1/notifications") && parsed.searchParams.has("recipient_employee_id")) {
         parsed.searchParams.delete("recipient_employee_id");
         if (session?.user.id) parsed.searchParams.set("recipient_id", `eq.${session.user.id}`);
+      }
+
+      if (inEmployeePortal && method === "GET" && parsed.pathname.endsWith("/rest/v1/employee_onboarding")) {
+        parsed.pathname = parsed.pathname.replace(/\/employee_onboarding$/, "/employee_training");
+      }
+
+      if (inEmployeePortal && method === "GET" && parsed.pathname.endsWith("/rest/v1/assets")) {
+        const assignedFilter = parsed.searchParams.get("assigned_employee_id");
+        if (assignedFilter?.startsWith("eq.")) {
+          mergeEmployeeAssetRequests = true;
+          employeeIdForAssetRequests = assignedFilter.slice(3);
+        }
       }
 
       const body = requestBody(nextInit);
@@ -120,7 +139,43 @@ export function installRuntimeDataFixes() {
       // Leave unrelated requests untouched.
     }
 
-    return original(url, nextInit);
+    const response = await original(url, nextInit);
+
+    if (mergeEmployeeAssetRequests && employeeIdForAssetRequests && response.ok) {
+      try {
+        const requestUrl = new URL(url);
+        requestUrl.pathname = requestUrl.pathname.replace(/\/assets$/, "/asset_requests");
+        requestUrl.searchParams.delete("assigned_employee_id");
+        requestUrl.searchParams.set("employee_id", `eq.${employeeIdForAssetRequests}`);
+        requestUrl.searchParams.set("select", "*");
+        requestUrl.searchParams.set("limit", "500");
+
+        const requestResponse = await original(requestUrl.toString(), nextInit);
+        if (requestResponse.ok) {
+          const assignedRows = await response.clone().json() as JsonRecord[];
+          const requestRows = await requestResponse.json() as JsonRecord[];
+          const mappedRequests = requestRows.map((row) => ({
+            ...row,
+            asset_code: `REQUEST-${String(row.id ?? "").slice(0, 8).toUpperCase()}`,
+            category: row.asset_type ?? row.category ?? "Asset request",
+            description: row.reason ?? "Employee asset request",
+            serial_number: row.priority ? `Priority: ${row.priority}` : "—",
+            condition: "requested",
+          }));
+          const headers = new Headers(response.headers);
+          headers.delete("content-length");
+          return new Response(JSON.stringify([...assignedRows, ...mappedRequests]), {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+          });
+        }
+      } catch {
+        // Return assigned assets even if the optional request merge fails.
+      }
+    }
+
+    return response;
   };
 }
 
