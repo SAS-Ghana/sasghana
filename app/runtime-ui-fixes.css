@@ -1,0 +1,72 @@
+/* Employee self service layout and settings repairs */
+.employee-portal-v2,.employee-portal-v2 *{box-sizing:border-box}
+.employee-portal-v2 button,.employee-portal-v2 input,.employee-portal-v2 select,.employee-portal-v2 textarea{max-width:100%}
+.employee-portal-v2 h1,.employee-portal-v2 h2,.employee-portal-v2 h3,.employee-portal-v2 p,.employee-portal-v2 span,.employee-portal-v2 td,.employee-portal-v2 th,.settings-modal *{overflow-wrap:anywhere}
+.breakable{overflow-wrap:anywhere;word-break:break-word}
+
+.employee-profile-grid>.data-panel{padding:22px!important;min-width:0}
+.employee-profile-grid>.data-panel h2{margin:0 0 14px;font-size:clamp(17px,1.6vw,22px)}
+.employee-profile-grid .master-list{display:grid;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2)}
+.employee-profile-grid .master-list>div{display:grid!important;grid-template-columns:minmax(130px,34%) minmax(0,1fr);align-items:start;gap:12px;padding:10px 12px;border:0!important;border-bottom:1px solid var(--line)!important;background:transparent!important}
+.employee-profile-grid .master-list>div:last-child{border-bottom:0!important}
+.employee-profile-grid .master-list strong{font-size:13px;line-height:1.35}
+.employee-profile-grid .master-list span{min-width:0;color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+
+.modal-backdrop{padding:20px!important;overflow:auto!important;align-items:center!important}
+.record-modal,.settings-modal{width:min(760px,calc(100vw - 32px))!important;max-width:760px!important;max-height:calc(100vh - 40px)!important;overflow:auto!important;padding:clamp(20px,4vw,34px)!important;border-radius:22px!important}
+.record-modal h2,.settings-modal h2{font-size:clamp(24px,3vw,34px);line-height:1.15;margin:8px 0 20px}
+.record-modal .record-form,.settings-modal .privacy-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px!important}
+.record-modal .record-form>label,.settings-modal label{display:grid;gap:8px;min-width:0;font-weight:700}
+.record-modal .record-form>label:has(textarea),.record-modal .form-error,.record-modal .form-message,.record-modal .form-actions,.settings-modal .privacy-options,.settings-modal .form-actions,.settings-modal .form-error,.settings-modal .form-message{grid-column:1/-1}
+.record-modal input,.record-modal select,.record-modal textarea,.settings-modal input,.settings-modal select,.settings-modal textarea{width:100%;min-width:0;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--text)}
+.record-modal textarea{min-height:120px;resize:vertical}
+.record-modal .form-actions,.settings-modal .form-actions{display:flex!important;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.record-modal .form-actions button,.settings-modal .form-actions button{width:auto!important;min-width:120px;white-space:normal}
+.record-modal .form-error,.settings-modal .form-error{padding:12px 14px!important;border-radius:12px!important;white-space:normal!important}
+
+.settings-grid.user-settings-live,.settings-grid{align-items:start}
+.settings-card,.settings-grid>.card{min-width:0;padding:22px!important}
+.settings-card>button,.settings-grid>.card>button{width:100%!important;margin:0!important;justify-content:flex-start;text-align:left;white-space:normal}
+.preferences-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.preferences-form label{display:grid;gap:7px}
+.preferences-form>button,.preferences-form>.form-message,.preferences-form>.form-error{grid-column:1/-1}
+.settings-modal-body{display:grid;gap:18px}
+.security-status{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.security-toggle{margin:0!important;padding:12px 0}
+.privacy-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.check{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;gap:10px!important;font-weight:600!important;min-width:0}
+.check input[type="checkbox"]{width:18px!important;height:18px!important;margin:0!important;padding:0!important;justify-self:start}
+.check span{min-width:0;line-height:1.35}
+.device-details{display:grid;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.device-details>div{display:grid;grid-template-columns:minmax(140px,30%) minmax(0,1fr);gap:14px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.device-details>div:last-child{border-bottom:0}.device-details span{min-width:0;overflow-wrap:anywhere;color:var(--muted)}
+
+.employee-module-tabs button{min-height:48px!important;line-height:1.2!important;word-break:normal!important;overflow-wrap:normal!important;white-space:normal!important;font-size:clamp(12px,.9vw,15px)!important}
+.employee-module-tabs button span{flex:0 0 auto}
+
+.employee-calendar-shell{display:grid;gap:14px;margin:14px 0 18px}
+.calendar-controls{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(150px,220px) minmax(140px,190px);gap:10px;align-items:center}
+.calendar-view-toggle{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.calendar-view-toggle button{border:0;background:transparent;color:var(--text);padding:8px 12px;border-radius:9px}
+.calendar-view-toggle button.active{background:var(--navy);color:#fff}
+.calendar-controls input,.calendar-controls select{width:100%;min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text)}
+.calendar-month-nav{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:9px}
+.calendar-month-nav strong{text-align:center;font-size:18px}
+.calendar-month-nav button{min-width:42px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text)}
+.employee-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--line);gap:1px}
+.calendar-weekday{padding:10px;background:var(--surface-2);font-size:12px;font-weight:800;text-align:center;text-transform:uppercase;color:var(--muted)}
+.calendar-day{min-height:125px;padding:10px;background:var(--surface);display:flex;flex-direction:column;gap:7px;min-width:0}
+.calendar-day.outside{background:var(--surface-2);opacity:.55}.calendar-day.today{box-shadow:inset 0 0 0 2px var(--brand)}
+.calendar-day>strong{font-size:13px;align-self:flex-end}
+.calendar-event{display:grid!important;gap:2px!important;width:100%!important;min-width:0!important;padding:7px 8px!important;border:1px solid color-mix(in srgb,var(--brand) 35%,var(--line))!important;border-radius:9px!important;background:color-mix(in srgb,var(--brand) 8%,var(--surface-2))!important;color:var(--text)!important;text-align:left!important}
+.calendar-event small{font-size:9px;text-transform:uppercase;color:var(--muted)}.calendar-event span{font-size:11px;line-height:1.3;overflow-wrap:anywhere}
+
+html[data-text-size="small"]{font-size:14px}html[data-text-size="large"]{font-size:18px}
+html[data-density="compact"] .employee-module-tabs{gap:5px!important;padding:7px!important}
+html[data-density="compact"] .employee-module-tabs button{min-height:38px!important;padding:7px 8px!important;font-size:12px!important}
+html[data-density="compact"] button{padding-top:8px;padding-bottom:8px}
+html[data-density="compact"] .card{padding:16px!important}
+html[data-density="compact"] .employee-portal-v2{gap:14px!important}
+
+@media(max-width:900px){.calendar-controls{grid-template-columns:1fr 1fr}.calendar-view-toggle{grid-column:1/-1}.employee-calendar-grid{overflow-x:auto}.calendar-day{min-height:105px}.record-modal .record-form,.settings-modal .privacy-form,.preferences-form{grid-template-columns:1fr}.privacy-options{grid-template-columns:1fr}}
+@media(max-width:620px){.modal-backdrop{padding:8px!important;align-items:flex-start!important}.record-modal,.settings-modal{width:100%!important;max-height:calc(100vh - 16px)!important;border-radius:16px!important;padding:20px 16px!important}.record-modal .form-actions,.settings-modal .form-actions{display:grid!important;grid-template-columns:1fr!important}.record-modal .form-actions button,.settings-modal .form-actions button{width:100%!important;min-width:0}.employee-profile-grid .master-list>div,.device-details>div{grid-template-columns:1fr;gap:4px}.calendar-controls{grid-template-columns:1fr}.calendar-view-toggle{grid-column:auto}.calendar-month-nav{grid-template-columns:auto 1fr auto}.calendar-month-nav [data-today]{display:none}.employee-calendar-grid{grid-template-columns:repeat(7,minmax(82px,1fr));overflow-x:auto}.calendar-day{min-height:95px;padding:7px}.employee-module-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}.employee-module-tabs button{font-size:12px!important}}
