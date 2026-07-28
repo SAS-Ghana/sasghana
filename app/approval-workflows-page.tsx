@@ -1,32 +1,169 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, DataRow, listRows, updateRow } from "./lib/supabase-data";
 
-type Step={role:string;label:string;days:number};
-const templates:Record<string,Step[]>={
- leave:[{role:"manager",label:"Manager approval",days:2},{role:"hr",label:"HR confirmation",days:2}],
- attendance_correction:[{role:"manager",label:"Manager review",days:1},{role:"hr",label:"HR verification",days:2}],
- expense:[{role:"manager",label:"Manager approval",days:2},{role:"hr",label:"HR review",days:2},{role:"administrator",label:"Administrator approval",days:2}],
- promotion:[{role:"manager",label:"Manager recommendation",days:3},{role:"hr",label:"HR review",days:3},{role:"administrator",label:"Administrator approval",days:3}],
- onboarding:[{role:"hr",label:"HR preparation",days:2},{role:"manager",label:"Manager readiness",days:2}],
- offboarding:[{role:"manager",label:"Manager clearance",days:2},{role:"hr",label:"HR clearance",days:2},{role:"administrator",label:"Administrator closure",days:2}]
-};
-function stepsOf(row:DataRow):Step[]{const value=row.steps;if(Array.isArray(value))return value as Step[];if(typeof value==="string")try{return JSON.parse(value) as Step[];}catch{return [];}return [];}
+type Step = { role: string; label: string; days: number };
+type WorkflowDraft = { id?: string; name: string; workflow_type: string; description: string; status: string; steps: Step[] };
 
-export function ApprovalWorkflowsPage({accessToken,organisationId,scope="administrator"}:{accessToken:string;organisationId:string;scope?:"administrator"|"hr"}){
- const [rows,setRows]=useState<DataRow[]>([]),[query,setQuery]=useState(""),[status,setStatus]=useState("all"),[open,setOpen]=useState(false),[busy,setBusy]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const [form,setForm]=useState({name:"",workflow_type:"leave",description:"",status:"active"});
- const load=useCallback(async()=>{setError("");try{setRows(await listRows(accessToken,"approval_workflows","*",200));}catch(cause){setError(cause instanceof Error?cause.message:"Approval workflows could not be loaded.");}},[accessToken]);
- useEffect(()=>{void load();},[load]);
- const visible=useMemo(()=>rows.filter(row=>(status==="all"||String(row.status)===status)&&(!query||`${row.name??""} ${row.workflow_type??""} ${row.description??""}`.toLowerCase().includes(query.toLowerCase()))),[rows,status,query]);
- const active=rows.filter(x=>x.status==="active").length,steps=rows.reduce((n,row)=>n+stepsOf(row).length,0),types=new Set(rows.map(x=>x.workflow_type)).size;
- async function save(event:FormEvent){event.preventDefault();setBusy("create");setError("");try{const workflowSteps=templates[form.workflow_type]??[{role:"manager",label:"Manager approval",days:2},{role:"hr",label:"HR approval",days:2}];await createRow(accessToken,"approval_workflows",{organisation_id:organisationId,name:form.name,workflow_type:form.workflow_type,description:form.description,status:form.status,steps:workflowSteps as unknown as DataRow[string]});setOpen(false);setForm({name:"",workflow_type:"leave",description:"",status:"active"});setNotice("Workflow created and ready for use.");await load();}catch(cause){setError(cause instanceof Error?cause.message:"Workflow could not be created.");}finally{setBusy("");}}
- async function change(row:DataRow,next:string){setBusy(String(row.id));setError("");try{await updateRow(accessToken,"approval_workflows",String(row.id),{status:next});setNotice(`Workflow ${next}.`);await load();}catch(cause){setError(cause instanceof Error?cause.message:"Workflow could not be updated.");}finally{setBusy("");}}
- return <section><header className="page-header"><div><span className="eyebrow">{scope==="hr"?"HR workflow administration":"Organization workflow control"}</span><h1>Approval Workflows</h1><p className="muted">Configure consistent approval routes, response deadlines, escalation and accountability across employee, manager, HR and administrator dashboards.</p></div><div className="row-actions"><button className="primary" onClick={()=>setOpen(true)}>Create workflow</button><button className="secondary" onClick={()=>void load()}>Refresh</button></div></header>
- {error&&<p className="form-error">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
- <div className="workflow-kpis"><article className="card"><span>Total workflows</span><strong>{rows.length}</strong></article><article className="card"><span>Active workflows</span><strong>{active}</strong></article><article className="card"><span>Approval steps</span><strong>{steps}</strong></article><article className="card"><span>Workflow types</span><strong>{types}</strong></article></div>
- <div className="filter-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search workflows..."/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></div>
- <div className="workflow-grid">{visible.map(row=>{const workflowSteps=stepsOf(row);return <article className="workflow-card" key={String(row.id)}><header><div><span className="eyebrow">{String(row.workflow_type??"workflow").replaceAll("_"," ")}</span><h3>{String(row.name)}</h3></div><span className={`status-pill ${String(row.status)}`}>{String(row.status)}</span></header><p>{String(row.description??"Multi-step approval workflow")}</p><div className="workflow-steps">{workflowSteps.length?workflowSteps.map((step,index)=><span className="workflow-step" key={`${step.role}-${index}`}>{index+1}. {step.label||step.role} · {step.days||2}d</span>):<span className="muted">No approval steps configured.</span>}</div><footer><button disabled={busy===String(row.id)} onClick={()=>void change(row,row.status==="active"?"inactive":"active")}>{row.status==="active"?"Disable":"Activate"}</button><button disabled={busy===String(row.id)} onClick={()=>void change(row,"draft")}>Move to draft</button><button onClick={()=>window.print()}>Print</button></footer></article>})}</div>
- {!visible.length&&<article className="card empty-state"><h3>No workflows found</h3><p>Create a workflow or change the filters.</p></article>}
- {open&&<div className="modal-backdrop"><section className="modal"><button className="modal-close" onClick={()=>setOpen(false)}>×</button><span className="eyebrow">Workflow builder</span><h2>Create approval workflow</h2><form className="record-form" onSubmit={save}><label>Workflow name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Annual leave approval"/></label><label>Workflow type<select value={form.workflow_type} onChange={e=>setForm({...form,workflow_type:e.target.value})}>{Object.keys(templates).map(type=><option key={type} value={type}>{type.replaceAll("_"," ")}</option>)}</select></label><label className="wide">Description<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Explain when this workflow applies."/></label><label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="active">Active</option><option value="draft">Draft</option></select></label><div className="wide"><strong>Default route</strong><div className="workflow-steps">{(templates[form.workflow_type]??[]).map((step,index)=><span className="workflow-step" key={step.role}>{index+1}. {step.label} · {step.days}d</span>)}</div></div><div className="form-actions wide"><button type="button" onClick={()=>setOpen(false)}>Cancel</button><button className="primary" disabled={busy==="create"}>{busy==="create"?"Creating…":"Create workflow"}</button></div></form></section></div>}
- </section>;
+const emptyStep = (): Step => ({ role: "manager", label: "Manager approval", days: 2 });
+const emptyDraft = (): WorkflowDraft => ({ name: "", workflow_type: "", description: "", status: "active", steps: [emptyStep()] });
+
+function stepsOf(row: DataRow): Step[] {
+  const value = row.steps;
+  if (Array.isArray(value)) return value as Step[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed as Step[] : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normaliseSteps(steps: Step[]) {
+  return steps.map((step, index) => ({
+    role: step.role.trim() || "approver",
+    label: step.label.trim() || `Approval step ${index + 1}`,
+    days: Math.max(1, Number(step.days) || 1),
+  }));
+}
+
+export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "administrator" }: { accessToken: string; organisationId: string; scope?: "administrator" | "hr" }) {
+  const [rows, setRows] = useState<DataRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [draft, setDraft] = useState<WorkflowDraft | null>(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      setRows(await listRows(accessToken, "approval_workflows", "*", 500, "updated_at"));
+    } catch (cause) {
+      setRows([]);
+      setError(cause instanceof Error ? cause.message : "Approval workflows could not be loaded.");
+    }
+  }, [accessToken]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const visible = useMemo(() => rows.filter((row) =>
+    (status === "all" || String(row.status) === status) &&
+    (!query || `${row.name ?? ""} ${row.workflow_type ?? ""} ${row.description ?? ""}`.toLowerCase().includes(query.toLowerCase()))
+  ), [rows, status, query]);
+
+  const workflowTypes = useMemo(() => Array.from(new Set(rows.map((row) => String(row.workflow_type ?? "").trim()).filter(Boolean))).sort(), [rows]);
+  const active = rows.filter((row) => row.status === "active").length;
+  const stepCount = rows.reduce((total, row) => total + stepsOf(row).length, 0);
+
+  function openNew() {
+    setError("");
+    setNotice("");
+    setDraft(emptyDraft());
+  }
+
+  function openEdit(row: DataRow) {
+    setError("");
+    setNotice("");
+    setDraft({
+      id: String(row.id),
+      name: String(row.name ?? ""),
+      workflow_type: String(row.workflow_type ?? ""),
+      description: String(row.description ?? ""),
+      status: String(row.status ?? "active"),
+      steps: stepsOf(row).length ? stepsOf(row) : [emptyStep()],
+    });
+  }
+
+  function updateStep(index: number, change: Partial<Step>) {
+    if (!draft) return;
+    setDraft({ ...draft, steps: draft.steps.map((step, stepIndex) => stepIndex === index ? { ...step, ...change } : step) });
+  }
+
+  function removeStep(index: number) {
+    if (!draft || draft.steps.length === 1) return;
+    setDraft({ ...draft, steps: draft.steps.filter((_, stepIndex) => stepIndex !== index) });
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft) return;
+    const workflowType = draft.workflow_type.trim();
+    if (!workflowType) return setError("Enter a workflow type.");
+    if (!draft.steps.length) return setError("Add at least one approval step.");
+
+    setBusy(draft.id ?? "create");
+    setError("");
+    setNotice("");
+    try {
+      const steps = normaliseSteps(draft.steps);
+      const payload: DataRow = {
+        organisation_id: organisationId,
+        name: draft.name.trim(),
+        workflow_type: workflowType.toLowerCase().replace(/\s+/g, "_"),
+        description: draft.description.trim() || null,
+        status: draft.status,
+        steps: steps as unknown as DataRow[string],
+        requires_manager: steps.some((step) => step.role.toLowerCase() === "manager"),
+        requires_hr: steps.some((step) => step.role.toLowerCase() === "hr"),
+        requires_administrator: steps.some((step) => ["administrator", "admin"].includes(step.role.toLowerCase())),
+        escalation_hours: Math.max(...steps.map((step) => step.days * 24)),
+      };
+      if (draft.id) await updateRow(accessToken, "approval_workflows", draft.id, payload);
+      else await createRow(accessToken, "approval_workflows", payload);
+      setDraft(null);
+      await load();
+      setNotice(draft.id ? "Workflow updated from Supabase." : "Workflow created and stored in Supabase.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Workflow could not be saved.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function change(row: DataRow, next: string) {
+    if (!row.id) return;
+    setBusy(String(row.id));
+    setError("");
+    setNotice("");
+    try {
+      await updateRow(accessToken, "approval_workflows", String(row.id), { status: next });
+      await load();
+      setNotice(`Workflow moved to ${next.replaceAll("_", " ")}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Workflow could not be updated.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return <section>
+    <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1>Approval Workflows</h1><p className="muted">Every workflow, step, approver role and deadline shown here is loaded from and saved to Supabase.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
+    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
+
+    <div className="workflow-kpis"><article className="card"><span>Total workflows</span><strong>{rows.length}</strong></article><article className="card"><span>Active workflows</span><strong>{active}</strong></article><article className="card"><span>Approval steps</span><strong>{stepCount}</strong></article><article className="card"><span>Workflow types</span><strong>{workflowTypes.length}</strong></article></div>
+
+    <div className="filter-toolbar"><input id="workflow-search" name="workflow_search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workflows..." /><select id="workflow-status" name="workflow_status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></div>
+
+    <div className="workflow-grid">{visible.map((row) => {
+      const workflowSteps = stepsOf(row);
+      return <article className="workflow-card" key={String(row.id)}><header><div><span className="eyebrow">{String(row.workflow_type ?? "workflow").replaceAll("_", " ")}</span><h3>{String(row.name)}</h3></div><span className={`status-pill ${String(row.status)}`}>{String(row.status)}</span></header><p>{String(row.description ?? "No description supplied.")}</p><div className="workflow-steps">{workflowSteps.length ? workflowSteps.map((step, index) => <span className="workflow-step" key={`${step.role}-${index}`}>{index + 1}. {step.label || step.role} · {step.days || 1}d</span>) : <span className="muted">No approval steps configured.</span>}</div><footer><button type="button" disabled={busy === String(row.id)} onClick={() => openEdit(row)}>Edit</button><button type="button" disabled={busy === String(row.id)} onClick={() => void change(row, row.status === "active" ? "inactive" : "active")}>{row.status === "active" ? "Disable" : "Activate"}</button><button type="button" disabled={busy === String(row.id)} onClick={() => void change(row, "draft")}>Move to draft</button><button type="button" onClick={() => window.print()}>Print</button></footer></article>;
+    })}</div>
+
+    {!visible.length && <article className="card empty-state"><h3>No workflows found</h3><p>Create a workflow or change the filters.</p></article>}
+
+    {draft && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDraft(null); }}><section className="modal record-modal workflow-editor" role="dialog" aria-modal="true" aria-labelledby="workflow-editor-title"><button type="button" className="modal-close" onClick={() => setDraft(null)}>×</button><span className="eyebrow">Dynamic workflow builder</span><h2 id="workflow-editor-title">{draft.id ? "Edit approval workflow" : "Create approval workflow"}</h2><form className="record-form" onSubmit={save}>
+      <label htmlFor="workflow-name">Workflow name<input id="workflow-name" name="workflow_name" required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Annual leave approval" /></label>
+      <label htmlFor="workflow-type">Workflow type<input id="workflow-type" name="workflow_type" list="workflow-types" required value={draft.workflow_type} onChange={(event) => setDraft({ ...draft, workflow_type: event.target.value })} placeholder="leave, expense, transfer..." /><datalist id="workflow-types">{workflowTypes.map((type) => <option key={type} value={type} />)}</datalist></label>
+      <label className="wide" htmlFor="workflow-description">Description<textarea id="workflow-description" name="description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Explain when this workflow applies." /></label>
+      <label htmlFor="workflow-editor-status">Status<select id="workflow-editor-status" name="status" value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label>
+
+      <fieldset className="wide workflow-step-editor"><legend>Approval route</legend>{draft.steps.map((step, index) => <div className="workflow-step-row" key={index}><span className="workflow-step-number">{index + 1}</span><label>Approver role<input name={`step_${index}_role`} required value={step.role} onChange={(event) => updateStep(index, { role: event.target.value })} placeholder="manager, hr, administrator" /></label><label>Step label<input name={`step_${index}_label`} required value={step.label} onChange={(event) => updateStep(index, { label: event.target.value })} placeholder="Manager approval" /></label><label>Deadline days<input name={`step_${index}_days`} type="number" min="1" max="365" required value={step.days} onChange={(event) => updateStep(index, { days: Number(event.target.value) })} /></label><button type="button" className="danger" disabled={draft.steps.length === 1} onClick={() => removeStep(index)}>Remove</button></div>)}<button type="button" className="secondary" onClick={() => setDraft({ ...draft, steps: [...draft.steps, emptyStep()] })}>Add approval step</button></fieldset>
+
+      <div className="form-actions wide"><button type="button" className="secondary" onClick={() => setDraft(null)}>Cancel</button><button type="submit" className="primary" disabled={Boolean(busy)}>{busy ? "Saving…" : draft.id ? "Save workflow" : "Create workflow"}</button></div>
+    </form></section></div>}
+  </section>;
 }
