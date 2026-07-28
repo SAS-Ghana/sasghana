@@ -100,23 +100,9 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
-  useEffect(() => {
-    if (forbidden.test(active) || !canAccess(active)) setActive(home);
-  }, [active, home, profile.id]);
-
-  useEffect(() => {
-    function close(event: PointerEvent) {
-      if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false);
-    }
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
-
-  useEffect(() => {
-    const expired = () => onLogout();
-    window.addEventListener("sas-session-expired", expired);
-    return () => window.removeEventListener("sas-session-expired", expired);
-  }, [onLogout]);
+  useEffect(() => { if (forbidden.test(active) || !canAccess(active)) setActive(home); }, [active, home, profile.id]);
+  useEffect(() => { function close(event: PointerEvent) { if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false); } document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
+  useEffect(() => { const expired = () => onLogout(); window.addEventListener("sas-session-expired", expired); return () => window.removeEventListener("sas-session-expired", expired); }, [onLogout]);
 
   if (isEmployeeOnly) return <div className="app employee-app-shell"><main className="main employee-main" ref={mainRef}><div className="content employee-content"><EmployeeHome accessToken={accessToken} profile={profile} onNavigate={() => undefined} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} /></div><ChatPopup accessToken={accessToken} profile={profile} />{notificationSettings && <NotificationSettings accessToken={accessToken} profile={profile} onClose={() => setNotificationSettings(false)} />}</main></div>;
 
@@ -165,20 +151,16 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     if (active === "Manager Dashboard") return <ManagerDashboard accessToken={accessToken} profile={profile} onNavigate={navigate} />;
     if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
     if (active === "My Team") return <TeamHub accessToken={accessToken} />;
-    if (active === "Team Attendance") return <AttendanceHub accessToken={accessToken} />;
     if (active === "Team Performance") return <PerformanceHub accessToken={accessToken} profile={profile} />;
     if (active === "One to One Meetings") return <CalendarHub accessToken={accessToken} profile={profile} />;
-    return <ManagerSectionPage label={active} accessToken={accessToken} />;
+    return <ManagerSectionPage label={active} accessToken={accessToken} profile={profile} />;
   };
 
   return <div className="app">
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : "Manager workspace"}</small></div></div>
-      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label, icon]) => {
-        const count = counts[label] ?? 0;
-        return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon">{icon}</span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} pending or new items`}>{count > 99 ? "99+" : count}</span>}</button>;
-      })}</nav></div>)}
+      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label, icon]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon">{icon}</span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} pending or new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
     </aside>
     <main className="main" ref={mainRef}>
