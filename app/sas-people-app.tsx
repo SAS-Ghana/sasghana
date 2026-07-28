@@ -1,195 +1,24 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import {
-  AuthSession,
-  changePassword,
-  clearSession,
-  fetchProfile,
-  readSession,
-  saveSession,
-  signIn,
-  signOut,
-  requestPasswordReset,
-  UserProfile,
-} from "./lib/supabase-auth";
+import { AuthSession, changePassword, clearSession, fetchProfile, readSession, requestPasswordReset, saveSession, sendEmailLoginCode, signIn, signOut, UserProfile, verifyEmailLoginCode } from "./lib/supabase-auth";
 import { PeopleDashboard } from "./people-dashboard";
 
-export function SasPeopleApp() {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [ready, setReady] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [resetOpen,setResetOpen]=useState(false);
-  const [notice,setNotice]=useState("");
+type PendingVerification={session:AuthSession;profile:UserProfile;email:string;remember:boolean};
 
-  useEffect(() => {
-    void Promise.resolve().then(() => {
-      const hash=new URLSearchParams(window.location.hash.replace(/^#/,""));
-      const recoveryToken=hash.get("access_token");
-      const recoveryRefresh=hash.get("refresh_token");
-      if(hash.get("type")==="recovery"&&recoveryToken&&recoveryRefresh){
-        const recovered:AuthSession={access_token:recoveryToken,refresh_token:recoveryRefresh,user:{id:hash.get("user_id")??""}};
-        const authUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
-        const authKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
-        fetch(`${authUrl}/auth/v1/user`,{headers:{apikey:authKey,Authorization:`Bearer ${recoveryToken}`}})
-          .then(response=>response.json()).then(async user=>{
-            recovered.user={id:user.id,email:user.email};
-            const recoveredProfile=await fetchProfile(recoveryToken,user.id);
-            if(recoveredProfile){setSession(recovered);setProfile(recoveredProfile);setPasswordOpen(true);window.history.replaceState(null,"",window.location.pathname);}
-            setReady(true);
-          }).catch(()=>setReady(true));
-        return;
-      }
-      const stored = readSession();
-      if (stored) {
-        void fetchProfile(stored.access_token, stored.user.id).then((storedProfile) => {
-          if (storedProfile && ["active", "password_change_required"].includes(storedProfile.status)) {
-            setSession(stored);
-            setProfile(storedProfile);
-            if (storedProfile.status === "password_change_required") setPasswordOpen(true);
-          } else {
-            clearSession();
-          }
-          setReady(true);
-        });
-        return;
-      }
-      setReady(true);
-    });
-  }, []);
-
-  async function handleLogin(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const result = await signIn(username, password);
-      saveSession(result.session, remember);
-      setSession(result.session);
-      setProfile(result.profile);
-      if (result.profile.status === "password_change_required") setPasswordOpen(true);
-      setPassword("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Sign in failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    if (session) await signOut(session.access_token);
-    clearSession();
-    setSession(null);
-    setProfile(null);
-  }
-
-  if (!ready) return <div className="app-loading">Loading SAS People...</div>;
-
-  if (!session || !profile) {
-    return (
-      <main className="login-shell">
-        <section className="login-brand">
-          <img src="/logo.png" alt="SAS Finance Group" width="330" height="92" />
-          <div>
-            <span className="eyebrow">Private employee portal</span>
-            <h1>People operations,<br />made effortless.</h1>
-            <p>Secure employee management and onboarding for SAS Finance Group Ghana.</p>
-          </div>
-          <small>Authorised SAS personnel only</small>
-        </section>
-        <section className="login-panel">
-          <form className="login-card" onSubmit={handleLogin}>
-            <div className="login-mark">SAS</div>
-            <h2>Welcome to SAS People</h2>
-            <p className="muted">Sign in with the account issued by your administrator.</p>
-            <label>Username
-              <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
-            </label>
-            <label>Password
-              <span className="password-field">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
-                <button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? "Hide" : "Show"}</button>
-              </span>
-            </label>
-            <div className="login-options">
-              <label className="check"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Remember me</label>
-              <button type="button" className="link-button" onClick={()=>setResetOpen(true)}>Forgot password?</button>
-            </div>
-            {notice&&<p className="form-message" role="status">{notice}</p>}
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="primary login-submit" disabled={busy}>{busy ? "Signing in..." : "Sign in"}</button>
-            <p className="login-help">Need help? Contact your SAS system administrator.</p>
-          </form>
-          {resetOpen&&<ResetDialog initialLogin={username} onClose={()=>setResetOpen(false)} onSent={message=>{setResetOpen(false);setNotice(message);}}/>}
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <>
-      <PeopleDashboard accessToken={session.access_token} profile={profile} onLogout={handleLogout} onChangePassword={() => setPasswordOpen(true)} />
-      {passwordOpen && (
-        <PasswordDialog
-          accessToken={session.access_token}
-          forced={profile.status === "password_change_required"}
-          onClose={() => setPasswordOpen(false)}
-          onUpdated={() => setProfile((current) => current ? { ...current, status: "active" } : current)}
-        />
-      )}
-    </>
-  );
+export function SasPeopleApp(){
+ const [session,setSession]=useState<AuthSession|null>(null),[profile,setProfile]=useState<UserProfile|null>(null),[ready,setReady]=useState(false),[username,setUsername]=useState(""),[password,setPassword]=useState(""),[remember,setRemember]=useState(false),[showPassword,setShowPassword]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[passwordOpen,setPasswordOpen]=useState(false),[resetOpen,setResetOpen]=useState(false),[notice,setNotice]=useState(""),[pending,setPending]=useState<PendingVerification|null>(null),[verificationCode,setVerificationCode]=useState("");
+ useEffect(()=>{void Promise.resolve().then(()=>{const hash=new URLSearchParams(window.location.hash.replace(/^#/,"")),recoveryToken=hash.get("access_token"),recoveryRefresh=hash.get("refresh_token");if(hash.get("type")==="recovery"&&recoveryToken&&recoveryRefresh){const recovered:AuthSession={access_token:recoveryToken,refresh_token:recoveryRefresh,user:{id:hash.get("user_id")??""}};const authUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co",authKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";fetch(`${authUrl}/auth/v1/user`,{headers:{apikey:authKey,Authorization:`Bearer ${recoveryToken}`}}).then(r=>r.json()).then(async user=>{recovered.user={id:user.id,email:user.email};const p=await fetchProfile(recoveryToken,user.id);if(p){setSession(recovered);setProfile(p);setPasswordOpen(true);window.history.replaceState(null,"",window.location.pathname);}setReady(true);}).catch(()=>setReady(true));return;}const stored=readSession();if(stored){void fetchProfile(stored.access_token,stored.user.id).then(p=>{if(p&&["active","password_change_required"].includes(p.status)){setSession(stored);setProfile(p);if(p.status==="password_change_required")setPasswordOpen(true);}else clearSession();setReady(true);});return;}setReady(true);});},[]);
+ async function handleLogin(event:FormEvent){event.preventDefault();setBusy(true);setError("");setNotice("");try{const result=await signIn(username,password);if(result.profile.two_step_email_enabled){const email=result.profile.email||result.session.user.email||"";await sendEmailLoginCode(result.session,email);setPending({session:result.session,profile:result.profile,email,remember});setPassword("");setNotice(`A six digit verification code was sent to ${maskEmail(email)}.`);return;}finishLogin(result.session,result.profile,remember);}catch(cause){setError(cause instanceof Error?cause.message:"Sign in failed.");}finally{setBusy(false);}}
+ function finishLogin(nextSession:AuthSession,nextProfile:UserProfile,rememberChoice:boolean){saveSession(nextSession,rememberChoice);setSession(nextSession);setProfile(nextProfile);setPending(null);setVerificationCode("");setPassword("");if(nextProfile.status==="password_change_required")setPasswordOpen(true);}
+ async function verifyCode(event:FormEvent){event.preventDefault();if(!pending)return;setBusy(true);setError("");try{const verified=await verifyEmailLoginCode(pending.email,verificationCode);const refreshedProfile=await fetchProfile(verified.access_token,verified.user.id);if(!refreshedProfile)throw new Error("Your account profile could not be loaded after verification.");finishLogin(verified,refreshedProfile,pending.remember);}catch(cause){setError(cause instanceof Error?cause.message:"Verification failed.");}finally{setBusy(false);}}
+ async function resendCode(){if(!pending)return;setBusy(true);setError("");try{await sendEmailLoginCode(pending.session,pending.email);setNotice(`A new verification code was sent to ${maskEmail(pending.email)}.`);}catch(cause){setError(cause instanceof Error?cause.message:"A new code could not be sent.");}finally{setBusy(false);}}
+ async function handleLogout(){if(session)await signOut(session.access_token);clearSession();setSession(null);setProfile(null);}
+ if(!ready)return <div className="app-loading">Loading SAS People...</div>;
+ if(pending)return <main className="login-shell"><section className="login-brand"><img src="/logo.png" alt="SAS Finance Group" width="330" height="92"/><div><span className="eyebrow">Login verification</span><h1>Confirm it is you.</h1><p>Enter the code sent to your registered work email.</p></div><small>Authorised SAS personnel only</small></section><section className="login-panel"><form className="login-card" onSubmit={verifyCode}><div className="login-mark">SAS</div><h2>Two step verification</h2><p className="muted">We sent a six digit code to {maskEmail(pending.email)}. Codes expire shortly and can only be used once.</p><label>Verification code<input autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={verificationCode} onChange={e=>setVerificationCode(e.target.value.replace(/\D/g,"").slice(0,6))} required/></label>{notice&&<p className="form-message">{notice}</p>}{error&&<p className="form-error">{error}</p>}<button className="primary login-submit" disabled={busy||verificationCode.length!==6}>{busy?"Verifying...":"Verify and continue"}</button><div className="login-options"><button type="button" className="link-button" disabled={busy} onClick={()=>void resendCode()}>Send a new code</button><button type="button" className="link-button" onClick={()=>{setPending(null);setVerificationCode("");setNotice("");setError("");}}>Use another account</button></div></form></section></main>;
+ if(!session||!profile)return <main className="login-shell"><section className="login-brand"><img src="/logo.png" alt="SAS Finance Group" width="330" height="92"/><div><span className="eyebrow">Private employee portal</span><h1>People operations,<br/>made effortless.</h1><p>Secure employee management and onboarding for SAS Finance Group Ghana.</p></div><small>Authorised SAS personnel only</small></section><section className="login-panel"><form className="login-card" onSubmit={handleLogin}><div className="login-mark">SAS</div><h2>Welcome to SAS People</h2><p className="muted">Sign in with the account issued by your administrator.</p><label>Username<input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username" required/></label><label>Password<span className="password-field"><input type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?"Hide":"Show"}</button></span></label><div className="login-options"><label className="check"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember me</label><button type="button" className="link-button" onClick={()=>setResetOpen(true)}>Forgot password?</button></div>{notice&&<p className="form-message">{notice}</p>}{error&&<p className="form-error">{error}</p>}<button className="primary login-submit" disabled={busy}>{busy?"Signing in...":"Sign in"}</button><p className="login-help">Need help? Contact your SAS system administrator.</p></form>{resetOpen&&<ResetDialog initialLogin={username} onClose={()=>setResetOpen(false)} onSent={message=>{setResetOpen(false);setNotice(message);}}/>}</section></main>;
+ return <><PeopleDashboard accessToken={session.access_token} profile={profile} onLogout={handleLogout} onChangePassword={()=>setPasswordOpen(true)}/>{passwordOpen&&<PasswordDialog accessToken={session.access_token} forced={profile.status==="password_change_required"} onClose={()=>setPasswordOpen(false)} onUpdated={()=>setProfile(current=>current?{...current,status:"active"}:current)}/>}</>;
 }
-
-function ResetDialog({initialLogin,onClose,onSent}:{initialLogin:string;onClose:()=>void;onSent:(message:string)=>void}) {
-  const [login,setLogin]=useState(initialLogin);const [busy,setBusy]=useState(false);const [error,setError]=useState("");
-  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{onSent(await requestPasswordReset(login));}catch(cause){setError(cause instanceof Error?cause.message:"Reset request failed.");}finally{setBusy(false);}}
-  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="modal reset-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><span className="eyebrow">Account recovery</span><h2>Reset your password</h2><p className="muted">Enter your username or work email. We will notify an administrator and send a secure reset link to your email.</p><form onSubmit={submit}><label>Username or email<input autoFocus required value={login} onChange={event=>setLogin(event.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Sending…":"Send reset email"}</button></div></form></section></div>;
-}
-
-function PasswordDialog({ accessToken, onClose, onUpdated, forced = false }: { accessToken: string; onClose: () => void; onUpdated: () => void; forced?: boolean }) {
-  const [nextPassword, setNextPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (nextPassword.length < 10) return setMessage("Use at least 10 characters.");
-    if (nextPassword !== confirm) return setMessage("The passwords do not match.");
-    setBusy(true);
-    setMessage("");
-    try {
-      await changePassword(accessToken, nextPassword);
-      onUpdated();
-      setMessage("Password updated securely in Supabase.");
-      setNextPassword("");
-      setConfirm("");
-      window.setTimeout(onClose, 700);
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Password change failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(!forced&&event.target===event.currentTarget)onClose();}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
-    {!forced&&<button className="modal-close" onClick={onClose} aria-label="Close">x</button>}
-    <span className="eyebrow">Account security</span>
-    <h2 id="password-title">Change password</h2>
-    <p className="muted">{forced ? "Your administrator issued a temporary password. Set your private password before continuing." : "Your new password is saved directly to your Supabase account."}</p>
-    <form onSubmit={submit}>
-      <label>New password<input type="password" value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} autoComplete="new-password" required /></label>
-      <label>Confirm new password<input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="new-password" required /></label>
-      {message && <p className="form-message">{message}</p>}
-      <button className="primary" disabled={busy}>{busy ? "Updating..." : "Update password"}</button>
-    </form>
-  </section></div>;
-}
+function maskEmail(email:string){const [name,domain]=email.split("@");return domain?`${name.slice(0,2)}***@${domain}`:"your email";}
+function ResetDialog({initialLogin,onClose,onSent}:{initialLogin:string;onClose:()=>void;onSent:(message:string)=>void}){const [login,setLogin]=useState(initialLogin),[busy,setBusy]=useState(false),[error,setError]=useState("");async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{onSent(await requestPasswordReset(login));}catch(cause){setError(cause instanceof Error?cause.message:"Reset request failed.");}finally{setBusy(false);}}return <div className="modal-backdrop"><section className="modal reset-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Account recovery</span><h2>Reset your password</h2><p className="muted">Enter your username or work email. A secure reset link will be sent to your email.</p><form onSubmit={submit}><label>Username or email<input autoFocus required value={login} onChange={e=>setLogin(e.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Sending…":"Send reset email"}</button></div></form></section></div>;}
+function PasswordDialog({accessToken,onClose,onUpdated,forced=false}:{accessToken:string;onClose:()=>void;onUpdated:()=>void;forced?:boolean}){const [nextPassword,setNextPassword]=useState(""),[confirm,setConfirm]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);async function submit(event:FormEvent){event.preventDefault();if(nextPassword.length<10)return setMessage("Use at least 10 characters.");if(nextPassword!==confirm)return setMessage("The passwords do not match.");setBusy(true);setMessage("");try{await changePassword(accessToken,nextPassword);onUpdated();setMessage("Password updated securely.");setNextPassword("");setConfirm("");window.setTimeout(onClose,700);}catch(cause){setMessage(cause instanceof Error?cause.message:"Password change failed.");}finally{setBusy(false);}}return <div className="modal-backdrop" onMouseDown={e=>{if(!forced&&e.target===e.currentTarget)onClose();}}><section className="modal">{!forced&&<button className="modal-close" onClick={onClose}>×</button>}<span className="eyebrow">Account security</span><h2>Change password</h2><p className="muted">{forced?"Set your private password before continuing.":"Use a strong password that is not shared with another service."}</p><form onSubmit={submit}><label>New password<input type="password" value={nextPassword} onChange={e=>setNextPassword(e.target.value)} autoComplete="new-password" required/></label><label>Confirm new password<input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" required/></label>{message&&<p className="form-message">{message}</p>}<button className="primary" disabled={busy}>{busy?"Updating...":"Update password"}</button></form></section></div>;}
