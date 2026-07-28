@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 
 const actions = [
-  { tab: "notifications", label: "Notifications", icon: "◉" },
-  { tab: "help", label: "Help centre", icon: "?" },
-  { tab: "settings", label: "Settings", icon: "⚙" },
+  { tab: "notifications", label: "Notifications", icon: "◉", kind: "tab" },
+  { tab: "help", label: "Help centre", icon: "?", kind: "tab" },
+  { tab: "settings", label: "Settings", icon: "⚙", kind: "tab" },
+  { tab: "signout", label: "Sign out", icon: "⇥", kind: "signout" },
 ] as const;
 
 function openEmployeeTab(tab: string) {
@@ -31,11 +32,17 @@ export function EmployeeHeaderActionsEnhancer() {
       for (const action of actions) {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "employee-header-quick-button";
+        button.className = `employee-header-quick-button${action.kind === "signout" ? " signout" : ""}`;
         button.title = action.label;
         button.setAttribute("aria-label", action.label);
         button.innerHTML = `<span aria-hidden="true">${action.icon}</span><small>${action.label}</small>`;
-        button.addEventListener("click", () => openEmployeeTab(action.tab));
+        button.addEventListener("click", () => {
+          if (action.kind === "signout") {
+            window.dispatchEvent(new CustomEvent("sas-request-signout"));
+            return;
+          }
+          openEmployeeTab(action.tab);
+        });
         quick.appendChild(button);
       }
 
