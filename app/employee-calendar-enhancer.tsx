@@ -2,15 +2,16 @@ import { useEffect } from "react";
 
 type CalendarItem={date:string;type:string;title:string;status:string;row:HTMLTableRowElement};
 const dayNames=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const calendarLabel=/^(calendar|calendrier|calendario|日历|kalenda)$/i;
 function normalDate(value:string){const match=value.match(/^\d{4}-\d{2}-\d{2}/);return match?.[0]??"";}
 function keyForDate(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;}
 
 export function EmployeeCalendarEnhancer(){
  useEffect(()=>{let queued=false;
   function enhance(){
-   const active=Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button.active")).some(button=>button.textContent?.trim().toLowerCase()==="calendar");
+   const active=Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button.active")).some(button=>calendarLabel.test(button.textContent?.trim()??""));
    if(!active)return;
-   const page=Array.from(document.querySelectorAll<HTMLElement>(".employee-record-page")).find(item=>item.querySelector("h2")?.textContent?.trim()==="Calendar");
+   const page=Array.from(document.querySelectorAll<HTMLElement>(".employee-record-page")).find(item=>calendarLabel.test(item.querySelector("h2")?.textContent?.trim()??""));
    if(!page||page.dataset.calendarEnhanced==="true")return;
    const table=page.querySelector<HTMLTableElement>("table.data-table");if(!table)return;
    page.dataset.calendarEnhanced="true";
