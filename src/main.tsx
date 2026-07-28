@@ -14,6 +14,7 @@ import "../app/employee-shell.css";
 import "../app/employee-portal-v2.css";
 import "../app/handover-polish.css";
 import "../app/runtime-ui-fixes.css";
+import "../app/dashboard-layout-fixes.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
