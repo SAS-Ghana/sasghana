@@ -38,7 +38,7 @@ export function NotificationCenter({accessToken,profile}:{accessToken:string;pro
   }),[items,filter,sort,query]);
 
   async function patch(item:DataRow,row:DataRow){setBusy(String(item.id));try{await updateRow(accessToken,"notifications",String(item.id),row);await load();}finally{setBusy("");}}
-  async function markAll(){setBusy("all");try{await callRpc(accessToken,"mark_all_notifications_read",{});await load();}finally{setBusy("");}}
+  async function markAll(){setBusy("all");try{await callRpc(accessToken,"mark_all_my_notifications_read",{});await load();}finally{setBusy("");}}
   async function remove(item:DataRow){if(!confirm("Delete this notification?"))return;setBusy(String(item.id));try{await deleteRow(accessToken,"notifications",String(item.id));await load();}finally{setBusy("");}}
 
   return <div className="notification-center" ref={containerRef}>

@@ -1,9 +1,7 @@
 export type AuthSession = { access_token:string; refresh_token:string; expires_in?:number; expires_at?:number; token_type?:string; user:{id:string;email?:string} };
 export type UserProfile = { id:string;organisation_id:string;username:string;email?:string;display_name:string;status:string;account_type:string;job_title?:string;employee_id?:string;dashboard_access:string[];roles:string[];permissions:string[];preferred_dashboard?:string;self_service_enabled?:boolean;two_step_email_enabled?:boolean;two_step_email_verified_at?:string|null };
+import { jsonHeaders, publishableKey, serviceUrl } from "./supabase-config";
 
-const serviceUrl=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
-const publishableKey=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
-const jsonHeaders={apikey:publishableKey,"Content-Type":"application/json"};
 const browserSessionKey="sas-people-browser-session-id";
 let refreshPromise:Promise<AuthSession|null>|null=null;
 

@@ -1,7 +1,6 @@
 import { clearSession, getValidAccessToken, refreshSession } from "./supabase-auth";
+import { publishableKey, serviceUrl } from "./supabase-config";
 
-const serviceUrl = import.meta.env.VITE_SUPABASE_URL ?? "https://nbuqipukkpbcxkofnaib.supabase.co";
-const publishableKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
 export type DataRow = Record<string, string | number | boolean | null | undefined>;
 
 function emitDataChanged(resource:string){
