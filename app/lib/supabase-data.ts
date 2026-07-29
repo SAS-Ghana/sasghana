@@ -1,7 +1,16 @@
 import { clearSession, getValidAccessToken, refreshSession } from "./supabase-auth";
 
-const serviceUrl = import.meta.env.VITE_SUPABASE_URL ?? "https://nbuqipukkpbcxkofnaib.supabase.co";
-const publishableKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+const serviceUrl = (() => {
+  const v = import.meta.env.VITE_SUPABASE_URL;
+  if (!v) throw new Error("VITE_SUPABASE_URL is not set. Set VITE_SUPABASE_URL in your environment (see README.md)");
+  return v;
+})();
+
+const publishableKey = (() => {
+  const k = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!k) throw new Error("VITE_SUPABASE_ANON_KEY is not set. Set VITE_SUPABASE_ANON_KEY in your environment (see README.md)");
+  return k;
+})();
 export type DataRow = Record<string, string | number | boolean | null | undefined>;
 
 function emitDataChanged(resource:string){

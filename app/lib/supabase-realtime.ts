@@ -1,7 +1,16 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url=import.meta.env.VITE_SUPABASE_URL??"https://nbuqipukkpbcxkofnaib.supabase.co";
-const key=import.meta.env.VITE_SUPABASE_ANON_KEY??"sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+const url = (() => {
+  const v = import.meta.env.VITE_SUPABASE_URL;
+  if (!v) throw new Error("VITE_SUPABASE_URL is not set. Set VITE_SUPABASE_URL in your environment (see README.md)");
+  return v;
+})();
+
+const key = (() => {
+  const k = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!k) throw new Error("VITE_SUPABASE_ANON_KEY is not set. Set VITE_SUPABASE_ANON_KEY in your environment (see README.md)");
+  return k;
+})();
 const clients=new Map<string,SupabaseClient>();
 
 export function realtimeClient(accessToken:string){

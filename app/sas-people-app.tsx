@@ -60,8 +60,9 @@ export function SasPeopleApp() {
       const recoveryRefresh = hash.get("refresh_token");
       if (hash.get("type") === "recovery" && recoveryToken && recoveryRefresh) {
         const recovered: AuthSession = { access_token: recoveryToken, refresh_token: recoveryRefresh, user: { id: hash.get("user_id") ?? "" } };
-        const authUrl = import.meta.env.VITE_SUPABASE_URL ?? "https://nbuqipukkpbcxkofnaib.supabase.co";
-        const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_WIuZltSLSSWN63fat12CoA_FsOuf_6G";
+        const authUrl = import.meta.env.VITE_SUPABASE_URL;
+        const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (!authUrl || !authKey) { setReady(true); return; }
         fetch(`${authUrl}/auth/v1/user`, { headers: { apikey: authKey, Authorization: `Bearer ${recoveryToken}` } })
           .then((response) => response.json())
           .then(async (user) => {

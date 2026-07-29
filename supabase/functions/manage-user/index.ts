@@ -93,7 +93,7 @@ async function handleRequest(request: Request) {
     if (body.action === "resend_invite") {
       const { data: profile, error: lookupError } = await admin.from("profiles").select("email,username,display_name").eq("id",body.user_id).single();
       if (lookupError || !profile?.email) return json({error:"This account does not have a valid email address."},400);
-      const redirectTo=String(body.redirect_to||"https://sasghana.vercel.app/");
+      const redirectTo = String(body.redirect_to ?? (Deno.env.get("PUBLIC_SITE_URL") ?? Deno.env.get("SITE_URL") ?? ""));
       const { error }=await admin.auth.resetPasswordForEmail(profile.email,{redirectTo});
       if(error)throw error;
       await admin.from("profiles").update({invitation_status:"resent"}).eq("id",body.user_id);
