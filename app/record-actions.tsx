@@ -6,6 +6,17 @@ import { DataRow, deleteRow, updateRow } from "./lib/supabase-data";
 // employee_name by looking up the employee record after fetching). Never sent back on save.
 const derivedFields = new Set(["employee_name"]);
 
+type FieldKind = "checkbox" | "date" | "textarea" | "number" | "text";
+const longTextKey = /note|description|reason|details|comment|body|summary/i;
+
+function fieldKind(key: string, value: unknown): FieldKind {
+  if (typeof value === "boolean") return "checkbox";
+  if (longTextKey.test(key)) return "textarea";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return "date";
+  if (typeof value === "number") return "number";
+  return "text";
+}
+
 export function RecordActions({ accessToken, table, row, columns, label, onReload }: {
   accessToken: string;
   table: string;
@@ -80,12 +91,27 @@ function GenericEditDialog({ accessToken, table, row, columns, onClose, onSaved 
       <span className="eyebrow">Edit record</span>
       <h2 id="generic-edit-title">Edit fields</h2>
       <form className="record-form" onSubmit={submit}>
-        {columns.map(([key, fieldLabel]) => <label key={key}>
-          {fieldLabel}
-          {derivedFields.has(key)
-            ? <input value={String(values[key] ?? "")} disabled readOnly />
-            : <input value={String(values[key] ?? "")} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />}
-        </label>)}
+        {columns.map(([key, fieldLabel]) => {
+          const kind = fieldKind(key, row[key]);
+          const disabled = derivedFields.has(key);
+          if (kind === "checkbox") return <label key={key} className="check">
+            <input type="checkbox" checked={Boolean(values[key])} disabled={disabled} onChange={(event) => setValues({ ...values, [key]: event.target.checked })} /> {fieldLabel}
+          </label>;
+          if (kind === "textarea") return <label key={key} className="wide">
+            {fieldLabel}
+            <textarea value={String(values[key] ?? "")} disabled={disabled} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />
+          </label>;
+          return <label key={key}>
+            {fieldLabel}
+            <input
+              type={kind === "date" ? "date" : kind === "number" ? "number" : "text"}
+              value={kind === "date" ? String(values[key] ?? "").slice(0, 10) : String(values[key] ?? "")}
+              disabled={disabled}
+              readOnly={disabled}
+              onChange={(event) => setValues({ ...values, [key]: kind === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value })}
+            />
+          </label>;
+        })}
         {error && <p className="form-error wide" role="alert">{error}</p>}
         <div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button></div>
       </form>

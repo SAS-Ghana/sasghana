@@ -63,12 +63,12 @@ function displayValue(value: unknown) {
 
 export function HRSectionPage({ label, accessToken, organisationId }: { label: string; accessToken: string; organisationId: string }) {
   const validatedLabel = validatedAliases[label];
-  if (validatedLabel) return <AdminSectionPage label={validatedLabel} accessToken={accessToken} organisationId={organisationId} />;
-
   const config = configs[label];
   const [rows, setRows] = useState<DataRow[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState("");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -85,12 +85,14 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
   }, [accessToken, config]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setSort(config?.columns[0]?.[0] ?? ""); setDirection("desc"); }, [config]);
 
   const visible = useMemo(() => rows.filter((row) =>
     (status === "all" || String(row.status) === status) &&
     (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
-  ), [rows, query, status]);
+  ).sort((a, b) => sort ? String(a[sort] ?? "").localeCompare(String(b[sort] ?? ""), undefined, { numeric: true }) * (direction === "asc" ? 1 : -1) : 0), [rows, query, status, sort, direction]);
 
+  if (validatedLabel) return <AdminSectionPage label={validatedLabel} accessToken={accessToken} organisationId={organisationId} />;
   if (!config || blocked.test(label)) {
     return <section className="card data-panel"><h2>Access unavailable</h2><p>This module is not available to HR.</p></section>;
   }
@@ -190,7 +192,7 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
     <article className="card data-panel">
-      <div className="filter-toolbar"><input id={`search-${config.table}`} name={`search_${config.table}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}...`} /><select id={`status-${config.table}`} name={`status_${config.table}`} value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="secondary" onClick={() => void load()}>Refresh</button><button type="button" className="secondary" onClick={exportCsv}>Export CSV</button><button type="button" className="secondary" onClick={() => window.print()}>Print</button></div>
+      <div className="filter-toolbar"><input id={`search-${config.table}`} name={`search_${config.table}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}...`} /><select id={`status-${config.table}`} name={`status_${config.table}`} value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label={`Sort ${config.title}`} value={sort} onChange={(event) => setSort(event.target.value)}>{config.columns.map(([key, name]) => <option key={key} value={key}>Sort by {name}</option>)}</select><select aria-label="Sort direction" value={direction} onChange={(event) => setDirection(event.target.value as "asc" | "desc")}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select><button type="button" className="secondary" onClick={() => void load()}>Refresh</button><button type="button" className="secondary" onClick={exportCsv}>Export CSV</button><button type="button" className="secondary" onClick={() => window.print()}>Print</button></div>
       {visible.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map(([, name]) => <th key={name}>{name}</th>)}<th>Actions</th></tr></thead><tbody>{visible.map((row, index) => <tr key={String(row.id ?? index)}>{config.columns.map(([key]) => <td key={key}>{displayValue(row[key])}</td>)}<td><div className="row-actions">{label === "Notifications" ? <button type="button" disabled={busy} onClick={() => void setNotificationRead(row, !Boolean(row.is_read))}>{row.is_read ? "Mark unread" : "Mark read"}</button> : label === "HR Help Desk" ? <><button type="button" onClick={() => void setRowStatus(row, "open")}>Open</button><button type="button" onClick={() => void setRowStatus(row, "in_progress")}>In progress</button><button type="button" onClick={() => void setRowStatus(row, "resolved")}>Resolve</button><button type="button" onClick={() => void setRowStatus(row, "closed")}>Close</button><button type="button" onClick={() => void setRowStatus(row, "reopened")}>Reopen</button></> : "status" in row ? <><button type="button" onClick={() => void setRowStatus(row, "approved")}>Approve</button><button type="button" onClick={() => void setRowStatus(row, "rejected")}>Reject</button></> : null}{label !== "Notifications" && <RecordActions accessToken={accessToken} table={config.table} row={row} columns={config.columns} label={label} onReload={load} />}<button type="button" onClick={() => window.print()}>Print</button></div></td></tr>)}</tbody></table></div> : <div className="empty-state"><h3>No records yet</h3><p>No records are available in this module. Use the actions above to begin where permitted.</p></div>}
     </article>
   </section>;

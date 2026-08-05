@@ -5,6 +5,7 @@ import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { AvatarPhoto } from "./avatar-photo";
 
 type Props = { accessToken: string; profile: UserProfile; onNavigate: (label: string) => void };
 
@@ -64,7 +65,7 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
   const quick = ["Add Employee", "Invite User", "Assign Role", "Create Department", "Create Branch", "Start Onboarding", "Start Offboarding", "Review Attendance", "Review Leave", "Open Payroll", "Create Vacancy", "Generate Document", "Publish Announcement", "View Security Alerts", "Export Report", "Open System Settings"];
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS People.</p></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS Finance Group.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
     <div className="dashboard-metric-grid">{metrics.map(([label, result, target]) => <button key={String(label)} className="card metric dashboard-metric-card" onClick={() => onNavigate(String(target))}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(String(target))} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>

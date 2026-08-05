@@ -32,6 +32,8 @@ export function ManagerSectionPage({ label, accessToken, profile }: { label: str
   const [team, setTeam] = useState<DataRow[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState("");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -78,9 +80,10 @@ export function ManagerSectionPage({ label, accessToken, profile }: { label: str
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
+  useEffect(() => { setSort(config?.columns[0]?.[0] ?? ""); setDirection("desc"); }, [config]);
 
   const statuses = useMemo(() => Array.from(new Set(rows.map((row) => String(row.status ?? "")).filter(Boolean))).sort(), [rows]);
-  const visible = useMemo(() => rows.filter((row) => (status === "all" || String(row.status) === status) && (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))), [rows, query, status]);
+  const visible = useMemo(() => rows.filter((row) => (status === "all" || String(row.status) === status) && (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))).sort((a, b) => sort ? String(a[sort] ?? "").localeCompare(String(b[sort] ?? ""), undefined, { numeric: true }) * (direction === "asc" ? 1 : -1) : 0), [rows, query, status, sort, direction]);
 
   async function decide(row: ManagerRequestRow, decision: "approve" | "return" | "reject") {
     if (!row.id || !config) return;

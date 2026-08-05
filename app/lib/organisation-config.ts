@@ -28,7 +28,7 @@ export type OrganisationConfig = {
 
 export const defaultOrganisationConfig: OrganisationConfig = {
   companyName: "SAS Finance Group Ghana",
-  shortName: "SAS People",
+  shortName: "SAS Finance Group",
   description: "Employee Management and Onboarding Portal",
   logoUrl: "",
   faviconUrl: "",

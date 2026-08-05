@@ -5,6 +5,7 @@ import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { AvatarPhoto } from "./avatar-photo";
 
 type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[] };
 const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [] };
@@ -69,7 +70,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Book Library", "Open Book Library"]);
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">Manager workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">Your authorised team, approvals, performance and workload in one place.</p></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Manager workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">Your authorised team, approvals, performance and workload in one place.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}{loading && <p className="form-message">Loading team information…</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
     <div className="dashboard-metric-grid">{cards.map(([label, result, page]) => <button className="card metric dashboard-metric-card" key={label} onClick={() => onNavigate(page)}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(page)} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>

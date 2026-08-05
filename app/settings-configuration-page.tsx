@@ -87,7 +87,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
     try {
       await saveOrganisationConfig(accessToken, organisationId, config);
       applyOrganisationTheme(config);
-      setNotice("Company settings saved and applied across SAS People.");
+      setNotice("Company settings saved and applied across SAS Finance Group.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Settings could not be saved.");
     }
@@ -162,7 +162,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
 
           {section === "appearance" && <><h2>Appearance</h2><div className="colour-grid">
             {([['primary', 'Primary'], ['secondary', 'Secondary'], ['accent', 'Accent'], ['sidebar', 'Sidebar'], ['background', 'Background'], ['surface', 'Cards and forms']] as const).map(([key, label]) => <label key={key} htmlFor={`colour-${key}`}>{label}<input id={`colour-${key}`} name={`${key}_colour_picker`} type="color" value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /><input name={`${key}_colour`} value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /></label>)}
-          </div><div className="theme-preview" style={{ background: config.background }}><aside style={{ background: config.sidebar, color: '#fff' }}>SAS People</aside><main style={{ background: config.surface }}><strong style={{ color: config.primary }}>{config.companyName}</strong><button type="button" style={{ background: config.primary }}>Primary action</button></main></div></>}
+          </div><div className="theme-preview" style={{ background: config.background }}><aside style={{ background: config.sidebar, color: '#fff' }}>SAS Finance Group</aside><main style={{ background: config.surface }}><strong style={{ color: config.primary }}>{config.companyName}</strong><button type="button" style={{ background: config.primary }}>Primary action</button></main></div></>}
 
           {section === "regional" && <><h2>Currency and regional formats</h2>
             <label htmlFor="settings-currency-code">Currency code<input id="settings-currency-code" name="currency_code" value={config.currencyCode} onChange={(event) => setConfig({ ...config, currencyCode: event.target.value.toUpperCase() })} /></label>

@@ -1,11 +1,12 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
-import { callRpc, createRow, createSignedStorageUrl, DataRow, listRows, listRowsWhere } from "./lib/supabase-data";
+import { callRpc, createRow, createSignedStorageUrl, DataRow, listRows, listRowsWhere, updateRow, uploadStorageFile } from "./lib/supabase-data";
 import { loadAttendancePolicy, runAttendanceAction } from "./quick-attendance";
 import { BookLibraryPage, libraryAccess } from "./book-library-page";
 import { PeopleDirectory } from "./people-directory";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { AvatarPhoto } from "./avatar-photo";
 
 type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
@@ -148,7 +149,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
 
     {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onAskAi={() => setTab("ai")} />}
     {tab === "people" && <PeopleDirectory accessToken={accessToken} organisationId={profile.organisation_id} canManage={false} />}
-    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} accessToken={accessToken} />}
+    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} accessToken={accessToken} profile={profile} />}
     {tab === "attendance" && <AttendancePage rows={data.attendance} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} rate={attendanceRate} hours={workedHours} overtime={overtime} />}
     {tab === "leave" && <LeavePage rows={data.leave} holidays={data.holidays} balance={leaveBalance} onApply={() => setModal("leave")} />}
     {tab === "payroll" && <PayrollPage rows={data.payroll} employee={employee} />}
@@ -165,7 +166,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
     {tab === "help" && <HelpPage tickets={data.tickets} onTicket={() => setModal("ticket")} onAi={() => setTab("ai")} />}
     {tab === "notifications" && <NotificationsPage rows={data.notifications} accessToken={accessToken} onPreferences={onNotificationSettings} onReload={load} />}
     {tab === "analytics" && <AnalyticsPage attendanceRate={attendanceRate} leave={data.leave} hours={workedHours} overtime={overtime} performance={data.performance} learning={data.learning} goals={data.goals} />}
-    {tab === "settings" && <EmployeeSettings accessToken={accessToken} employee={employee} preferences={data.preferences[0]} onProfile={() => setModal("profile")} onPassword={onChangePassword} onNotifications={onNotificationSettings} onLogout={onLogout} onSaved={load} />}
+    {tab === "settings" && <EmployeeSettings accessToken={accessToken} profile={profile} employee={employee} preferences={data.preferences[0]} onProfile={() => setModal("profile")} onPassword={onChangePassword} onNotifications={onNotificationSettings} onLogout={onLogout} onSaved={load} />}
     {tab === "ai" && <AiPage question={aiQuestion} setQuestion={setAiQuestion} answer={aiAnswer} onSubmit={askAi} />}
     {tab === "library" && <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />}
 
@@ -191,30 +192,32 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
   </>;
 }
 
-function ProfilePage({ employee, history, onRequest, accessToken }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void; accessToken: string }) {
+function ProfilePage({ employee, history, onRequest, accessToken, profile }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void; accessToken: string; profile: UserProfile }) {
   const sections: [string, [string, unknown][]][] = [
     ["Contact information", [["Personal email", employee?.personal_email], ["Phone", employee?.phone], ["Nationality", employee?.nationality], ["Residential address", employee?.residential_address]]],
     ["Employment", [["Department", employee?.department_name], ["Branch", employee?.branch], ["Position", employee?.position_title], ["Status", employee?.employment_status], ["Reporting manager", employee?.manager_name], ["Employment type", employee?.employment_type], ["Start date", employee?.start_date]]],
     ["Emergency contacts", [["Name", employee?.emergency_contact_name], ["Phone", employee?.emergency_contact_phone], ["Relationship", employee?.emergency_contact_relationship]]],
     ["Bank, tax and pension", [["Bank", employee?.bank_name], ["Account name", employee?.bank_account_name], ["Account number", mask(employee?.bank_account_number)], ["Tax number", mask(employee?.tax_number)], ["SSNIT / pension", mask(employee?.ssnit_number)], ["Pension provider", employee?.pension_provider]]],
   ];
-  const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || "Employee";
-  const initials = `${String(employee?.first_name ?? "E").slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase();
+  const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || profile.display_name || "Employee";
+  const initials = employee?.first_name
+    ? `${String(employee.first_name).slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase()
+    : profile.display_name.slice(0, 2).toUpperCase();
   const [photoUrl, setPhotoUrl] = useState("");
+  const photoPath = employee?.passport_photo_path ?? profile.avatar_path;
   useEffect(() => {
     let cancelled = false;
-    const photoPath = employee?.passport_photo_path;
     (photoPath ? createSignedStorageUrl(accessToken, "employee-media", String(photoPath)) : Promise.resolve(""))
       .then((url) => { if (!cancelled) setPhotoUrl(url); })
       .catch(() => { if (!cancelled) setPhotoUrl(""); });
     return () => { cancelled = true; };
-  }, [accessToken, employee?.passport_photo_path]);
+  }, [accessToken, photoPath]);
   return <>
     <div className="profile-banner">
       <div className="profile-banner-avatar">{photoUrl ? <img src={photoUrl} alt="" /> : initials}</div>
       <div className="profile-banner-info">
         <h1>{fullName}</h1>
-        <p>{String(employee?.position_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
+        <p>{String(employee?.position_title ?? profile.job_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
         <span>{employee?.employee_number ? `Staff #${String(employee.employee_number)}` : "Staff number pending"}</span>
       </div>
       <button type="button" className="secondary profile-banner-action" onClick={onRequest}>Request a change</button>
@@ -324,7 +327,7 @@ function NotificationsPage({ rows, accessToken, onPreferences, onReload }: { row
 }
 function AnalyticsPage({ attendanceRate, leave, hours, overtime, performance, learning, goals }: { attendanceRate: number; leave: DataRow[]; hours: number; overtime: number; performance: DataRow[]; learning: DataRow[]; goals: DataRow[] }) { return <><header className="page-header"><div><h1><MenuIcon name={moduleIcon("Analytics")} />My Analytics</h1><p className="muted">Private employee summaries only.</p></div></header><div className="employee-quick-cards"><article><span>Attendance summary</span><strong>{attendanceRate}%</strong></article><article><span>Leave utilisation</span><strong>{leave.filter((row) => row.status === "approved").reduce((sum, row) => sum + Number(row.days ?? 0), 0)} days</strong></article><article><span>Hours worked</span><strong>{hours.toFixed(1)}</strong></article><article><span>Overtime</span><strong>{overtime.toFixed(1)}</strong></article><article><span>Performance trend</span><strong>{String(performance[0]?.rating ?? "—")}</strong></article><article><span>Learning progress</span><strong>{learning.length ? Math.round(learning.reduce((sum, row) => sum + Number(row.progress ?? 0), 0) / learning.length) : 0}%</strong></article><article><span>Goal completion</span><strong>{goals.length ? Math.round(goals.filter((row) => row.status === "completed").length / goals.length * 100) : 0}%</strong></article></div></>; }
 
-function EmployeeSettings({ accessToken, employee, preferences, onProfile, onPassword, onNotifications, onLogout, onSaved }: { accessToken: string; employee: DataRow | null; preferences?: DataRow; onProfile: () => void; onPassword?: () => void; onNotifications?: () => void; onLogout?: () => void; onSaved: () => Promise<void> }) {
+function EmployeeSettings({ accessToken, profile, employee, preferences, onProfile, onPassword, onNotifications, onLogout, onSaved }: { accessToken: string; profile: UserProfile; employee: DataRow | null; preferences?: DataRow; onProfile: () => void; onPassword?: () => void; onNotifications?: () => void; onLogout?: () => void; onSaved: () => Promise<void> }) {
   const [language, setLanguage] = useState(String(preferences?.language ?? "English"));
   const [theme, setTheme] = useState(String(preferences?.theme ?? "system"));
   const [accessibility, setAccessibility] = useState(String(preferences?.accessibility ?? "standard"));
@@ -335,6 +338,28 @@ function EmployeeSettings({ accessToken, employee, preferences, onProfile, onPas
   const [showPhone, setShowPhone] = useState(Boolean(preferences?.show_phone));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [photoPath, setPhotoPath] = useState(profile.avatar_path ?? "");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState("");
+
+  async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPhotoBusy(true); setPhotoMessage("");
+    try {
+      const extension = file.name.split(".").pop() || "jpg";
+      const path = `profile/${profile.id}/avatar.${extension}`;
+      await uploadStorageFile(accessToken, "employee-media", path, file);
+      await updateRow(accessToken, "profiles", profile.id, { avatar_path: path });
+      setPhotoPath(path);
+      setPhotoMessage("Photo updated. It will also appear elsewhere in the app after your next sign-in.");
+    } catch (cause) {
+      setPhotoMessage(cause instanceof Error ? cause.message : "Photo could not be uploaded.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   async function save() {
     setBusy(true); setMessage("");
@@ -357,7 +382,13 @@ function EmployeeSettings({ accessToken, employee, preferences, onProfile, onPas
 
   return <><header className="page-header"><div><h1><MenuIcon name={moduleIcon("Settings")} />Settings</h1><p className="muted">Profile, security, notifications, language, appearance, accessibility and privacy.</p></div></header><div className="employee-settings-layout">
     <div className="settings-column">
-      <article className="card data-panel"><h2>Profile and account</h2><p>{employee?.personal_email || employee?.work_email || "Employee account"}</p><button className="secondary" onClick={onProfile}>Edit profile request</button><button className="secondary" onClick={onPassword}>Change password</button><p className="muted settings-note">Two-factor authentication is controlled through the secure account provider and will appear here when enabled for the organisation.</p></article>
+      <article className="card data-panel"><h2>Profile and account</h2>
+        <div className="settings-photo-row">
+          <AvatarPhoto accessToken={accessToken} path={photoPath || (employee?.passport_photo_path ? String(employee.passport_photo_path) : undefined)} name={profile.display_name} size={56} />
+          <label className="secondary photo-upload-button">{photoBusy ? "Uploading…" : "Change photo"}<input type="file" accept="image/*" hidden disabled={photoBusy} onChange={(event) => void uploadPhoto(event)} /></label>
+        </div>
+        {photoMessage && <p className={photoMessage.includes("updated") ? "form-message" : "form-error"}>{photoMessage}</p>}
+        <p>{employee?.personal_email || employee?.work_email || "Employee account"}</p><button className="secondary" onClick={onProfile}>Edit profile request</button><button className="secondary" onClick={onPassword}>Change password</button><p className="muted settings-note">Two-factor authentication is controlled through the secure account provider and will appear here when enabled for the organisation.</p></article>
       <article className="card data-panel"><h2>Notifications</h2><p className="muted">Choose email and in-app notification categories from the notification preferences panel.</p><button className="secondary" onClick={onNotifications}>Notification preferences</button><button className="danger" onClick={onLogout}>Sign out</button></article>
     </div>
     <div className="settings-column">

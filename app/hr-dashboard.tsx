@@ -5,6 +5,7 @@ import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { AvatarPhoto } from "./avatar-photo";
 
 type HRData = {
   employees: DataRow[]; attendance: DataRow[]; leave: DataRow[]; jobs: DataRow[]; candidates: DataRow[];
@@ -78,7 +79,7 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
   });
 
   return <section className="hr-dashboard dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">HR workspace</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Organisation-wide workforce administration, approvals, people operations and HR compliance.</p></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">HR workspace</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Organisation-wide workforce administration, approvals, people operations and HR compliance.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
     <div className="dashboard-metric-grid">{metrics.map(([label, result, page]) => <button className="card metric dashboard-metric-card" key={String(label)} onClick={() => onNavigate(String(page))}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(String(page))} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>

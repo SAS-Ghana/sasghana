@@ -100,6 +100,8 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
   const [employees, setEmployees] = useState<DataRow[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState("");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -129,11 +131,12 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
   }, [accessToken, config]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setSort(config?.columns[0]?.[0] ?? ""); setDirection("desc"); }, [config]);
 
   const visible = useMemo(() => rows.filter((row) =>
     (status === "all" || String(row.status) === status) &&
     (!query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
-  ), [rows, query, status]);
+  ).sort((a, b) => sort ? String(a[sort] ?? "").localeCompare(String(b[sort] ?? ""), undefined, { numeric: true }) * (direction === "asc" ? 1 : -1) : 0), [rows, query, status, sort, direction]);
 
   if (!config) return <section className="card data-panel"><h2>Module unavailable</h2></section>;
 
@@ -250,6 +253,8 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
           <option value="all">All statuses</option>
           {statuses.map((item) => <option key={item} value={item}>{displayValue(item)}</option>)}
         </select>
+        <select aria-label={`Sort ${label}`} value={sort} onChange={(event) => setSort(event.target.value)}>{config.columns.map(([key, name]) => <option key={key} value={key}>Sort by {name}</option>)}</select>
+        <select aria-label="Sort direction" value={direction} onChange={(event) => setDirection(event.target.value as "asc" | "desc")}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
         <button type="button" onClick={() => void load()}>Refresh</button>
         <button type="button" onClick={exportCsv}>Export CSV</button>
       </div>

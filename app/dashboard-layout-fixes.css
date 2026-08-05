@@ -7,7 +7,7 @@
 .dashboard-metric-card>span,.dashboard-metric-card>small{min-width:0;white-space:normal;overflow-wrap:anywhere}.dashboard-metric-card>small{color:var(--muted)}
 .dashboard-chart-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start!important;gap:18px!important;min-width:0!important}
 .dashboard-chart-grid>*{min-width:0!important;height:100%!important}
-.dashboard-content-grid,.portal-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-flow:row dense!important;align-items:start!important;gap:18px!important;min-width:0!important;margin-top:0!important}
+.dashboard-content-grid,.portal-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start!important;gap:18px!important;min-width:0!important;margin-top:0!important}
 .dashboard-content-grid>*,.portal-grid>*{min-width:0!important;align-self:start!important}
 .dashboard-wide-panel,.portal-grid>.span-two{grid-column:1/-1!important}
 .dashboard-quick-grid,.dashboard-workspace .quick{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;grid-auto-flow:row dense!important;align-items:stretch!important;gap:10px!important;min-width:0!important}

@@ -29,32 +29,27 @@
 
 /* App shell */
 .app{background:var(--bg)}
-.sidebar{background:#00aeef;border-right:1px solid rgb(4 20 35 / 10%)}
+/* Floating rounded panel: the topbar/sidebar/content previously sat flush against the browser edges
+   with square corners. Scoped to the desktop layout only (matches globals.css's 760px breakpoint for
+   the mobile block-flow override) so the mobile stacked layout is untouched. */
+@media(min-width:761px){
+  .app{margin:10px;height:calc(100vh - 20px);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-card)}
+}
+/* Sidebar follows the active theme (light/dark/system) in every mode -- a solid brand-color fill
+   regardless of theme was the earlier approach; it stopped the left panel from ever going light/dark. */
+.sidebar{background:var(--surface);border-right:1px solid var(--line)}
 .brand img{border-radius:10px}
-.brand strong{letter-spacing:-.01em;color:var(--on-brand)}
-.brand small{color:color-mix(in srgb,var(--on-brand) 70%,transparent)}
-.nav-label{opacity:.85;color:color-mix(in srgb,var(--on-brand) 65%,transparent)}
-.nav button{border-radius:var(--radius-sm);transition:background-color .15s ease,color .15s ease,transform .1s ease;color:color-mix(in srgb,var(--on-brand) 82%,transparent)}
-.nav button:hover{transform:translateX(1px);background:rgb(4 20 35 / 10%);color:var(--on-brand)}
-.nav button.active{position:relative;font-weight:650;background:rgb(4 20 35 / 16%);color:var(--on-brand)}
-.nav button.active::before{content:"";position:absolute;left:-4px;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--on-brand)}
+.brand strong{letter-spacing:-.01em;color:var(--text)}
+.brand small{color:var(--muted)}
+.nav-label{opacity:.85;color:var(--muted)}
+.nav button{border-radius:var(--radius-sm);transition:background-color .15s ease,color .15s ease,transform .1s ease;color:var(--muted)}
+.nav button:hover{transform:translateX(1px);background:var(--surface-2);color:var(--text)}
+.nav button.active{position:relative;font-weight:650;background:var(--surface-2);color:var(--text)}
+.nav button.active::before{content:"";position:absolute;left:-4px;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--brand)}
 .nav-icon{color:inherit;display:grid;place-items:center}
 .nav-icon svg{width:18px;height:18px}
-.module-count{background:var(--on-brand);color:#00aeef;border-radius:99px;font-size:10px;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
-.sidebar-footer{color:color-mix(in srgb,var(--on-brand) 60%,transparent)!important;border-top-color:rgb(4 20 35 / 12%)!important}
-
-/* Employee sidebar: theme-following (light/dark surface), not the brand color -- matches the
-   BambooHR reference image's white/neutral sidebar rather than a colored panel. */
-.sidebar.sidebar-light{background:var(--surface);border-right:1px solid var(--line)}
-.sidebar.sidebar-light .brand strong{color:var(--text)}
-.sidebar.sidebar-light .brand small{color:var(--muted)}
-.sidebar.sidebar-light .nav-label{color:var(--muted)}
-.sidebar.sidebar-light .nav button{color:var(--muted)}
-.sidebar.sidebar-light .nav button:hover{background:var(--surface-2);color:var(--text)}
-.sidebar.sidebar-light .nav button.active{background:var(--surface-2);color:var(--text);font-weight:700}
-.sidebar.sidebar-light .nav button.active::before{background:var(--brand)}
-.sidebar.sidebar-light .module-count{background:var(--brand);color:#fff}
-.sidebar.sidebar-light .sidebar-footer{color:var(--muted)!important;border-top-color:var(--line)!important}
+.module-count{background:var(--brand);color:#fff;border-radius:99px;font-size:10px;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
+.sidebar-footer{color:var(--muted)!important;border-top-color:var(--line)!important}
 
 .search-wrap{position:relative;flex:1;max-width:440px}
 .search-wrap>svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);pointer-events:none}
@@ -92,6 +87,7 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .dashboard-metric-card small{color:var(--brand);font-weight:700}
 .page-header h1{letter-spacing:-.03em;display:flex;align-items:center;gap:11px}
 .page-header h1 svg{flex:none;color:var(--brand);width:24px;height:24px}
+.page-header-with-photo{display:flex;align-items:center;gap:16px}
 .eyebrow{display:inline-flex;align-items:center;gap:6px}
 .eyebrow::before{content:"";width:6px;height:6px;border-radius:99px;background:var(--brand)}
 
@@ -200,6 +196,10 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .basic-info-grid label{display:grid;gap:6px}
 .basic-info-grid span{font-size:11px;font-weight:600;color:var(--muted)}
 .field-box{border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);background:var(--surface);min-height:37px;display:flex;align-items:center;overflow-wrap:anywhere}
+.avatar-photo{flex:none;display:grid;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,var(--brand),#006f9d);color:#fff;font-weight:800}
+.avatar-photo img{width:100%;height:100%;object-fit:cover}
+.settings-photo-row{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.photo-upload-button{cursor:pointer;display:inline-flex;align-items:center}
 @media(max-width:900px){.profile-layout{grid-template-columns:1fr}}
 
 /* My Info / sidebar "More" popover */

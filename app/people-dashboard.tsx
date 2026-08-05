@@ -66,6 +66,40 @@ const employeeGroups = [
 ] as const;
 const employeeQuickLabels = ["Help", "Settings", "Ask"] as const;
 
+// Maps HR/Manager sidebar labels to the "Dashboard access" checkbox values an admin actually grants
+// per user in account-management-page.tsx's AccessDialog. A label with no entry here has no matching
+// dashboard-access concept yet and stays visible (fail open) rather than being silently hidden.
+const dashboardAccessMap: Record<string, readonly string[]> = {
+  "HR Dashboard": ["Dashboard"], "Manager Dashboard": ["Dashboard"],
+  "My Profile": ["My Profile"],
+  "Employee Management": ["Employees"], "My Team": ["Directory", "Employees"],
+  "Recruitment": ["Hiring"], "Recruitment & Onboarding": ["Hiring", "Onboarding"],
+  "Attendance Management": ["Attendance"], "Team Attendance": ["Attendance"],
+  "Leave Management": ["Leave"], "Leave Approvals": ["Leave"],
+  "Payroll Administration": ["Payroll"],
+  "Reports & Analytics": ["Reports"],
+  "Onboarding": ["Onboarding"], "Offboarding": ["Onboarding"],
+  "Benefits Administration": ["Benefits"],
+  "Documents & Templates": ["Documents"], "Documents": ["Documents"],
+  "Asset Management": ["Assets"], "Assets": ["Assets"],
+  "Announcements & Communication": ["Announcements", "Community"], "Team Communication": ["Community"],
+  "Organization Structure": ["Directory"],
+  "Meetings & Calendar": ["Meetings"], "One to One Meetings": ["Meetings"],
+  "Employee Requests": ["HR Requests"],
+  "Profile Requests": ["Profile Requests"],
+};
+
+// Dashboard-access enforcement is scoped to HR/Manager, whose stored access already matches their
+// current menus (verified live). Employee accounts' dashboard_access predates the current sidebar
+// structure (e.g. only ["My Profile"] stored today) and would wipe most of the employee sidebar if
+// enforced the same way, so employee mode stays ungated for now.
+function hasDashboardAccess(mode: string, label: string, granted: string[]): boolean {
+  if (mode !== "hr" && mode !== "manager") return true;
+  const mapped = dashboardAccessMap[label];
+  if (!mapped) return true;
+  return mapped.some((option) => granted.includes(option));
+}
+
 type GroupSet = typeof managerGroups | typeof hrGroups | typeof adminGroups | typeof employeeGroups;
 
 export function PeopleDashboard({ accessToken, profile, onLogout, onChangePassword }: { accessToken: string; profile: UserProfile; onLogout: () => void; onChangePassword: () => void }) {
@@ -94,7 +128,8 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
     : baseGroups;
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Home";
-  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted));
+  const granted = profile.dashboard_access ?? [];
+  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted)) && (label === home || hasDashboardAccess(mode, label, granted));
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
@@ -165,8 +200,8 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
 
   return <div className="app">
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
-    <aside className={`sidebar ${drawer ? "open" : ""} ${mode === "employee" ? "sidebar-light" : ""}`} aria-label="Primary navigation">
-      <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div></div>
+    <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
+      <div className="brand"><img src="/logo-mark.png" width="80" height="34" alt="SAS Finance Group" /><div><strong>SAS Finance Group</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div></div>
       {groups.map(([group, items]) => <div key={group}>{group && <div className="nav-label">{group}</div>}<nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       {moreLabels.length > 0 && <div className="more-menu-wrap sidebar-more" ref={moreRef}>
         <nav className="nav"><button type="button" className={moreLabels.includes(active) ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}><span className="nav-icon"><MenuIcon name="settings" /></span><span className="nav-text">More</span></button></nav>

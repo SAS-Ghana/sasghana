@@ -11,6 +11,16 @@ const sources=[
   {table:"meetings",page:"Meetings",label:"Meetings",title:(r:DataRow)=>String(r.title??"Meeting"),meta:(r:DataRow)=>String(r.starts_at??"")},
   {table:"announcements",page:"Announcements",label:"Announcements",title:(r:DataRow)=>String(r.title??"Announcement"),meta:(r:DataRow)=>String(r.audience??"")},
   {table:"audit_logs",page:"Security & audit",label:"Audit activity",title:(r:DataRow)=>String(r.action??"Activity"),meta:(r:DataRow)=>`${r.resource??""} · ${r.outcome??""}`},
+  {table:"leave_requests",page:"Leave Management",label:"Leave",title:(r:DataRow)=>String(r.leave_type??"Leave request"),meta:(r:DataRow)=>`${r.start_date??""} — ${r.end_date??""} · ${r.status??""}`},
+  {table:"job_openings",page:"Recruitment",label:"Vacancies",title:(r:DataRow)=>String(r.title??"Vacancy"),meta:(r:DataRow)=>`${r.location??""} · ${r.status??""}`},
+  {table:"payroll_records",page:"Payroll & Payslips",label:"Payroll",title:(r:DataRow)=>String(r.pay_period??"Payroll record"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"employee_training",page:"Learning & Development",label:"Training",title:(r:DataRow)=>String(r.course_name??"Training"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"expense_claims",page:"Expenses",label:"Expenses",title:(r:DataRow)=>String(r.category??"Expense claim"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"assets",page:"Asset Management",label:"Assets",title:(r:DataRow)=>String(r.asset_code??"Asset"),meta:(r:DataRow)=>`${r.category??""} · ${r.status??""}`},
+  {table:"employee_benefits",page:"Benefits",label:"Benefits",title:(r:DataRow)=>String(r.benefit_name??"Benefit"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"support_tickets",page:"Help Desk & Support",label:"Support tickets",title:(r:DataRow)=>String(r.subject??"Support ticket"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"performance_reviews",page:"Performance Management",label:"Performance",title:(r:DataRow)=>String(r.review_type??"Performance review"),meta:(r:DataRow)=>String(r.status??"")},
+  {table:"departments",page:"Organization Structure",label:"Departments",title:(r:DataRow)=>String(r.name??"Department"),meta:(r:DataRow)=>String(r.branch??"")},
 ];
 
 const moduleIntents=[
