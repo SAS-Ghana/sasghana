@@ -1,4 +1,4 @@
-type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings"|"mail"|"phone"|"briefcase"|"badge";
+type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings"|"mail"|"phone"|"briefcase"|"badge"|"home"|"folder"|"location"|"search"|"help";
 
 const paths:Record<IconName,string[]> = {
   dashboard:["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
@@ -45,7 +45,12 @@ const paths:Record<IconName,string[]> = {
   mail:["M4 5h16v14H4z","m4 6 8 7 8-7"],
   phone:["M6.6 4h3.2l1.4 4.2-2 1.6a12.4 12.4 0 0 0 5 5l1.6-2 4.2 1.4v3.2c0 1-.9 1.8-1.9 1.6C10.5 18.4 5.6 13.5 4 5.9 3.8 4.9 4.6 4 5.6 4z"],
   briefcase:["M4 8h16v11H4z","M8 8V5h8v3","M4 13h16"],
-  badge:["M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z","M12 8v5","M12 16h.01"]
+  badge:["M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z","M12 8v5","M12 16h.01"],
+  home:["M3 11l9-8 9 8","M5 10v10h14V10","M9 20v-6h6v6"],
+  folder:["M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
+  location:["M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z","M12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  search:["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z","m21 21-4.3-4.3"],
+  help:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 2","M12 17h.01"]
 };
 
 export function MenuIcon({name}:{name:IconName}){

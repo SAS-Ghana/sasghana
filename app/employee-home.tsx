@@ -11,7 +11,7 @@ type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payrol
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
 type EmployeeHomeProps = { accessToken: string; profile: UserProfile; activeSection?: string; onNavigate: (page: string) => void; onChangePassword?: () => void; onNotificationSettings?: () => void; onLogout?: () => void };
 
-const sectionTab: Record<string, Tab> = { "Home": "dashboard", "My Info": "profile", "People": "people", "Hiring": "recruitment", "Reports": "analytics", "Files": "documents", "Payroll": "payroll" };
+const sectionTab: Record<string, Tab> = { "Home": "dashboard", "My Info": "profile", "People": "people", "Hiring": "recruitment", "Reports": "analytics", "Files": "documents", "Payroll": "payroll", "Help": "help", "Settings": "settings", "Ask": "ai" };
 const infoTabs: [Tab, string][] = [["profile", "Personal"], ["leave", "Time Off"], ["payroll", "Pay Info"], ["documents", "Documents"], ["performance", "Performance"], ["attendance", "Timesheet"]];
 const moreItems: [Tab, string][] = [["learning", "Learning & Development"], ["tasks", "Tasks"], ["expenses", "Expenses"], ["assets", "Assets"], ["benefits", "Benefits"], ["communication", "Comms"], ["calendar", "Calendar"], ["help", "Help Center"], ["notifications", "Notifications"], ["settings", "Settings"], ["ai", "AI Assistant"]];
 
@@ -193,7 +193,7 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
 
 function ProfilePage({ employee, history, onRequest, accessToken }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void; accessToken: string }) {
   const sections: [string, [string, unknown][]][] = [
-    ["Personal information", [["Full name", `${employee?.first_name ?? ""} ${employee?.middle_name ?? ""} ${employee?.last_name ?? ""}`.replace(/\s+/g, " ").trim()], ["Employee ID", employee?.id], ["Staff number", employee?.employee_number], ["Personal email", employee?.personal_email], ["Phone", employee?.phone], ["Date of birth", employee?.date_of_birth], ["Gender", employee?.gender], ["Nationality", employee?.nationality], ["Residential address", employee?.residential_address]]],
+    ["Contact information", [["Personal email", employee?.personal_email], ["Phone", employee?.phone], ["Nationality", employee?.nationality], ["Residential address", employee?.residential_address]]],
     ["Employment", [["Department", employee?.department_name], ["Branch", employee?.branch], ["Position", employee?.position_title], ["Status", employee?.employment_status], ["Reporting manager", employee?.manager_name], ["Employment type", employee?.employment_type], ["Start date", employee?.start_date]]],
     ["Emergency contacts", [["Name", employee?.emergency_contact_name], ["Phone", employee?.emergency_contact_phone], ["Relationship", employee?.emergency_contact_relationship]]],
     ["Bank, tax and pension", [["Bank", employee?.bank_name], ["Account name", employee?.bank_account_name], ["Account number", mask(employee?.bank_account_number)], ["Tax number", mask(employee?.tax_number)], ["SSNIT / pension", mask(employee?.ssnit_number)], ["Pension provider", employee?.pension_provider]]],
@@ -222,6 +222,8 @@ function ProfilePage({ employee, history, onRequest, accessToken }: { employee: 
     <div className="profile-layout">
       <VitalsPanel employee={employee} />
       <div className="profile-layout-main">
+        <div className="profile-section-title"><MenuIcon name="profile" />Personal</div>
+        <BasicInformationCard employee={employee} onEdit={onRequest} />
         <div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div>
         <RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} />
       </div>
@@ -229,18 +231,53 @@ function ProfilePage({ employee, history, onRequest, accessToken }: { employee: 
   </>;
 }
 
+function BasicInformationCard({ employee, onEdit }: { employee: DataRow | null; onEdit: () => void }) {
+  const dob = employee?.date_of_birth ? new Date(String(employee.date_of_birth)) : null;
+  const age = dob && !Number.isNaN(dob.getTime()) ? Math.floor((new Date().getTime() - dob.getTime()) / 31557600000) : null;
+  const fields: [string, string][] = [
+    ["Employee #", value(employee?.employee_number)],
+    ["Status", value(employee?.employment_status)],
+    ["First Name", value(employee?.first_name)],
+    ["Middle Name", value(employee?.middle_name)],
+    ["Last Name", value(employee?.last_name)],
+    ["Preferred Name", value(employee?.preferred_name)],
+    ["Birth Date", employee?.date_of_birth ? `${value(employee.date_of_birth)}${age !== null ? ` (Age ${age})` : ""}` : "—"],
+    ["Gender", value(employee?.gender)],
+    ["Marital Status", value(employee?.marital_status)],
+    ["Ghana Card Number", mask(employee?.ghana_card_number)],
+  ];
+  return <article className="card data-panel basic-information-card">
+    <div className="panel-head"><h2><MenuIcon name="badge" />Basic Information</h2><button type="button" className="secondary" onClick={onEdit}>Request a change</button></div>
+    <div className="basic-info-grid">{fields.map(([label, field]) => <label key={label}><span>{label}</span><div className="field-box">{field}</div></label>)}</div>
+  </article>;
+}
+
 function VitalsPanel({ employee }: { employee: DataRow | null }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(timer); }, []);
+  type VitalsIcon = Parameters<typeof MenuIcon>[0]["name"];
   const rows = ([
-    ["Work email", employee?.work_email, "mail"],
-    ["Personal email", employee?.personal_email, "mail"],
-    ["Phone", employee?.phone, "phone"],
-    ["Job title", employee?.position_title, "briefcase"],
-    ["Department", employee?.department_name, "department"],
-    ["Branch", employee?.branch, "branch"],
-    ["Employee number", employee?.employee_number, "badge"],
-    ["Start date", employee?.start_date, "calendar"],
-  ] as [string, unknown, Parameters<typeof MenuIcon>[0]["name"]][]).filter(([, entry]) => entry);
-  return <article className="card data-panel vitals-panel"><h2>Vitals</h2><div className="vitals-list">{rows.map(([label, entry, icon]) => <div key={String(label)}><span className="vitals-icon"><MenuIcon name={icon} /></span><div><span>{label}</span><strong>{value(entry)}</strong></div></div>)}{!rows.length && <p className="muted">No vitals on file yet.</p>}</div></article>;
+    ["Phone", employee?.phone, "phone", undefined],
+    ["Work email", employee?.work_email, "mail", undefined],
+    ["Personal email", employee?.personal_email, "mail", undefined],
+    ["Local time", now.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" }), "attendance", undefined],
+    ["Branch", employee?.branch, "location", undefined],
+    ["Job title", employee?.position_title, "briefcase", employee?.employment_type ? String(employee.employment_type) : undefined],
+    ["Department", employee?.department_name, "department", undefined],
+    ["Employee number", employee?.employee_number, "badge", undefined],
+  ] as [string, unknown, VitalsIcon, string | undefined][]).filter(([, entry]) => entry);
+  const hireDate = employee?.start_date ? new Date(String(employee.start_date)) : null;
+  const tenure = hireDate && !Number.isNaN(hireDate.getTime()) ? tenureLabel(hireDate) : null;
+  return <article className="card data-panel vitals-panel"><h2>Vitals</h2><div className="vitals-list">{rows.map(([label, entry, icon, subtitle]) => <div key={label}><span className="vitals-icon" title={label}><MenuIcon name={icon} /></span><div><strong>{value(entry)}</strong>{subtitle && <small>{subtitle}</small>}</div></div>)}{!rows.length && <p className="muted">No vitals on file yet.</p>}</div>
+    {hireDate && !Number.isNaN(hireDate.getTime()) && <div className="vitals-hire"><span className="vitals-icon" title="Hire date"><MenuIcon name="calendar" /></span><div><strong>{value(employee?.start_date)}</strong>{tenure && <small>{tenure}</small>}</div></div>}
+  </article>;
+}
+
+function tenureLabel(start: Date) {
+  const months = Math.max(0, Math.floor((Date.now() - start.getTime()) / 2629800000));
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return years > 0 ? `${years}y ${remMonths}m` : `${remMonths}m`;
 }
 
 function AttendancePage({ rows, liveTime, clockedIn, onBreak, busy, onAction, rate, hours, overtime }: { rows: DataRow[]; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; rate: number; hours: number; overtime: number }) {

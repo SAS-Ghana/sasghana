@@ -64,6 +64,7 @@ const adminGroups = [
 const employeeGroups = [
   ["", [["Home", "⌂"], ["My Info", "●"], ["People", "♟"], ["Hiring", "⌕"], ["Reports", "▥"], ["Files", "▤"], ["Payroll", "▧"]]],
 ] as const;
+const employeeQuickLabels = ["Help", "Settings", "Ask"] as const;
 
 type GroupSet = typeof managerGroups | typeof hrGroups | typeof adminGroups | typeof employeeGroups;
 
@@ -87,7 +88,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
   const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : mode === "employee" ? employeeGroups : managerGroups;
   const moreLabels: readonly string[] = mode === "hr" ? hrMoreLabels : mode === "manager" ? managerMoreLabels : [];
-  const labels = new Set([...baseGroups.flatMap(([, items]) => items.map(([label]) => label)), ...moreLabels]);
+  const labels = new Set([...baseGroups.flatMap(([, items]) => items.map(([label]) => label)), ...moreLabels, ...(mode === "employee" ? employeeQuickLabels : [])]);
   const libraryGranted = mode !== "admin" && Boolean(profile.dashboard_access?.includes("Book Library"));
   const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted && mode !== "employee"
     ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
@@ -172,9 +173,27 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
         {moreOpen && <div className="account-menu more-menu">{moreLabels.filter((label) => canAccess(label)).map((label) => <button type="button" key={label} onClick={() => { navigate(label); setMoreOpen(false); }}>{label}</button>)}</div>}
       </div>}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
+      {mode === "employee" && <div className="sidebar-account" ref={accountRef}>
+        <button type="button" className="sidebar-avatar-btn" onClick={() => setAccountOpen((value) => !value)} aria-label="Account menu"><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div></button>
+        <button type="button" className="sidebar-hamburger-btn" onClick={() => setAccountOpen((value) => !value)} aria-label="More account options"><MenuIcon name="settings" /></button>
+        {accountOpen && <div className="account-menu sidebar-account-menu"><button onClick={() => navigate("My Info")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
+      </div>}
     </aside>
     <main className="main" ref={mainRef}>
-      <header className="topbar"><button className="mobile-menu" onClick={() => setDrawer(true)} aria-label="Open navigation"><span aria-hidden="true">☰</span></button><input className="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={mode === "admin" ? "Search organization administration..." : mode === "hr" ? "Search HR workspace..." : mode === "employee" ? "Search your workspace..." : "Search your team workspace..."} /><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile} /><button className="account-button" onClick={() => setAccountOpen((value) => !value)}><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0] ?? profile.account_type}</small></div></button>{accountOpen && <div className="account-menu"><button onClick={() => navigate("My Profile")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header>
+      <header className="topbar">
+        <button className="mobile-menu" onClick={() => setDrawer(true)} aria-label="Open navigation"><span aria-hidden="true">☰</span></button>
+        <div className="search-wrap"><MenuIcon name="search" /><input className="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={mode === "admin" ? "Search organization administration..." : mode === "hr" ? "Search HR workspace..." : mode === "employee" ? "Search..." : "Search your team workspace..."} /></div>
+        {mode === "employee" && <div className="topbar-quick-actions">
+          <button type="button" className="topbar-icon-btn" onClick={() => navigate("Help")} aria-label="Help centre"><MenuIcon name="help" /></button>
+          <button type="button" className="topbar-icon-btn" onClick={() => navigate("Settings")} aria-label="Settings"><MenuIcon name="settings" /></button>
+          <button type="button" className="ask-button" onClick={() => navigate("Ask")}><MenuIcon name="message" />Ask</button>
+        </div>}
+        <div className="profile" ref={mode === "employee" ? undefined : accountRef}>
+          <NotificationCenter accessToken={accessToken} profile={profile} />
+          {mode !== "employee" && <button className="account-button" onClick={() => setAccountOpen((value) => !value)}><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0] ?? profile.account_type}</small></div></button>}
+          {mode !== "employee" && accountOpen && <div className="account-menu"><button onClick={() => navigate("My Profile")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
+        </div>
+      </header>
       <div className="content">{render()}</div>
       <ChatPopup accessToken={accessToken} profile={profile} />
       {notificationSettings && <NotificationSettings accessToken={accessToken} profile={profile} onClose={() => setNotificationSettings(false)} />}

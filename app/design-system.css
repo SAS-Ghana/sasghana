@@ -56,6 +56,22 @@
 .sidebar.sidebar-light .module-count{background:var(--brand);color:#fff}
 .sidebar.sidebar-light .sidebar-footer{color:var(--muted)!important;border-top-color:var(--line)!important}
 
+.search-wrap{position:relative;flex:1;max-width:440px}
+.search-wrap>svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);pointer-events:none}
+.search-wrap .search{width:100%;padding-left:38px}
+.topbar-quick-actions{display:flex;align-items:center;gap:8px}
+.topbar-icon-btn{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
+.topbar-icon-btn:hover{color:var(--text);border-color:var(--brand)}
+.topbar-icon-btn svg{width:18px;height:18px}
+.ask-button{display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:9px 16px;background:var(--brand);color:var(--on-brand);font-weight:700;cursor:pointer;white-space:nowrap}
+.ask-button svg{width:16px;height:16px}
+.ask-button:hover{filter:brightness(.95)}
+.sidebar-account{margin-top:12px;display:flex;align-items:center;gap:10px;position:relative}
+.sidebar-avatar-btn{border:0;background:none;padding:0;cursor:pointer;line-height:0}
+.sidebar-hamburger-btn{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
+.sidebar-hamburger-btn svg{width:16px;height:16px}
+.sidebar-account-menu{bottom:44px;top:auto;left:0;right:auto}
+
 /* Top bar */
 .topbar{backdrop-filter:blur(6px);background:color-mix(in srgb,var(--surface) 92%,transparent)}
 .search{transition:box-shadow .15s ease,border-color .15s ease}
@@ -167,12 +183,23 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .profile-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start;margin-bottom:20px}
 .profile-layout-main{display:grid;gap:20px;min-width:0}
 .vitals-panel h2{margin:0 0 14px;font-size:15px}
-.vitals-list{display:grid;gap:14px}
-.vitals-list>div{display:grid;grid-template-columns:32px 1fr;align-items:start;gap:10px}
-.vitals-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--surface-2);color:var(--brand)}
+.vitals-list{display:grid;gap:12px}
+.vitals-list>div{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:10px}
+.vitals-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex-shrink:0;color:var(--muted)}
 .vitals-icon svg{width:16px;height:16px}
-.vitals-list span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.vitals-list strong{display:block;font-size:13px;font-weight:650;word-break:break-word}
+.vitals-list strong{display:block;font-size:13px;font-weight:600;word-break:break-word;color:var(--text)}
+.vitals-list small{display:block;font-size:11px;color:var(--muted)}
+.vitals-hire{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:grid;grid-template-columns:28px 1fr;align-items:center;gap:10px}
+.vitals-hire strong{display:block;font-size:13px;font-weight:600;color:var(--text)}
+.vitals-hire small{display:block;font-size:11px;color:var(--muted)}
+.profile-section-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--text);margin-bottom:2px}
+.profile-section-title svg{width:18px;height:18px;color:var(--brand)}
+.basic-information-card h2{display:flex;align-items:center;gap:8px;margin:0;font-size:15px}
+.basic-information-card h2 svg{width:18px;height:18px;color:var(--brand)}
+.basic-info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 16px}
+.basic-info-grid label{display:grid;gap:6px}
+.basic-info-grid span{font-size:11px;font-weight:600;color:var(--muted)}
+.field-box{border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);background:var(--surface);min-height:37px;display:flex;align-items:center;overflow-wrap:anywhere}
 @media(max-width:900px){.profile-layout{grid-template-columns:1fr}}
 
 /* My Info / sidebar "More" popover */
