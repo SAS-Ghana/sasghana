@@ -1,11 +1,24 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { UserProfile } from "./lib/supabase-auth";
 import { createRow, createSignedStorageUrl, DataRow, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
 
 const categories = ["General", "Policy", "Finance", "Human Resources", "Compliance", "Training", "Reference"];
 
 const emptyValues = { title: "", author: "", reference: "", category: "General", description: "", content_mode: "text" as "text" | "file", content_text: "", status: "draft" };
 
-export function BookLibraryPage({ accessToken, organisationId }: { accessToken: string; organisationId: string }) {
+export function libraryAccess(profile: UserProfile) {
+  const isAdmin = profile.roles.includes("SAS System Administrator") || profile.account_type === "administrator";
+  const fullAccess = isAdmin || profile.permissions.includes("documents.verify") || profile.permissions.includes("settings.manage");
+  return {
+    canView: fullAccess || ["library.view", "library.create", "library.edit", "library.upload"].some((key) => profile.permissions.includes(key)),
+    canCreate: fullAccess || profile.permissions.includes("library.create"),
+    canEdit: fullAccess || profile.permissions.includes("library.edit"),
+    canUpload: fullAccess || profile.permissions.includes("library.upload"),
+  };
+}
+
+export function BookLibraryPage({ accessToken, organisationId, profile }: { accessToken: string; organisationId: string; profile: UserProfile }) {
+  const access = useMemo(() => libraryAccess(profile), [profile]);
   const [books, setBooks] = useState<DataRow[]>([]);
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
@@ -16,6 +29,7 @@ export function BookLibraryPage({ accessToken, organisationId }: { accessToken: 
   const [editing, setEditing] = useState<DataRow | null | undefined>(undefined);
 
   const load = useCallback(async () => {
+    if (!access.canView) return;
     setError("");
     try {
       const rows = await listRows(accessToken, "library_books", "*", 500);
@@ -29,7 +43,7 @@ export function BookLibraryPage({ accessToken, organisationId }: { accessToken: 
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The book library could not be loaded.");
     }
-  }, [accessToken]);
+  }, [accessToken, access.canView]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -67,10 +81,15 @@ export function BookLibraryPage({ accessToken, organisationId }: { accessToken: 
     popup?.document.close();
   }
 
+  if (!access.canView) return <section>
+    <header className="page-header"><div><span className="eyebrow">Organization administration</span><h1>Book Library</h1></div></header>
+    <div className="empty-state"><h3>No access</h3><p>Ask an administrator to grant you Book Library access from User &amp; Account Management.</p></div>
+  </section>;
+
   return <section>
     <header className="page-header">
       <div><span className="eyebrow">Organization administration</span><h1>Book Library</h1><p className="muted">Archive policy manuals, finance handbooks, training guides and reference material — catalogued with a title, author, reference and cover, just like a bookshop.</p></div>
-      <button type="button" className="primary" onClick={() => setEditing(null)}>Add book</button>
+      {access.canCreate && <button type="button" className="primary" onClick={() => setEditing(null)}>Add book</button>}
     </header>
 
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -96,28 +115,30 @@ export function BookLibraryPage({ accessToken, organisationId }: { accessToken: 
         <span className={`status-pill ${String(row.status)}`}>{String(row.status)}</span>
         <div className="row-actions">
           <button type="button" onClick={() => void openContent(row)}>Read</button>
-          <button type="button" onClick={() => setEditing(row)}>Edit</button>
-          {row.status === "archived"
+          {access.canEdit && <button type="button" onClick={() => setEditing(row)}>Edit</button>}
+          {access.canEdit && (row.status === "archived"
             ? <button type="button" disabled={busy === String(row.id)} onClick={() => void setBookStatus(row, "draft")}>Restore</button>
-            : <button type="button" className="danger" disabled={busy === String(row.id)} onClick={() => void setBookStatus(row, "archived")}>Archive</button>}
+            : <button type="button" className="danger" disabled={busy === String(row.id)} onClick={() => void setBookStatus(row, "archived")}>Archive</button>)}
         </div>
-      </article>)}</div> : <div className="empty-state"><h3>No books yet</h3><p>Add the first title to start the library.</p></div>}
+      </article>)}</div> : <div className="empty-state"><h3>No books yet</h3><p>{access.canCreate ? "Add the first title to start the library." : "Nothing has been published to the library yet."}</p></div>}
     </article>
 
     {editing !== undefined && <BookDialog
       book={editing}
       accessToken={accessToken}
       organisationId={organisationId}
+      canUpload={access.canUpload}
       onClose={() => setEditing(undefined)}
       onSaved={async () => { setEditing(undefined); await load(); setNotice("Book saved to the library."); }}
     />}
   </section>;
 }
 
-function BookDialog({ book, accessToken, organisationId, onClose, onSaved }: {
+function BookDialog({ book, accessToken, organisationId, canUpload, onClose, onSaved }: {
   book: DataRow | null;
   accessToken: string;
   organisationId: string;
+  canUpload: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -148,20 +169,22 @@ function BookDialog({ book, accessToken, organisationId, onClose, onSaved }: {
         status: values.status,
       };
 
-      if (coverFile) {
+      if (canUpload && coverFile) {
         const path = `${organisationId}/covers/${stamp}-${coverFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
         await uploadStorageFile(accessToken, "library-books", path, coverFile);
         payload.cover_path = path;
       }
 
-      if (values.content_mode === "file") {
-        if (contentFile) {
+      const effectiveMode = canUpload ? values.content_mode : (book?.content_path ? "file" : "text");
+      if (effectiveMode === "file") {
+        if (canUpload && contentFile) {
           const path = `${organisationId}/content/${stamp}-${contentFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
           await uploadStorageFile(accessToken, "library-books", path, contentFile);
           payload.content_path = path;
           payload.content_mime = contentFile.type || null;
           payload.content_text = null;
         }
+        // Otherwise leave the existing content file untouched (no upload permission or no new file chosen).
       } else {
         payload.content_text = values.content_text || null;
         payload.content_path = null;
@@ -191,17 +214,20 @@ function BookDialog({ book, accessToken, organisationId, onClose, onSaved }: {
         <label>Category *<select required value={values.category} onChange={(event) => setValues({ ...values, category: event.target.value })}>{categories.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
         <label className="wide">Description<textarea value={values.description} onChange={(event) => setValues({ ...values, description: event.target.value })} placeholder="Short summary shown in the catalog" /></label>
 
-        <label className="wide">Content
+        {canUpload && <label className="wide">Content
           <div className="segmented" role="tablist" aria-label="Content type">
             <button type="button" className={values.content_mode === "text" ? "active" : ""} onClick={() => setValues({ ...values, content_mode: "text" })}>Pasted text</button>
             <button type="button" className={values.content_mode === "file" ? "active" : ""} onClick={() => setValues({ ...values, content_mode: "file" })}>Upload file</button>
           </div>
-        </label>
-        {values.content_mode === "text"
+        </label>}
+        {values.content_mode === "text" || !canUpload
           ? <label className="wide">Book text<textarea className="template-editor" value={values.content_text} onChange={(event) => setValues({ ...values, content_text: event.target.value })} placeholder="Paste or write the full content here" /></label>
           : <label className="wide">Content file (Word, PDF or image){book?.content_path && !contentFile && <small className="table-subline">A file is already on record; choose a new one to replace it.</small>}<input type="file" accept=".doc,.docx,.pdf,.txt,image/jpeg,image/png,image/webp" onChange={(event) => setContentFile(event.target.files?.[0] ?? null)} /></label>}
+        {!canUpload && book?.content_path && <p className="muted wide">This book has an uploaded content file. Ask an administrator or someone with upload access to replace it.</p>}
 
-        <label className="wide">Cover image{book?.cover_path && !coverFile && <small className="table-subline">A cover is already on record; choose a new one to replace it.</small>}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} /></label>
+        {canUpload
+          ? <label className="wide">Cover image{book?.cover_path && !coverFile && <small className="table-subline">A cover is already on record; choose a new one to replace it.</small>}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} /></label>
+          : book?.cover_path && <p className="muted wide">This book has a cover image on file. Ask an administrator or someone with upload access to replace it.</p>}
 
         <label>Status<select value={values.status} onChange={(event) => setValues({ ...values, status: event.target.value })}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
 

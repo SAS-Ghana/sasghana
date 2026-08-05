@@ -1,8 +1,10 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
-import { callRpc, createRow, DataRow, listRows, listRowsWhere, updateRow } from "./lib/supabase-data";
+import { callRpc, createRow, DataRow, listRows, listRowsWhere } from "./lib/supabase-data";
+import { loadAttendancePolicy, runAttendanceAction } from "./quick-attendance";
+import { BookLibraryPage, libraryAccess } from "./book-library-page";
 
-type Tab = "dashboard" | "profile" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai";
+type Tab = "dashboard" | "profile" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
 type EmployeeHomeProps = { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void; onChangePassword?: () => void; onNotificationSettings?: () => void; onLogout?: () => void };
 
@@ -21,6 +23,8 @@ const empty: Dataset = {
 };
 
 export function EmployeeHome({ accessToken, profile, onChangePassword, onNotificationSettings, onLogout }: EmployeeHomeProps) {
+  const canOpenLibrary = libraryAccess(profile).canView;
+  const visibleTabs = canOpenLibrary ? [...tabs, ["library", "Book Library", "📚"] as [Tab, string, string]] : tabs;
   const [tab, setTab] = useState<Tab>("dashboard");
   const [data, setData] = useState<Dataset>(empty);
   const [busy, setBusy] = useState("");
@@ -104,12 +108,8 @@ export function EmployeeHome({ accessToken, profile, onChangePassword, onNotific
     if (!profile.employee_id) return setError("HR must link your login to an employee record first.");
     setBusy(action); setError(""); setNotice("");
     try {
-      const stamp = new Date().toISOString();
-      if (action === "clock_in") {
-        await createRow(accessToken, "attendance_records", { organisation_id: profile.organisation_id, employee_id: profile.employee_id, attendance_date: today, clock_in: stamp, status: "present", source: "self_service" });
-      } else if (todayRecord?.id) {
-        await updateRow(accessToken, "attendance_records", String(todayRecord.id), { [action]: stamp });
-      } else throw new Error("Clock in before using attendance actions.");
+      const policy = await loadAttendancePolicy(accessToken);
+      await runAttendanceAction(accessToken, action, policy, action.replaceAll("_", " "));
       await load();
       setNotice(`${action.replace("_", " ")} saved successfully.`);
     } catch (cause) {
@@ -137,7 +137,7 @@ export function EmployeeHome({ accessToken, profile, onChangePassword, onNotific
     </header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
     {!profile.employee_id && <article className="card data-panel"><h2>Employee record not linked</h2><p>Ask HR to link this login to an employee record. Personal modules remain protected until linking is complete.</p></article>}
-    <nav className="employee-module-tabs" aria-label="Employee dashboard modules">{tabs.map(([id, label, icon]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><span>{icon}</span>{label}</button>)}</nav>
+    <nav className="employee-module-tabs" aria-label="Employee dashboard modules">{visibleTabs.map(([id, label, icon]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><span>{icon}</span>{label}</button>)}</nav>
 
     {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onAskAi={() => setTab("ai")} />}
     {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} />}
@@ -159,6 +159,7 @@ export function EmployeeHome({ accessToken, profile, onChangePassword, onNotific
     {tab === "analytics" && <AnalyticsPage attendanceRate={attendanceRate} leave={data.leave} hours={workedHours} overtime={overtime} performance={data.performance} learning={data.learning} goals={data.goals} />}
     {tab === "settings" && <EmployeeSettings accessToken={accessToken} employee={employee} preferences={data.preferences[0]} onProfile={() => setModal("profile")} onPassword={onChangePassword} onNotifications={onNotificationSettings} onLogout={onLogout} onSaved={load} />}
     {tab === "ai" && <AiPage question={aiQuestion} setQuestion={setAiQuestion} answer={aiAnswer} onSubmit={askAi} />}
+    {tab === "library" && <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />}
 
     {modal && <SelfServiceDialog type={modal} accessToken={accessToken} profile={profile} employee={employee} onClose={() => setModal(null)} onSaved={async (message) => { setModal(null); setNotice(message); await load(); }} />}
   </section>;
@@ -189,7 +190,21 @@ function ProfilePage({ employee, history, onRequest }: { employee: DataRow | nul
     ["Emergency contacts", [["Name", employee?.emergency_contact_name], ["Phone", employee?.emergency_contact_phone], ["Relationship", employee?.emergency_contact_relationship]]],
     ["Bank, tax and pension", [["Bank", employee?.bank_name], ["Account name", employee?.bank_account_name], ["Account number", mask(employee?.bank_account_number)], ["Tax number", mask(employee?.tax_number)], ["SSNIT / pension", mask(employee?.ssnit_number)], ["Pension provider", employee?.pension_provider]]],
   ];
-  return <><header className="page-header"><div><h1>My Profile</h1><p className="muted">Your personal, employment and statutory information.</p></div><button className="primary" onClick={onRequest}>Request profile update</button></header><div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div><RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} /></>;
+  const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || "Employee";
+  const initials = `${String(employee?.first_name ?? "E").slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase();
+  return <>
+    <div className="profile-banner">
+      <div className="profile-banner-avatar">{initials}</div>
+      <div className="profile-banner-info">
+        <h1>{fullName}</h1>
+        <p>{String(employee?.position_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
+        <span>{employee?.employee_number ? `Staff #${String(employee.employee_number)}` : "Staff number pending"}</span>
+      </div>
+      <button type="button" className="secondary profile-banner-action" onClick={onRequest}>Request a change</button>
+    </div>
+    <div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div>
+    <RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} />
+  </>;
 }
 
 function AttendancePage({ rows, liveTime, clockedIn, onBreak, busy, onAction, rate, hours, overtime }: { rows: DataRow[]; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; rate: number; hours: number; overtime: number }) {

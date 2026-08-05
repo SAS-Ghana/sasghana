@@ -90,10 +90,14 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const isEmployeeOnly = !isAdmin && !isHr && !isManager && accountType !== "auditor";
   const mode = isEmployeeOnly ? "employee" : isAdmin ? "admin" : isHr ? "hr" : isManager ? "manager" : "admin";
   const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
-  const groups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : managerGroups;
-  const labels = new Set(groups.flatMap(([, items]) => items.map(([label]) => label)));
+  const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : managerGroups;
+  const labels = new Set(baseGroups.flatMap(([, items]) => items.map(([label]) => label)));
+  const libraryGranted = mode !== "admin" && Boolean(profile.dashboard_access?.includes("Book Library"));
+  const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted
+    ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
+    : baseGroups;
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Dashboard";
-  const canAccess = (label: string) => !forbidden.test(label) && (mode === "employee" ? label === "Dashboard" || label === "My Profile" : labels.has(label));
+  const canAccess = (label: string) => !forbidden.test(label) && (mode === "employee" ? label === "Dashboard" || label === "My Profile" : labels.has(label) || Boolean(profile.dashboard_access?.includes(label)));
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
@@ -115,6 +119,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     if (active === "Meetings & Calendar") return <CalendarHub accessToken={accessToken} profile={profile} />;
     if (active === "AI Manager Assistant") return <AiAssistantPage role="manager" />;
     if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
+    if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />;
 
     if (mode === "admin") {
       if (active === "Administrator Dashboard") return <AdminDashboard accessToken={accessToken} profile={profile} onNavigate={navigate} />;
@@ -129,7 +134,6 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
       if (active === "Onboarding") return <OnboardingHub accessToken={accessToken} profile={profile} />;
       if (active === "Performance Management") return <PerformanceHub accessToken={accessToken} profile={profile} />;
       if (active === "Documents & Templates") return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id} />;
-      if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Approval Workflows") return <ApprovalWorkflowsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Settings Centre") return <SettingsConfigurationPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Audit Logs") return <AuditHub accessToken={accessToken} />;

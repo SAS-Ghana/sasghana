@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { callFunction, callRpc, DataRow, listNamedRows, listRows, listRowsUnordered, updateRow } from "./lib/supabase-data";
 
 type Option={id:string;label:string};
-const dashboardOptions=["Dashboard","Directory","Employees","Hiring","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports","My Profile","Self-Service Hub","Profile Requests","Backup & Restore","Settings"];
+const dashboardOptions=["Dashboard","Directory","Employees","Hiring","Onboarding","Documents","Book Library","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports","My Profile","Self-Service Hub","Profile Requests","Backup & Restore","Settings"];
 const dashboardPresets:Record<string,string[]>={
   employee:["Dashboard","My Profile","Self-Service Hub","Attendance","Leave","Documents","Tasks","Payroll","Benefits","Announcements","Meetings"],
   manager:["Dashboard","My Profile","Directory","Employees","Attendance","Leave","Performance","Assets","Tasks","Hiring","Onboarding","Documents","HR Requests","Announcements","Meetings","Reports"],

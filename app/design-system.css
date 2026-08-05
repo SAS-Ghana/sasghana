@@ -127,6 +127,18 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .book-grid .status-pill.published{color:var(--success);background:var(--success-soft)}
 .book-grid .status-pill.archived{color:var(--muted);background:var(--surface-2)}
 
+/* BambooHR-style profile banner */
+.profile-banner{position:relative;overflow:hidden;display:flex;align-items:center;gap:22px;padding:30px 32px;margin-bottom:24px;border-radius:var(--radius-lg);background:linear-gradient(120deg,var(--navy),var(--brand-700));color:#fff;box-shadow:var(--shadow-pop)}
+.profile-banner::after{content:"";position:absolute;right:-70px;bottom:-140px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgb(255 255 255 / 14%),transparent 65%)}
+.profile-banner-avatar{position:relative;z-index:1;flex:none;width:84px;height:84px;display:grid;place-items:center;border-radius:50%;background:rgb(255 255 255 / 16%);border:2px solid rgb(255 255 255 / 35%);font-size:28px;font-weight:800;letter-spacing:.02em}
+.profile-banner-info{position:relative;z-index:1;min-width:0}
+.profile-banner-info h1{margin:0 0 6px;color:#fff;font-size:clamp(22px,2.6vw,30px)}
+.profile-banner-info p{margin:0;color:rgb(255 255 255 / 82%);font-size:14px}
+.profile-banner-info span{display:block;margin-top:8px;color:rgb(255 255 255 / 62%);font-size:12px}
+.profile-banner-action{position:relative;z-index:1;margin-left:auto;flex:none;background:rgb(255 255 255 / 12%);border-color:rgb(255 255 255 / 30%);color:#fff}
+.profile-banner-action:hover{background:rgb(255 255 255 / 20%)}
+@media(max-width:700px){.profile-banner{flex-wrap:wrap;padding:24px}.profile-banner-action{margin-left:0}}
+
 @media(max-width:760px){
   .metric-icon-chip{width:26px;height:26px}
 }
