@@ -38,7 +38,7 @@
 /* Sidebar follows the active theme (light/dark/system) in every mode -- a solid brand-color fill
    regardless of theme was the earlier approach; it stopped the left panel from ever going light/dark. */
 .sidebar{background:var(--surface);border-right:1px solid var(--line)}
-.brand img{border-radius:10px}
+.brand img{width:80px;height:34px;border-radius:10px;object-fit:contain;background:none}
 .brand strong{letter-spacing:-.01em;color:var(--text)}
 .brand small{color:var(--muted)}
 .nav-label{opacity:.85;color:var(--muted)}
