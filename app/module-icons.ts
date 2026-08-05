@@ -64,6 +64,7 @@ const labelIcons: Record<string, IconName> = {
   "Approval Workflows": "workflow",
   "User & Account Management": "users",
   "User Management": "users",
+  "Profile Requests": "profile-request",
   "Roles & Permissions": "compliance",
   "Labour Act Compliance": "compliance",
   "Settings Centre": "settings",

@@ -1,0 +1,94 @@
+import { FormEvent, useState } from "react";
+import { DataRow, deleteRow, updateRow } from "./lib/supabase-data";
+
+// Fields known to be computed client-side during load() rather than real columns on the
+// underlying table (e.g. AdminSectionPage/HRSectionPage/ManagerSectionPage all attach
+// employee_name by looking up the employee record after fetching). Never sent back on save.
+const derivedFields = new Set(["employee_name"]);
+
+export function RecordActions({ accessToken, table, row, columns, label, onReload }: {
+  accessToken: string;
+  table: string;
+  row: DataRow;
+  columns: [string, string][];
+  label: string;
+  onReload: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove() {
+    if (!row.id) return;
+    if (!window.confirm(`Delete this ${label.toLowerCase()} record? This cannot be undone.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteRow(accessToken, table, String(row.id));
+      await onReload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Record could not be deleted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <>
+    <button type="button" disabled={busy || !row.id} onClick={() => setEditing(true)}>Edit</button>
+    <button type="button" className="danger" disabled={busy || !row.id} onClick={() => void remove()}>Delete</button>
+    {error && <small className="table-subline form-error">{error}</small>}
+    {editing && <GenericEditDialog accessToken={accessToken} table={table} row={row} columns={columns} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await onReload(); }} />}
+  </>;
+}
+
+function GenericEditDialog({ accessToken, table, row, columns, onClose, onSaved }: {
+  accessToken: string;
+  table: string;
+  row: DataRow;
+  columns: [string, string][];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [values, setValues] = useState<DataRow>(() => {
+    const initial: DataRow = {};
+    for (const [key] of columns) initial[key] = row[key] ?? "";
+    return initial;
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!row.id) return;
+    setBusy(true);
+    setError("");
+    try {
+      const payload: DataRow = { ...values };
+      for (const key of derivedFields) delete payload[key];
+      await updateRow(accessToken, table, String(row.id), payload);
+      await onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Record could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="modal record-modal" role="dialog" aria-modal="true" aria-labelledby="generic-edit-title">
+      <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>×</button>
+      <span className="eyebrow">Edit record</span>
+      <h2 id="generic-edit-title">Edit fields</h2>
+      <form className="record-form" onSubmit={submit}>
+        {columns.map(([key, fieldLabel]) => <label key={key}>
+          {fieldLabel}
+          {derivedFields.has(key)
+            ? <input value={String(values[key] ?? "")} disabled readOnly />
+            : <input value={String(values[key] ?? "")} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />}
+        </label>)}
+        {error && <p className="form-error wide" role="alert">{error}</p>}
+        <div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button></div>
+      </form>
+    </section>
+  </div>;
+}

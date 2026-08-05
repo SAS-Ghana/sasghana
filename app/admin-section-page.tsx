@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { callRpc, createRow, createRows, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { RecordActions } from "./record-actions";
 
 type Config = {
   table: string;
@@ -260,6 +261,7 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
           <td><div className="row-actions">
             {label === "Notifications" ? <button type="button" disabled={busy} onClick={() => void setNotificationRead(row)}>{row.is_read ? "Mark unread" : "Mark read"}</button> :
               (statusActions[label] ?? []).map(([actionLabel, next]) => <button type="button" key={next} disabled={busy || String(row.status) === next} onClick={() => void setState(row, next)}>{actionLabel}</button>)}
+            {label !== "Audit Logs" && label !== "Notifications" && <RecordActions accessToken={accessToken} table={config.table} row={row} columns={config.columns} label={label} onReload={load} />}
             <button type="button" onClick={() => window.print()}>Print</button>
           </div></td>
         </tr>)}</tbody>

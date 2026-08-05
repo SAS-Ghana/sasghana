@@ -26,6 +26,7 @@ import { HRSectionPage } from "./hr-section-page";
 import { AdminDashboard } from "./admin-dashboard";
 import { AdminSectionPage, ImportExportPage } from "./admin-section-page";
 import { BookLibraryPage } from "./book-library-page";
+import { ProfileRequestsPage } from "./profile-requests-page";
 import { ApprovalWorkflowsPage } from "./approval-workflows-page";
 import { PayrollSettingsPage } from "./payroll-settings-page";
 import { AiAssistantPage } from "./ai-assistant-page";
@@ -38,30 +39,18 @@ import { moduleIcon } from "./module-icons";
 const forbidden = /billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
 
 const managerGroups = [
-  ["OVERVIEW", [["Manager Dashboard", "⌂"], ["My Profile", "●"]]],
-  ["TEAM", [["My Team", "♟"], ["Team Attendance", "◷"], ["Leave Approvals", "✓"], ["Team Performance", "★"], ["Tasks", "☑"]]],
-  ["SCHEDULES", [["Meetings & Calendar", "▤"], ["Shift & Schedules", "▦"], ["One to One Meetings", "◉"]]],
-  ["REQUESTS & APPROVALS", [["Employee Requests", "⇄"], ["Expense Approvals", "¤"]]],
-  ["PEOPLE DEVELOPMENT", [["Documents", "◫"], ["Learning & Development", "↗"], ["Recruitment & Onboarding", "⌕"]]],
-  ["ASSETS & COMMUNICATION", [["Assets", "▣"], ["Team Communication", "✉"]]],
-  ["INSIGHTS", [["Reports & Analytics", "▥"], ["Notifications", "●"], ["AI Manager Assistant", "AI"]]],
+  ["", [["Manager Dashboard", "⌂"], ["My Profile", "●"], ["My Team", "♟"], ["Team Attendance", "◷"], ["Leave Approvals", "✓"], ["Tasks", "☑"], ["Reports & Analytics", "▥"]]],
 ] as const;
+const managerMoreLabels = ["Meetings & Calendar", "Shift & Schedules", "One to One Meetings", "Employee Requests", "Expense Approvals", "Documents", "Learning & Development", "Recruitment & Onboarding", "Assets", "Team Communication", "Notifications", "AI Manager Assistant"] as const;
 
 const hrGroups = [
-  ["OVERVIEW", [["HR Dashboard", "⌂"], ["My Profile", "●"]]],
-  ["WORKFORCE", [["Employee Management", "♟"], ["Employee Directory", "◎"], ["Onboarding", "↗"], ["Offboarding", "↘"]]],
-  ["TIME & LEAVE", [["Attendance Management", "◷"], ["Leave Management", "◴"], ["Meetings & Calendar", "▤"]]],
-  ["PAY & BENEFITS", [["Payroll Administration", "▧"], ["Benefits Administration", "♡"], ["Expense Management", "¤"]]],
-  ["TALENT", [["Recruitment", "⌕"], ["Performance Management", "★"], ["Learning & Development", "▤"]]],
-  ["DOCUMENTS & ASSETS", [["Documents & Templates", "◫"], ["Asset Management", "▣"]]],
-  ["EMPLOYEE RELATIONS", [["Employee Relations & Cases", "!"], ["Announcements & Communication", "✉"], ["HR Help Desk", "?"]]],
-  ["ORGANIZATION", [["Organization Structure", "▦"], ["Workflows & Approvals", "⇄"]]],
-  ["INSIGHTS & SETTINGS", [["Reports & Analytics", "▥"], ["Notifications", "●"], ["AI HR Assistant", "AI"]]],
+  ["", [["HR Dashboard", "⌂"], ["My Profile", "●"], ["Employee Management", "♟"], ["Recruitment", "⌕"], ["Attendance Management", "◷"], ["Leave Management", "◴"], ["Payroll Administration", "▧"], ["Reports & Analytics", "▥"]]],
 ] as const;
+const hrMoreLabels = ["Onboarding", "Offboarding", "Learning & Development", "Benefits Administration", "Expense Management", "Documents & Templates", "Asset Management", "Employee Relations & Cases", "Announcements & Communication", "HR Help Desk", "Organization Structure", "Workflows & Approvals", "Meetings & Calendar", "Notifications", "AI HR Assistant", "Profile Requests"] as const;
 
 const adminGroups = [
   ["OVERVIEW", [["Administrator Dashboard", "⌂"], ["My Profile", "●"]]],
-  ["ACCESS CONTROL", [["User & Account Management", "♟"], ["Roles & Permissions", "⚿"]]],
+  ["ACCESS CONTROL", [["User & Account Management", "♟"], ["Roles & Permissions", "⚿"], ["Profile Requests", "✎"]]],
   ["WORKFORCE", [["Employee Management", "◎"], ["Organization Structure", "▦"]]],
   ["TIME & LEAVE", [["Attendance Management", "◷"], ["Leave Management", "◴"], ["Meetings & Calendar", "▤"]]],
   ["TALENT", [["Recruitment", "⌕"], ["Onboarding", "↗"], ["Offboarding", "↘"], ["Performance Management", "★"], ["Learning & Development", "▤"]]],
@@ -84,8 +73,10 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [notificationSettings, setNotificationSettings] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const accountType = (profile.account_type || "employee").toLowerCase();
   const isAdmin = profile.roles.includes("SAS System Administrator") || accountType === "administrator";
@@ -95,7 +86,8 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const mode = isEmployeeOnly ? "employee" : isAdmin ? "admin" : isHr ? "hr" : isManager ? "manager" : "admin";
   const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
   const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : mode === "employee" ? employeeGroups : managerGroups;
-  const labels = new Set(baseGroups.flatMap(([, items]) => items.map(([label]) => label)));
+  const moreLabels: readonly string[] = mode === "hr" ? hrMoreLabels : mode === "manager" ? managerMoreLabels : [];
+  const labels = new Set([...baseGroups.flatMap(([, items]) => items.map(([label]) => label)), ...moreLabels]);
   const libraryGranted = mode !== "admin" && Boolean(profile.dashboard_access?.includes("Book Library"));
   const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted && mode !== "employee"
     ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
@@ -113,7 +105,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   }
 
   useEffect(() => { if (forbidden.test(active) || !canAccess(active)) setActive(home); }, [active, home, profile.id]);
-  useEffect(() => { function close(event: PointerEvent) { if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false); } document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
+  useEffect(() => { function close(event: PointerEvent) { if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false); if (moreRef.current && !moreRef.current.contains(event.target as Node)) setMoreOpen(false); } document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
   useEffect(() => { const expired = () => onLogout(); window.addEventListener("sas-session-expired", expired); return () => window.removeEventListener("sas-session-expired", expired); }, [onLogout]);
 
   const render = () => {
@@ -122,6 +114,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     if (active === "AI Manager Assistant") return <AiAssistantPage role="manager" />;
     if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
     if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />;
+    if (active === "Profile Requests") return <ProfileRequestsPage accessToken={accessToken} />;
     if (mode === "employee") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection={active} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
 
     if (mode === "admin") {
@@ -174,6 +167,10 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div></div>
       {groups.map(([group, items]) => <div key={group}>{group && <div className="nav-label">{group}</div>}<nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
+      {moreLabels.length > 0 && <div className="more-menu-wrap sidebar-more" ref={moreRef}>
+        <nav className="nav"><button type="button" className={moreLabels.includes(active) ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}><span className="nav-icon"><MenuIcon name="settings" /></span><span className="nav-text">More</span></button></nav>
+        {moreOpen && <div className="account-menu more-menu">{moreLabels.filter((label) => canAccess(label)).map((label) => <button type="button" key={label} onClick={() => { navigate(label); setMoreOpen(false); }}>{label}</button>)}</div>}
+      </div>}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
     </aside>
     <main className="main" ref={mainRef}>
