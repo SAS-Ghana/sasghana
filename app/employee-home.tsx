@@ -1,22 +1,19 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
-import { callRpc, createRow, DataRow, listRows, listRowsWhere } from "./lib/supabase-data";
+import { callRpc, createRow, createSignedStorageUrl, DataRow, listRows, listRowsWhere } from "./lib/supabase-data";
 import { loadAttendancePolicy, runAttendanceAction } from "./quick-attendance";
 import { BookLibraryPage, libraryAccess } from "./book-library-page";
+import { PeopleDirectory } from "./people-directory";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
-type Tab = "dashboard" | "profile" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
+type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
-type EmployeeHomeProps = { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void; onChangePassword?: () => void; onNotificationSettings?: () => void; onLogout?: () => void };
+type EmployeeHomeProps = { accessToken: string; profile: UserProfile; activeSection?: string; onNavigate: (page: string) => void; onChangePassword?: () => void; onNotificationSettings?: () => void; onLogout?: () => void };
 
-const tabs: [Tab, string, string][] = [
-  ["dashboard", "Overview", "⌂"], ["profile", "My Profile", "●"], ["attendance", "Attendance", "◷"], ["leave", "Leave", "◴"],
-  ["payroll", "Payroll", "▧"], ["documents", "Documents", "▤"], ["performance", "Performance", "★"], ["learning", "Learning", "↗"],
-  ["tasks", "Tasks", "☑"], ["expenses", "Expenses", "¤"], ["assets", "Assets", "▣"], ["benefits", "Benefits", "♡"],
-  ["recruitment", "Internal Jobs", "⌕"], ["communication", "Comms", "✉"], ["calendar", "Calendar", "▦"], ["help", "Help Center", "?"],
-  ["notifications", "Notifications", "◉"], ["analytics", "Analytics", "▥"], ["settings", "Settings", "⚙"], ["ai", "AI Assistant", "✦"],
-];
+const sectionTab: Record<string, Tab> = { "Home": "dashboard", "My Info": "profile", "People": "people", "Hiring": "recruitment", "Reports": "analytics", "Files": "documents", "Payroll": "payroll" };
+const infoTabs: [Tab, string][] = [["profile", "Personal"], ["leave", "Time Off"], ["payroll", "Pay Info"], ["documents", "Documents"], ["performance", "Performance"], ["attendance", "Timesheet"]];
+const moreItems: [Tab, string][] = [["learning", "Learning & Development"], ["tasks", "Tasks"], ["expenses", "Expenses"], ["assets", "Assets"], ["benefits", "Benefits"], ["communication", "Comms"], ["calendar", "Calendar"], ["help", "Help Center"], ["notifications", "Notifications"], ["settings", "Settings"], ["ai", "AI Assistant"]];
 
 const empty: Dataset = {
   employee: [], attendance: [], leave: [], payroll: [], documents: [], performance: [], goals: [], learning: [], tasks: [], expenses: [],
@@ -24,10 +21,11 @@ const empty: Dataset = {
   notifications: [], requests: [], awards: [], history: [], preferences: [],
 };
 
-export function EmployeeHome({ accessToken, profile, onChangePassword, onNotificationSettings, onLogout }: EmployeeHomeProps) {
+export function EmployeeHome({ accessToken, profile, activeSection = "Home", onChangePassword, onNotificationSettings, onLogout }: EmployeeHomeProps) {
   const canOpenLibrary = libraryAccess(profile).canView;
-  const visibleTabs = canOpenLibrary ? [...tabs, ["library", "Book Library", "📚"] as [Tab, string, string]] : tabs;
+  const moreEntries = canOpenLibrary ? [...moreItems, ["library", "Book Library"] as [Tab, string]] : moreItems;
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [data, setData] = useState<Dataset>(empty);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -36,6 +34,8 @@ export function EmployeeHome({ accessToken, profile, onChangePassword, onNotific
   const [now, setNow] = useState(Date.now());
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState("Ask about leave, payroll, attendance, policies, training or career development.");
+
+  useEffect(() => { setTab(sectionTab[activeSection] ?? "dashboard"); setMoreOpen(false); }, [activeSection]);
 
   const load = useCallback(async () => {
     setError("");
@@ -133,16 +133,22 @@ export function EmployeeHome({ accessToken, profile, onChangePassword, onNotific
   }
 
   return <section className="employee-portal-v2">
-    <header className="employee-portal-header">
-      <div className="employee-identity"><img src="/logo.png" alt="Company logo" /><div><span className="eyebrow">Employee self service</span><h1>Welcome, {firstName}</h1><p>{employee?.position_title || profile.job_title || "Employee"} · {employee?.department_name || "Your department"}</p></div></div>
-      <div className="employee-date"><strong>{new Date(now).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong><span>{new Date(now).toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span></div>
-    </header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
     {!profile.employee_id && <article className="card data-panel"><h2>Employee record not linked</h2><p>Ask HR to link this login to an employee record. Personal modules remain protected until linking is complete.</p></article>}
-    <nav className="employee-module-tabs" aria-label="Employee dashboard modules">{visibleTabs.map(([id, label, icon]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><span>{icon}</span>{label}</button>)}</nav>
+
+    {activeSection === "Home" && <header className="page-header"><div><span className="eyebrow">Employee self service</span><h1>Welcome, {firstName}</h1><p className="muted">{employee?.position_title || profile.job_title || "Employee"} · {employee?.department_name || "Your department"} · {new Date(now).toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p></div></header>}
+
+    {activeSection === "My Info" && <nav className="segmented employee-info-tabs" aria-label="My Info sections">
+      {infoTabs.map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}
+      <div className="more-menu-wrap">
+        <button type="button" className={moreEntries.some(([id]) => id === tab) ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>More</button>
+        {moreOpen && <div className="account-menu more-menu">{moreEntries.map(([id, label]) => <button type="button" key={id} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}</div>}
+      </div>
+    </nav>}
 
     {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onAskAi={() => setTab("ai")} />}
-    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} />}
+    {tab === "people" && <PeopleDirectory accessToken={accessToken} organisationId={profile.organisation_id} canManage={false} />}
+    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} accessToken={accessToken} />}
     {tab === "attendance" && <AttendancePage rows={data.attendance} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} rate={attendanceRate} hours={workedHours} overtime={overtime} />}
     {tab === "leave" && <LeavePage rows={data.leave} holidays={data.holidays} balance={leaveBalance} onApply={() => setModal("leave")} />}
     {tab === "payroll" && <PayrollPage rows={data.payroll} employee={employee} />}
@@ -185,7 +191,7 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
   </>;
 }
 
-function ProfilePage({ employee, history, onRequest }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void }) {
+function ProfilePage({ employee, history, onRequest, accessToken }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void; accessToken: string }) {
   const sections: [string, [string, unknown][]][] = [
     ["Personal information", [["Full name", `${employee?.first_name ?? ""} ${employee?.middle_name ?? ""} ${employee?.last_name ?? ""}`.replace(/\s+/g, " ").trim()], ["Employee ID", employee?.id], ["Staff number", employee?.employee_number], ["Personal email", employee?.personal_email], ["Phone", employee?.phone], ["Date of birth", employee?.date_of_birth], ["Gender", employee?.gender], ["Nationality", employee?.nationality], ["Residential address", employee?.residential_address]]],
     ["Employment", [["Department", employee?.department_name], ["Branch", employee?.branch], ["Position", employee?.position_title], ["Status", employee?.employment_status], ["Reporting manager", employee?.manager_name], ["Employment type", employee?.employment_type], ["Start date", employee?.start_date]]],
@@ -194,9 +200,18 @@ function ProfilePage({ employee, history, onRequest }: { employee: DataRow | nul
   ];
   const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || "Employee";
   const initials = `${String(employee?.first_name ?? "E").slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase();
+  const [photoUrl, setPhotoUrl] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    const photoPath = employee?.passport_photo_path;
+    (photoPath ? createSignedStorageUrl(accessToken, "employee-media", String(photoPath)) : Promise.resolve(""))
+      .then((url) => { if (!cancelled) setPhotoUrl(url); })
+      .catch(() => { if (!cancelled) setPhotoUrl(""); });
+    return () => { cancelled = true; };
+  }, [accessToken, employee?.passport_photo_path]);
   return <>
     <div className="profile-banner">
-      <div className="profile-banner-avatar">{initials}</div>
+      <div className="profile-banner-avatar">{photoUrl ? <img src={photoUrl} alt="" /> : initials}</div>
       <div className="profile-banner-info">
         <h1>{fullName}</h1>
         <p>{String(employee?.position_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
@@ -204,9 +219,28 @@ function ProfilePage({ employee, history, onRequest }: { employee: DataRow | nul
       </div>
       <button type="button" className="secondary profile-banner-action" onClick={onRequest}>Request a change</button>
     </div>
-    <div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div>
-    <RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} />
+    <div className="profile-layout">
+      <VitalsPanel employee={employee} />
+      <div className="profile-layout-main">
+        <div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div>
+        <RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} />
+      </div>
+    </div>
   </>;
+}
+
+function VitalsPanel({ employee }: { employee: DataRow | null }) {
+  const rows = ([
+    ["Work email", employee?.work_email],
+    ["Personal email", employee?.personal_email],
+    ["Phone", employee?.phone],
+    ["Job title", employee?.position_title],
+    ["Department", employee?.department_name],
+    ["Branch", employee?.branch],
+    ["Employee number", employee?.employee_number],
+    ["Start date", employee?.start_date],
+  ] as [string, unknown][]).filter(([, entry]) => entry);
+  return <article className="card data-panel vitals-panel"><h2>Vitals</h2><div className="vitals-list">{rows.map(([label, entry]) => <div key={String(label)}><span>{label}</span><strong>{value(entry)}</strong></div>)}{!rows.length && <p className="muted">No vitals on file yet.</p>}</div></article>;
 }
 
 function AttendancePage({ rows, liveTime, clockedIn, onBreak, busy, onAction, rate, hours, overtime }: { rows: DataRow[]; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; rate: number; hours: number; overtime: number }) {

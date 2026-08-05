@@ -72,7 +72,11 @@ const adminGroups = [
   ["SYSTEM", [["Settings Centre", "⚙"], ["Audit Logs", "▤"], ["Import & Export", "⇅"]]],
 ] as const;
 
-type GroupSet = typeof managerGroups | typeof hrGroups | typeof adminGroups;
+const employeeGroups = [
+  ["", [["Home", "⌂"], ["My Info", "●"], ["People", "♟"], ["Hiring", "⌕"], ["Reports", "▥"], ["Files", "▤"], ["Payroll", "▧"]]],
+] as const;
+
+type GroupSet = typeof managerGroups | typeof hrGroups | typeof adminGroups | typeof employeeGroups;
 
 export function PeopleDashboard({ accessToken, profile, onLogout, onChangePassword }: { accessToken: string; profile: UserProfile; onLogout: () => void; onChangePassword: () => void }) {
   const [drawer, setDrawer] = useState(false);
@@ -90,14 +94,14 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const isEmployeeOnly = !isAdmin && !isHr && !isManager && accountType !== "auditor";
   const mode = isEmployeeOnly ? "employee" : isAdmin ? "admin" : isHr ? "hr" : isManager ? "manager" : "admin";
   const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
-  const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : managerGroups;
+  const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : mode === "employee" ? employeeGroups : managerGroups;
   const labels = new Set(baseGroups.flatMap(([, items]) => items.map(([label]) => label)));
   const libraryGranted = mode !== "admin" && Boolean(profile.dashboard_access?.includes("Book Library"));
-  const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted
+  const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted && mode !== "employee"
     ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
     : baseGroups;
-  const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Dashboard";
-  const canAccess = (label: string) => !forbidden.test(label) && (mode === "employee" ? label === "Dashboard" || label === "My Profile" : labels.has(label) || (label === "Book Library" && libraryGranted));
+  const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Home";
+  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted));
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
@@ -112,18 +116,17 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   useEffect(() => { function close(event: PointerEvent) { if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false); } document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
   useEffect(() => { const expired = () => onLogout(); window.addEventListener("sas-session-expired", expired); return () => window.removeEventListener("sas-session-expired", expired); }, [onLogout]);
 
-  if (isEmployeeOnly) return <div className="app employee-app-shell"><main className="main employee-main" ref={mainRef}><div className="content employee-content"><EmployeeHome accessToken={accessToken} profile={profile} onNavigate={() => undefined} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} /></div><ChatPopup accessToken={accessToken} profile={profile} />{notificationSettings && <NotificationSettings accessToken={accessToken} profile={profile} onClose={() => setNotificationSettings(false)} />}</main></div>;
-
   const render = () => {
     if (search.trim()) return <GlobalSearch accessToken={accessToken} query={search} onNavigate={navigate} onClear={() => setSearch("")} />;
     if (active === "Meetings & Calendar") return <CalendarHub accessToken={accessToken} profile={profile} />;
     if (active === "AI Manager Assistant") return <AiAssistantPage role="manager" />;
     if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
     if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />;
+    if (mode === "employee") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection={active} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
 
     if (mode === "admin") {
       if (active === "Administrator Dashboard") return <AdminDashboard accessToken={accessToken} profile={profile} onNavigate={navigate} />;
-      if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
+      if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection="My Info" onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
       if (active === "User & Account Management") return <AccountManagementPage accessToken={accessToken} />;
       if (active === "Employee Management") return <PeopleDirectory accessToken={accessToken} canManage organisationId={profile.organisation_id} />;
       if (active === "Payroll & Payslips") return <PayrollSettingsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
@@ -143,7 +146,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
 
     if (mode === "hr") {
       if (active === "HR Dashboard") return <HRDashboard accessToken={accessToken} profile={profile} onNavigate={navigate} />;
-      if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
+      if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection="My Info" onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
       if (active === "Employee Directory") return <PeopleDirectory accessToken={accessToken} />;
       if (active === "Employee Management") return <PeopleDirectory accessToken={accessToken} canManage organisationId={profile.organisation_id} />;
       if (active === "Payroll Administration") return <PayrollSettingsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
@@ -159,7 +162,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     }
 
     if (active === "Manager Dashboard") return <ManagerDashboard accessToken={accessToken} profile={profile} onNavigate={navigate} />;
-    if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
+    if (active === "My Profile") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection="My Info" onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
     if (active === "My Team") return <TeamHub accessToken={accessToken} />;
     if (active === "Team Performance") return <PerformanceHub accessToken={accessToken} profile={profile} />;
     if (active === "One to One Meetings") return <CalendarHub accessToken={accessToken} profile={profile} />;
@@ -169,12 +172,12 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   return <div className="app">
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
-      <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : "Manager workspace"}</small></div></div>
-      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
+      <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div></div>
+      {groups.map(([group, items]) => <div key={group}>{group && <div className="nav-label">{group}</div>}<nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
     </aside>
     <main className="main" ref={mainRef}>
-      <header className="topbar"><button className="mobile-menu" onClick={() => setDrawer(true)} aria-label="Open navigation"><span aria-hidden="true">☰</span></button><input className="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={mode === "admin" ? "Search organization administration..." : mode === "hr" ? "Search HR workspace..." : "Search your team workspace..."} /><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile} /><button className="account-button" onClick={() => setAccountOpen((value) => !value)}><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0] ?? profile.account_type}</small></div></button>{accountOpen && <div className="account-menu"><button onClick={() => navigate("My Profile")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setDrawer(true)} aria-label="Open navigation"><span aria-hidden="true">☰</span></button><input className="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={mode === "admin" ? "Search organization administration..." : mode === "hr" ? "Search HR workspace..." : mode === "employee" ? "Search your workspace..." : "Search your team workspace..."} /><div className="profile" ref={accountRef}><NotificationCenter accessToken={accessToken} profile={profile} /><button className="account-button" onClick={() => setAccountOpen((value) => !value)}><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0] ?? profile.account_type}</small></div></button>{accountOpen && <div className="account-menu"><button onClick={() => navigate("My Profile")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}</div></header>
       <div className="content">{render()}</div>
       <ChatPopup accessToken={accessToken} profile={profile} />
       {notificationSettings && <NotificationSettings accessToken={accessToken} profile={profile} onClose={() => setNotificationSettings(false)} />}

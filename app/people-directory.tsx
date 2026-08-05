@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createRow, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { createRow, createSignedStorageUrl, DataRow, listNamedRows, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
@@ -55,6 +55,7 @@ export function PeopleDirectory({
   organisationId?: string;
 }) {
   const [people, setPeople] = useState<DataRow[]>([]);
+  const [photos, setPhotos] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("all");
   const [error, setError] = useState("");
@@ -64,11 +65,16 @@ export function PeopleDirectory({
   const load = useCallback(async () => {
     setError("");
     try {
-      setPeople(
-        canManage
-          ? await listRows(accessToken, "employees", "*", 1000)
-          : await listNamedRows(accessToken, "employee_directory", "*", "full_name"),
-      );
+      const rows = canManage
+        ? await listRows(accessToken, "employees", "*", 1000)
+        : await listNamedRows(accessToken, "employee_directory", "*", "full_name");
+      setPeople(rows);
+      const withPhotos = rows.filter((person) => person.passport_photo_path);
+      const entries = await Promise.all(withPhotos.map(async (person) => {
+        try { return [String(person.id), await createSignedStorageUrl(accessToken, "employee-media", String(person.passport_photo_path))] as const; }
+        catch { return [String(person.id), ""] as const; }
+      }));
+      setPhotos(Object.fromEntries(entries.filter(([, url]) => url)));
     } catch (cause) {
       setPeople([]);
       setError(cause instanceof Error ? cause.message : "Directory could not be loaded.");
@@ -117,7 +123,7 @@ export function PeopleDirectory({
       {visible.map((person) => {
         const fullName = String(person.full_name ?? `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim());
         return <article className="card person-card" key={String(person.id)}>
-          <div className="profile-photo small">{fullName.split(" ").map((part) => part[0]).slice(0, 2).join("")}</div>
+          <div className="profile-photo small">{photos[String(person.id)] ? <img src={photos[String(person.id)]} alt="" /> : fullName.split(" ").map((part) => part[0]).slice(0, 2).join("")}</div>
           <div>
             <h3>{fullName}</h3>
             <p>{String(person.position_title || "Employee")}</p>
@@ -162,6 +168,7 @@ function EmployeeDialog({
   for (const [key] of fields) initial[key] = row?.[key] ?? (key === "basic_salary" ? 0 : "");
 
   const [values, setValues] = useState<DataRow>(initial);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -184,8 +191,20 @@ function EmployeeDialog({
       payload.salary_frequency = frequency;
       payload.salary_currency = String(payload.salary_currency ?? "GHS").trim().toUpperCase();
 
+      let recordId = row?.id ? String(row.id) : "";
       if (row?.id) await updateRow(accessToken, "employees", String(row.id), payload);
-      else await createRow(accessToken, "employees", { organisation_id: organisationId, ...payload });
+      else {
+        const created = await createRow(accessToken, "employees", { organisation_id: organisationId, ...payload });
+        recordId = String(created[0]?.id ?? "");
+      }
+
+      if (photoFile && recordId) {
+        const extension = photoFile.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `${organisationId}/${recordId}/passport.${extension}`;
+        await uploadStorageFile(accessToken, "employee-media", path, photoFile);
+        await updateRow(accessToken, "employees", recordId, { passport_photo_path: path });
+      }
+
       await onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Employee record could not be saved.");
@@ -200,6 +219,7 @@ function EmployeeDialog({
       <span className="eyebrow">Employee administration</span>
       <h2 id="employee-record-title">{row ? "Edit complete employee record" : "Add employee"}</h2>
       <form className="record-form" onSubmit={submit}>
+        <label className="wide">Photograph{row?.passport_photo_path && !photoFile && <small className="table-subline">A photo is already on record; choose a new one to replace it.</small>}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} /></label>
         {fields.map(([key, label, type, required]) => <label className={type === "textarea" ? "wide" : ""} key={key}>
           {label}
           {type === "textarea"

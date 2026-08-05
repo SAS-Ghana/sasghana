@@ -128,6 +128,8 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .book-grid .status-pill.published{color:var(--success);background:var(--success-soft)}
 .book-grid .status-pill.archived{color:var(--muted);background:var(--surface-2)}
 
+.profile-photo img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+
 /* BambooHR-style profile banner */
 .profile-banner{position:relative;overflow:hidden;display:flex;align-items:center;gap:22px;padding:30px 32px;margin-bottom:24px;border-radius:var(--radius-lg);background:linear-gradient(120deg,var(--navy),var(--brand-700));color:#fff;box-shadow:var(--shadow-pop)}
 .profile-banner::after{content:"";position:absolute;right:-70px;bottom:-140px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgb(255 255 255 / 14%),transparent 65%)}
@@ -138,7 +140,22 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .profile-banner-info span{display:block;margin-top:8px;color:rgb(255 255 255 / 62%);font-size:12px}
 .profile-banner-action{position:relative;z-index:1;margin-left:auto;flex:none;background:rgb(255 255 255 / 12%);border-color:rgb(255 255 255 / 30%);color:#fff}
 .profile-banner-action:hover{background:rgb(255 255 255 / 20%)}
+.profile-banner-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 @media(max-width:700px){.profile-banner{flex-wrap:wrap;padding:24px}.profile-banner-action{margin-left:0}}
+
+/* My Info layout: vitals rail + main content, matching the BambooHR reference */
+.profile-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start;margin-bottom:20px}
+.profile-layout-main{display:grid;gap:20px;min-width:0}
+.vitals-panel h2{margin:0 0 14px;font-size:15px}
+.vitals-list{display:grid;gap:12px}
+.vitals-list>div{display:grid;gap:2px}
+.vitals-list span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.vitals-list strong{font-size:13px;font-weight:650}
+@media(max-width:900px){.profile-layout{grid-template-columns:1fr}}
+
+/* My Info "More" popover */
+.more-menu-wrap{position:relative}
+.more-menu-wrap .more-menu{position:absolute;left:0;right:auto;top:44px;z-index:10;min-width:200px}
 
 @media(max-width:760px){
   .metric-icon-chip{width:26px;height:26px}
