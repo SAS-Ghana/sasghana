@@ -7,6 +7,8 @@ import {
   OrganisationConfig,
   saveOrganisationConfig,
 } from "./lib/organisation-config";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 const sections = [
   ["organisation", "Organisation", "Company profile, logo and descriptions"],
@@ -136,7 +138,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
   const activeSessions = sessionRows.filter((row) => !row.revoked_at).length;
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">System configuration</span><h1>Settings centre</h1><p className="muted">Manage company details, appearance, regional formats, forms and reusable options from one place.</p></div></header>
+    <header className="page-header"><div><span className="eyebrow">System configuration</span><h1><MenuIcon name={moduleIcon("Settings")} />Settings centre</h1><p className="muted">Manage company details, appearance, regional formats, forms and reusable options from one place.</p></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
     <div className="settings-centre">

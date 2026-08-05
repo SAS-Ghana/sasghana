@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { callRpc, DataRow, listRows, updateRow } from "./lib/supabase-data";
 import { AdminSectionPage } from "./admin-section-page";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type Config = {
   table: string;
@@ -183,7 +185,7 @@ export function HRSectionPage({ label, accessToken, organisationId }: { label: s
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">HR administration</span><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="row-actions">{config.actions.map((action) => <button key={action} type="button" className={action === config.actions[0] ? "primary" : "secondary"} disabled={busy} onClick={() => void quickAction(action)}>{action}</button>)}</div></header>
+    <header className="page-header"><div><span className="eyebrow">HR administration</span><h1><MenuIcon name={moduleIcon(config.title)} />{config.title}</h1><p className="muted">{config.description}</p></div><div className="row-actions">{config.actions.map((action) => <button key={action} type="button" className={action === config.actions[0] ? "primary" : "secondary"} disabled={busy} onClick={() => void quickAction(action)}>{action}</button>)}</div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
     <article className="card data-panel">

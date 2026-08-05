@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { callRpc, createRow, createRows, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type Config = {
   table: string;
@@ -233,7 +235,7 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
 
   return <section>
     <header className="page-header">
-      <div><span className="eyebrow">Organization administration</span><h1>{label}</h1><p className="muted">{config.description}</p></div>
+      <div><span className="eyebrow">Organization administration</span><h1><MenuIcon name={moduleIcon(label)} />{label}</h1><p className="muted">{config.description}</p></div>
       <div className="row-actions">{config.actions.map((name, index) => <button type="button" key={name} className={index === 0 ? "primary" : "secondary"} disabled={busy} onClick={() => void action(name)}>{name}</button>)}</div>
     </header>
 
@@ -427,7 +429,7 @@ export function ImportExportPage({ accessToken, organisationId }: { accessToken:
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">Organization administration</span><h1>Import & Export</h1><p className="muted">Download reference data as CSV, or bulk import new employee records from a CSV file.</p></div></header>
+    <header className="page-header"><div><span className="eyebrow">Organization administration</span><h1><MenuIcon name={moduleIcon("Import & Export")} />Import & Export</h1><p className="muted">Download reference data as CSV, or bulk import new employee records from a CSV file.</p></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="form-message" aria-live="polite">{notice}</p>}
 

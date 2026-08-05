@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, createSignedStorageUrl, DataRow, listNamedRows, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 const mergeFields = [
   "{{today}}", "{{employee.full_name}}", "{{employee.employee_number}}", "{{employee.position_title}}",
@@ -136,7 +138,7 @@ export function DocumentStudio({ accessToken, organisationId }: { accessToken: s
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">Documents</span><h1>Document Studio</h1><p className="muted">Design and generate appointment letters, contracts, payslips and forms using live employee salary and payroll data.</p></div><button className="primary" onClick={create}>Create template</button></header>
+    <header className="page-header"><div><span className="eyebrow">Documents</span><h1><MenuIcon name={moduleIcon("Documents & Templates")} />Document Studio</h1><p className="muted">Design and generate appointment letters, contracts, payslips and forms using live employee salary and payroll data.</p></div><button className="primary" onClick={create}>Create template</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}{message && <p className="form-message" aria-live="polite">{message}</p>}
     <article className="card data-panel document-generation-context"><div><h2>Generate for employee</h2><p className="muted">Salary and payroll merge fields use the selected employee's authorised record.</p></div><label>Employee<select value={selectedEmployeeId} onChange={(event) => setSelectedEmployeeId(event.target.value)}><option value="">Select employee</option>{employees.map((employee) => <option key={String(employee.id)} value={String(employee.id)}>{String(employee.first_name)} {String(employee.last_name)} · {String(employee.employee_number)}</option>)}</select></label>{selectedEmployee && <div className="salary-preview"><span>Monthly salary <strong>{money(selectedEmployee.monthly_salary ?? selectedEmployee.basic_salary, String(selectedEmployee.salary_currency ?? "GHS"))}</strong></span><span>Annual salary <strong>{money(selectedEmployee.annual_salary, String(selectedEmployee.salary_currency ?? "GHS"))}</strong></span><small>{selectedPayroll ? `Latest payroll: ${String(selectedPayroll.pay_period)}` : "No published payroll record yet; profile salary will be used."}</small></div>}</article>
     <article className="card data-panel"><div className="panel-head"><div><h2>Saved templates</h2><p className="muted">Merge fields fill employee and payroll data automatically.</p></div></div><div className="template-grid">{templates.map((template) => <article key={String(template.id)}><span>{String(template.template_type).replaceAll("_", " ")}</span><h3>{String(template.name)}</h3><p>{String(template.subject ?? "No subject")}</p><div className="row-actions"><button onClick={() => void preview(template)}>Preview</button><button className="primary" disabled={busy === String(template.id)} onClick={() => void generate(template)}>{busy === String(template.id) ? "Generating…" : "Generate"}</button><button onClick={() => edit(template)}>Design</button></div></article>)}</div></article>

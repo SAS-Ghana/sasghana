@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, DataRow, listRows, updateRow } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type Step = { role: string; label: string; days: number };
 type WorkflowDraft = { id?: string; name: string; workflow_type: string; description: string; status: string; steps: Step[] };
@@ -141,7 +143,7 @@ export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "ad
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1>Approval Workflows</h1><p className="muted">Every workflow, step, approver role and deadline shown here is loaded from and saved to Supabase.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
+    <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1><MenuIcon name={moduleIcon("Approval Workflows")} />Approval Workflows</h1><p className="muted">Every workflow, step, approver role and deadline shown here is loaded from and saved to Supabase.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
     <div className="workflow-kpis"><article className="card"><span>Total workflows</span><strong>{rows.length}</strong></article><article className="card"><span>Active workflows</span><strong>{active}</strong></article><article className="card"><span>Approval steps</span><strong>{stepCount}</strong></article><article className="card"><span>Workflow types</span><strong>{workflowTypes.length}</strong></article></div>

@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type EmployeeField = [key: string, label: string, type: string, required: boolean];
 
@@ -93,7 +95,7 @@ export function PeopleDirectory({
     <header className="page-header">
       <div>
         <span className="eyebrow">Our people</span>
-        <h1>{canManage ? "Employee records" : "Organisation directory"}</h1>
+        <h1><MenuIcon name={moduleIcon("Employee Management")} />{canManage ? "Employee records" : "Organisation directory"}</h1>
         <p className="muted">{canManage
           ? "Create complete employee records, salary information and account links used by payroll, tax and HR documents."
           : "Find colleagues, roles and teams without exposing private information."}</p>

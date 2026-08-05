@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataRow, listRows } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type AuditView = "activity" | "logins";
 
@@ -59,7 +61,7 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
     <header className="page-header">
       <div>
         <span className="eyebrow">Security & accountability</span>
-        <h1>{view === "logins" ? "Login history" : "Complete activity audit"}</h1>
+        <h1><MenuIcon name={moduleIcon("Audit Logs")} />{view === "logins" ? "Login history" : "Complete activity audit"}</h1>
         <p className="muted">Audit history is permanent and read only. Login history includes successful and failed account access attempts.</p>
       </div>
       <div className="row-actions audit-view-actions">

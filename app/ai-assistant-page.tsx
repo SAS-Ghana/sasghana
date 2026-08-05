@@ -2,6 +2,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { fetchProfile, getValidAccessToken, readSession } from "./lib/supabase-auth";
 import { createRow, DataRow, listNamedRows, listRows, listRowsWhere } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type AssistantRole = "manager" | "hr";
 type WorkspaceData = Record<string, DataRow[]>;
@@ -89,7 +91,7 @@ export function AiAssistantPage({ role, accessToken: providedToken, profile: pro
   }
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">Live Supabase assistance</span><h1>AI {role === "manager" ? "Manager" : "HR"} Assistant</h1><p className="muted">Guidance is generated from the records this account is authorised to access. Final employment decisions remain with authorised people.</p></div><button className="secondary" disabled={!accessToken} onClick={() => void load()}>Refresh live data</button></header>
+    <header className="page-header"><div><span className="eyebrow">Live Supabase assistance</span><h1><MenuIcon name={moduleIcon("AI HR Assistant")} />AI {role === "manager" ? "Manager" : "HR"} Assistant</h1><p className="muted">Guidance is generated from the records this account is authorised to access. Final employment decisions remain with authorised people.</p></div><button className="secondary" disabled={!accessToken} onClick={() => void load()}>Refresh live data</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="dashboard-metric-grid">{Object.entries(summary).slice(0, 8).map(([label, value]) => <article className="card metric dashboard-metric-card" key={label}><span>{label.replaceAll("_", " ")}</span><strong>{value}</strong><small>Live authorised records</small></article>)}</div>
     <div className="dashboard-content-grid">

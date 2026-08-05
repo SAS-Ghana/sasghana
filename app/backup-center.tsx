@@ -1,6 +1,8 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { callRpc, DataRow, deleteRow, listRows } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 export function BackupCenter({accessToken,profile}:{accessToken:string;profile:UserProfile}) {
   const [records,setRecords]=useState<DataRow[]>([]);
@@ -45,7 +47,7 @@ export function BackupCenter({accessToken,profile}:{accessToken:string;profile:U
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">Business continuity</span><h1>One-button backup & restore</h1><p className="muted">Download every organisation record and login identity in one portable file, or restore a previous export.</p></div><div className="page-actions"><button className="secondary" disabled={Boolean(busy)} onClick={()=>fileRef.current?.click()}>{busy==="restore"?"Restoring…":"Upload & restore"}</button><button className="primary" disabled={Boolean(busy)} onClick={()=>void download()}>{busy==="download"?"Preparing backup…":"Download complete backup"}</button><input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={restore}/></div></header>
+    <header className="page-header"><div><span className="eyebrow">Business continuity</span><h1><MenuIcon name={moduleIcon("Backup & Restore")} />One-button backup & restore</h1><p className="muted">Download every organisation record and login identity in one portable file, or restore a previous export.</p></div><div className="page-actions"><button className="secondary" disabled={Boolean(busy)} onClick={()=>fileRef.current?.click()}>{busy==="restore"?"Restoring…":"Upload & restore"}</button><button className="primary" disabled={Boolean(busy)} onClick={()=>void download()}>{busy==="download"?"Preparing backup…":"Download complete backup"}</button><input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={restore}/></div></header>
     <aside className="backup-explainer"><strong>Protected recovery design</strong><p>The backup contains all Supabase organisation tables and login identities. Password hashes are never exportable; if an identity must be recreated, that user securely chooses a new password through Forgot password.</p></aside>
     {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
     <article className="card data-panel"><div className="panel-head"><div><h2>Backup & restore history</h2><p className="muted">Auditable recovery operations for {profile.display_name}</p></div><button className="text-btn" onClick={()=>void load()}>Refresh</button></div>

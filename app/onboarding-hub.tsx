@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { createRow, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type Data = { journeys: DataRow[]; templates: DataRow[]; items: DataRow[]; employees: DataRow[]; policies: DataRow[]; assets: DataRow[]; documents: DataRow[] };
 const empty: Data = { journeys: [], templates: [], items: [], employees: [], policies: [], assets: [], documents: [] };
@@ -53,7 +55,7 @@ export function OnboardingHub({ accessToken, profile }: { accessToken: string; p
   }
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div><span className="eyebrow">Employee lifecycle</span><h1>Onboarding command centre</h1><p className="muted">Start employee journeys, reuse checklists, issue documents, assign assets, training and first-week work.</p></div>{canManage && <div className="page-actions"><button className="primary" onClick={() => setJourneyOpen(true)}>Start onboarding</button><button className="secondary" onClick={() => setTemplateOpen(true)}>Create template</button></div>}</header>
+    <header className="page-header"><div><span className="eyebrow">Employee lifecycle</span><h1><MenuIcon name={moduleIcon("Onboarding")} />Onboarding command centre</h1><p className="muted">Start employee journeys, reuse checklists, issue documents, assign assets, training and first-week work.</p></div>{canManage && <div className="page-actions"><button className="primary" onClick={() => setJourneyOpen(true)}>Start onboarding</button><button className="secondary" onClick={() => setTemplateOpen(true)}>Create template</button></div>}</header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
     <div className="performance-metrics"><article><span>Active journeys</span><strong>{active.length}</strong><p>{overdue} overdue</p></article><article><span>Completed</span><strong>{completed}</strong><p>Closed onboarding journeys</p></article><article><span>Reusable templates</span><strong>{data.templates.length}</strong><p>{data.items.length} checklist items</p></article><article><span>Published policies</span><strong>{data.policies.filter((row) => row.status === "published").length}</strong><p>Available for acknowledgement</p></article><article><span>Available assets</span><strong>{data.assets.filter((row) => row.status === "available").length}</strong><p>Ready for assignment</p></article></div>
     <div className="segmented"><button className={tab === "journeys" ? "active" : ""} onClick={() => setTab("journeys")}>Employee journeys</button><button className={tab === "templates" ? "active" : ""} onClick={() => setTab("templates")}>Templates & checklists</button><button className={tab === "compliance" ? "active" : ""} onClick={() => setTab("compliance")}>Compliance readiness</button></div>

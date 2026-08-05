@@ -58,7 +58,8 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .metric-icon-chip svg{width:16px;height:16px}
 .dashboard-metric-card strong{font-variant-numeric:tabular-nums}
 .dashboard-metric-card small{color:var(--brand);font-weight:700}
-.page-header h1{letter-spacing:-.03em}
+.page-header h1{letter-spacing:-.03em;display:flex;align-items:center;gap:11px}
+.page-header h1 svg{flex:none;color:var(--brand);width:24px;height:24px}
 .eyebrow{display:inline-flex;align-items:center;gap:6px}
 .eyebrow::before{content:"";width:6px;height:6px;border-radius:99px;background:var(--brand)}
 

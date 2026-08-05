@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { createRow, createSignedStorageUrl, DataRow, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 const categories = ["General", "Policy", "Finance", "Human Resources", "Compliance", "Training", "Reference"];
 
@@ -88,7 +90,7 @@ export function BookLibraryPage({ accessToken, organisationId, profile }: { acce
 
   return <section>
     <header className="page-header">
-      <div><span className="eyebrow">Organization administration</span><h1>Book Library</h1><p className="muted">Archive policy manuals, finance handbooks, training guides and reference material — catalogued with a title, author, reference and cover, just like a bookshop.</p></div>
+      <div><span className="eyebrow">Organization administration</span><h1><MenuIcon name={moduleIcon("Book Library")} />Book Library</h1><p className="muted">Archive policy manuals, finance handbooks, training guides and reference material — catalogued with a title, author, reference and cover, just like a bookshop.</p></div>
       {access.canCreate && <button type="button" className="primary" onClick={() => setEditing(null)}>Add book</button>}
     </header>
 

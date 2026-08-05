@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, DataRow, listNamedRows, listRowsWhere, updateRow } from "./lib/supabase-data";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 const claimStatuses = ["draft", "submitted", "manager_approved", "hr_approved", "finance_review", "approved", "rejected", "returned", "reimbursed"];
 
@@ -96,7 +98,7 @@ export function ExpenseManagementPage({ accessToken, organisationId }: { accessT
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">Expense administration</span><h1>Expenses</h1><p className="muted">Configure categories, review employee claims and track reimbursement status.</p></div><button type="button" className="primary" onClick={() => { setError(""); setNotice(""); setOpen(true); }}>Create category</button></header>
+    <header className="page-header"><div><span className="eyebrow">Expense administration</span><h1><MenuIcon name={moduleIcon("Expenses")} />Expenses</h1><p className="muted">Configure categories, review employee claims and track reimbursement status.</p></div><button type="button" className="primary" onClick={() => { setError(""); setNotice(""); setOpen(true); }}>Create category</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
     <div className="summary-strip"><div><strong>{claims.length}</strong><span>Total claims</span></div><div><strong>{pending}</strong><span>Awaiting action</span></div><div><strong>{approved}</strong><span>Approved or reimbursed</span></div><div><strong>{formatMoney(totalPending)}</strong><span>Open claim value</span></div></div>
