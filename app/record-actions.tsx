@@ -52,6 +52,48 @@ export function RecordActions({ accessToken, table, row, columns, label, onReloa
   </>;
 }
 
+// Self-service equivalent of RecordActions: an employee editing/withdrawing their OWN submitted
+// request. Deliberately narrower than the admin-tier RecordActions -- only shown while the row is
+// still in a pending-equivalent status (before a manager/HR/admin has acted on it), and "Withdraw"
+// updates status instead of hard-deleting the row, preserving the record for audit history.
+const pendingStatuses = new Set(["pending", "draft", "submitted"]);
+
+export function SelfRecordActions({ accessToken, table, row, columns, onReload }: {
+  accessToken: string;
+  table: string;
+  row: DataRow;
+  columns: [string, string][];
+  onReload: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!pendingStatuses.has(String(row.status ?? "").toLowerCase())) return null;
+
+  async function withdraw() {
+    if (!row.id) return;
+    if (!window.confirm("Withdraw this request? This cannot be undone.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateRow(accessToken, table, String(row.id), { status: "cancelled" });
+      await onReload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Request could not be withdrawn.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <>
+    <button type="button" disabled={busy || !row.id} onClick={() => setEditing(true)}>Edit</button>
+    <button type="button" className="danger" disabled={busy || !row.id} onClick={() => void withdraw()}>Withdraw</button>
+    {error && <small className="table-subline form-error">{error}</small>}
+    {editing && <GenericEditDialog accessToken={accessToken} table={table} row={row} columns={columns} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await onReload(); }} />}
+  </>;
+}
+
 function GenericEditDialog({ accessToken, table, row, columns, onClose, onSaved }: {
   accessToken: string;
   table: string;

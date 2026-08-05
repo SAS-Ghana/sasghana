@@ -126,8 +126,23 @@ export function ManagerSectionPage({ label, accessToken, profile }: { label: str
   if (!config) return <section className="card data-panel"><h2>{label}</h2><p className="muted">This manager feature is not enabled for this account.</p></section>;
   const canManageRows = label !== "Notifications" && config.table !== "managed_team_directory";
 
+  function exportCsv() {
+    if (!config) return;
+    const keys = config.columns.map(([key]) => key);
+    const csv = [
+      config.columns.map(([, name]) => name).join(","),
+      ...visible.map((row) => keys.map((key) => `"${String(row[key] ?? "").replaceAll('"', '""')}"`).join(",")),
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${label.toLowerCase().replaceAll(" ", "-")}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   return <section>
-    <header className="page-header"><div><span className="eyebrow">Manager workspace</span><h1><MenuIcon name={moduleIcon(config.title)} />{config.title}</h1><p className="muted">{config.subtitle}</p></div><div className="page-actions">{config.action && <button className="primary" onClick={() => setDialog(true)}>{config.action}</button>}<button className="secondary" onClick={() => window.print()}>Print report</button><button className="secondary" onClick={() => void load()}>Refresh</button></div></header>
+    <header className="page-header"><div><span className="eyebrow">Manager workspace</span><h1><MenuIcon name={moduleIcon(config.title)} />{config.title}</h1><p className="muted">{config.subtitle}</p></div><div className="page-actions">{config.action && <button className="primary" onClick={() => setDialog(true)}>{config.action}</button>}<button className="secondary" onClick={exportCsv}>Export CSV</button><button className="secondary" onClick={() => window.print()}>Print report</button><button className="secondary" onClick={() => void load()}>Refresh</button></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
     <article className="card data-panel"><div className="filter-toolbar"><input aria-label="Search team records" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search authorised team records..." /><select aria-label="Filter status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}</select><select aria-label={`Sort ${config.title}`} value={sort} onChange={(event) => setSort(event.target.value)}>{config.columns.map(([key, name]) => <option key={key} value={key}>Sort by {name}</option>)}</select><select aria-label="Sort direction" value={direction} onChange={(event) => setDirection(event.target.value as "asc" | "desc")}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select><button className="secondary" onClick={() => { setQuery(""); setStatus("all"); }}>Clear filters</button></div>
       {loading ? <div className="empty-state">Loading authorised records…</div> : visible.length === 0 ? <div className="empty-state"><h3>No records available</h3><p>No authorised team records currently match this section.</p></div> : <div className="table-scroll"><table className="data-table"><thead><tr>{config.columns.map(([, title]) => <th key={title}>{title}</th>)}{config.approvalType && <th>Decision</th>}{["Tasks", "Learning & Development"].includes(label) && <th>Actions</th>}{canManageRows && <th>Manage</th>}</tr></thead><tbody>{visible.map((row, index) => <tr key={String(row.id ?? index)}>{config.columns.map(([key]) => <td key={key}>{format(row[key])}</td>)}{config.approvalType && <td><div className="row-actions"><button disabled={busy === String(row.id)} onClick={() => void decide(row, "approve")}>{config.approvalType === "leave" ? "Forward to HR" : "Approve"}</button>{config.approvalType === "expense" && <button disabled={busy === String(row.id)} onClick={() => void decide(row, "return")}>Return</button>}<button className="danger" disabled={busy === String(row.id)} onClick={() => void decide(row, "reject")}>Reject</button></div></td>}{["Tasks", "Learning & Development"].includes(label) && <td><div className="row-actions"><button disabled={busy === String(row.id)} onClick={() => void updateOperationalState(row, "in_progress")}>Start</button><button disabled={busy === String(row.id)} onClick={() => void updateOperationalState(row, "completed")}>Complete</button></div></td>}{canManageRows && <td><div className="row-actions"><RecordActions accessToken={accessToken} table={String(row.source_table ?? config.table)} row={row} columns={config.columns} label={label} onReload={load} /></div></td>}</tr>)}</tbody></table></div>}

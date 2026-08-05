@@ -109,10 +109,6 @@ export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "ad
         description: draft.description.trim() || null,
         status: draft.status,
         steps: steps as unknown as DataRow[string],
-        requires_manager: steps.some((step) => step.role.toLowerCase() === "manager"),
-        requires_hr: steps.some((step) => step.role.toLowerCase() === "hr"),
-        requires_administrator: steps.some((step) => ["administrator", "admin"].includes(step.role.toLowerCase())),
-        escalation_hours: Math.max(...steps.map((step) => step.days * 24)),
       };
       if (draft.id) await updateRow(accessToken, "approval_workflows", draft.id, payload);
       else await createRow(accessToken, "approval_workflows", payload);
@@ -143,10 +139,19 @@ export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "ad
   }
 
   return <section>
-    <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1><MenuIcon name={moduleIcon("Approval Workflows")} />Approval Workflows</h1><p className="muted">Every workflow, step, approver role and deadline shown here is loaded from and saved to Supabase.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
+    <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1><MenuIcon name={moduleIcon("Approval Workflows")} />Approval Workflows</h1><p className="muted">A written record of your approval routes and expected turnaround, for reference and planning.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
-    <div className="workflow-kpis"><article className="card"><span>Total workflows</span><strong>{rows.length}</strong></article><article className="card"><span>Active workflows</span><strong>{active}</strong></article><article className="card"><span>Approval steps</span><strong>{stepCount}</strong></article><article className="card"><span>Workflow types</span><strong>{workflowTypes.length}</strong></article></div>
+    <article className="card data-panel"><h2>How approvals actually work today</h2><p className="muted">The routes below run automatically, independent of anything recorded on this page — this page is a reference and planning tool, not a live workflow engine yet.</p>
+      <div className="master-list">
+        <div><strong>Leave requests</strong><span>Employee submits → Manager reviews → HR gives the final decision.</span></div>
+        <div><strong>Expense claims</strong><span>Employee submits → moves through Manager, Finance and Accounts review stages in order.</span></div>
+        <div><strong>Profile change requests</strong><span>Employee requests a change → HR or an Administrator approves or rejects it directly.</span></div>
+        <div><strong>Asset and transfer requests</strong><span>Employee submits → Manager approves, returns or rejects it.</span></div>
+      </div>
+    </article>
+
+    <div className="workflow-kpis"><article className="card"><span>Recorded workflows</span><strong>{rows.length}</strong></article><article className="card"><span>Active</span><strong>{active}</strong></article><article className="card"><span>Approval steps</span><strong>{stepCount}</strong></article><article className="card"><span>Workflow types</span><strong>{workflowTypes.length}</strong></article></div>
 
     <div className="filter-toolbar"><input id="workflow-search" name="workflow_search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workflows..." /><select id="workflow-status" name="workflow_status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></div>
 
@@ -157,7 +162,7 @@ export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "ad
 
     {!visible.length && <article className="card empty-state"><h3>No workflows found</h3><p>Create a workflow or change the filters.</p></article>}
 
-    {draft && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDraft(null); }}><section className="modal record-modal workflow-editor" role="dialog" aria-modal="true" aria-labelledby="workflow-editor-title"><button type="button" className="modal-close" onClick={() => setDraft(null)}>×</button><span className="eyebrow">Dynamic workflow builder</span><h2 id="workflow-editor-title">{draft.id ? "Edit approval workflow" : "Create approval workflow"}</h2><form className="record-form" onSubmit={save}>
+    {draft && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDraft(null); }}><section className="modal record-modal workflow-editor" role="dialog" aria-modal="true" aria-labelledby="workflow-editor-title"><button type="button" className="modal-close" onClick={() => setDraft(null)}>×</button><span className="eyebrow">Workflow reference entry</span><h2 id="workflow-editor-title">{draft.id ? "Edit approval workflow" : "Create approval workflow"}</h2><form className="record-form" onSubmit={save}>
       <label htmlFor="workflow-name">Workflow name<input id="workflow-name" name="workflow_name" required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Annual leave approval" /></label>
       <label htmlFor="workflow-type">Workflow type<input id="workflow-type" name="workflow_type" list="workflow-types" required value={draft.workflow_type} onChange={(event) => setDraft({ ...draft, workflow_type: event.target.value })} placeholder="leave, expense, transfer..." /><datalist id="workflow-types">{workflowTypes.map((type) => <option key={type} value={type} />)}</datalist></label>
       <label className="wide" htmlFor="workflow-description">Description<textarea id="workflow-description" name="description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Explain when this workflow applies." /></label>

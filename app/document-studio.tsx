@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRow, createSignedStorageUrl, DataRow, listNamedRows, listRows, updateRow, uploadStorageFile } from "./lib/supabase-data";
+import { money, printTemplateDocument, renderTemplateContent } from "./lib/document-templates";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
@@ -10,10 +11,6 @@ const mergeFields = [
   "{{payroll.pay_period}}", "{{payroll.basic_salary}}", "{{payroll.allowances}}", "{{payroll.paye_tax}}",
   "{{payroll.employee_ssnit}}", "{{payroll.tier_one}}", "{{payroll.tier_two}}", "{{payroll.tier_three}}", "{{payroll.net_pay}}",
 ];
-
-function money(value: unknown, currency = "GHS") {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(Number(value ?? 0));
-}
 
 export function DocumentStudio({ accessToken, organisationId }: { accessToken: string; organisationId: string }) {
   const [templates, setTemplates] = useState<DataRow[]>([]);
@@ -73,34 +70,7 @@ export function DocumentStudio({ accessToken, organisationId }: { accessToken: s
 
   function renderContent(template: DataRow) {
     if (!selectedEmployee) throw new Error("Select an employee before previewing or generating a document.");
-    const fullName = `${selectedEmployee.first_name ?? ""} ${selectedEmployee.middle_name ?? ""} ${selectedEmployee.last_name ?? ""}`.replace(/\s+/g, " ").trim();
-    const currency = String(selectedEmployee.salary_currency ?? selectedPayroll?.currency ?? "GHS");
-    const replacements: Record<string, string> = {
-      "{{today}}": new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-      "{{employee.full_name}}": fullName,
-      "{{employee.employee_number}}": String(selectedEmployee.employee_number ?? ""),
-      "{{employee.position_title}}": String(selectedEmployee.position_title ?? ""),
-      "{{employee.department}}": String(selectedEmployee.department_name ?? selectedEmployee.department_id ?? ""),
-      "{{employee.start_date}}": String(selectedEmployee.start_date ?? ""),
-      "{{employee.work_email}}": String(selectedEmployee.work_email ?? ""),
-      "{{employee.salary_amount}}": money(selectedEmployee.basic_salary, currency),
-      "{{employee.salary_frequency}}": String(selectedEmployee.salary_frequency ?? "monthly"),
-      "{{employee.monthly_salary}}": money(selectedEmployee.monthly_salary ?? selectedEmployee.basic_salary, currency),
-      "{{employee.annual_salary}}": money(selectedEmployee.annual_salary, currency),
-      "{{employee.salary_currency}}": currency,
-      "{{payroll.pay_period}}": String(selectedPayroll?.pay_period ?? "Not yet processed"),
-      "{{payroll.basic_salary}}": money(selectedPayroll?.basic_salary ?? selectedEmployee.monthly_salary ?? selectedEmployee.basic_salary, currency),
-      "{{payroll.allowances}}": money(selectedPayroll?.allowances, currency),
-      "{{payroll.paye_tax}}": money(selectedPayroll?.paye_tax, currency),
-      "{{payroll.employee_ssnit}}": money(selectedPayroll?.employee_ssnit, currency),
-      "{{payroll.tier_one}}": money(selectedPayroll?.tier_one, currency),
-      "{{payroll.tier_two}}": money(selectedPayroll?.tier_two, currency),
-      "{{payroll.tier_three}}": money(selectedPayroll?.tier_three, currency),
-      "{{payroll.net_pay}}": money(selectedPayroll?.net_pay, currency),
-    };
-    let content = String(template.content ?? "");
-    for (const [field, result] of Object.entries(replacements)) content = content.replaceAll(field, result);
-    return content;
+    return renderTemplateContent(String(template.content ?? ""), selectedEmployee, selectedPayroll);
   }
 
   async function preview(template: DataRow) {
@@ -109,9 +79,7 @@ export function DocumentStudio({ accessToken, organisationId }: { accessToken: s
       const content = renderContent(template);
       let signatureUrl = "";
       if (template.signature_path) try { signatureUrl = await createSignedStorageUrl(accessToken, "hr-media", String(template.signature_path)); } catch { /* optional signature */ }
-      const popup = window.open("", "_blank", "width=900,height=900");
-      popup?.document.write(`<!doctype html><html><head><title>${escapeHtml(String(template.name))}</title><style>body{font:15px Arial;color:#0b1426;padding:48px;line-height:1.65}header{border-bottom:3px solid #00afe3;padding-bottom:18px;margin-bottom:36px}header img{width:220px}main{white-space:pre-wrap}.signature{width:180px;max-height:90px;object-fit:contain;margin-top:36px}button{margin-top:30px;padding:10px 14px}@media print{button{display:none}}</style></head><body><header><img src="/logo.png" alt="Company logo"/></header><main>${escapeHtml(content)}</main>${signatureUrl ? `<img class="signature" src="${signatureUrl}"/>` : ""}<button onclick="window.print()">Print / Save PDF</button></body></html>`);
-      popup?.document.close();
+      printTemplateDocument(String(template.name), content, signatureUrl || undefined);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Document preview could not be generated."); }
   }
 
@@ -145,5 +113,3 @@ export function DocumentStudio({ accessToken, organisationId }: { accessToken: s
     {editing && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(false); }}><section className="modal document-designer" role="dialog" aria-modal="true" aria-labelledby="designer-title"><button type="button" className="modal-close" onClick={() => setEditing(false)} aria-label="Close">×</button><span className="eyebrow">Template designer</span><h2 id="designer-title">{selected ? "Edit template" : "Create template"}</h2><form onSubmit={save} className="record-form"><label>Template name *<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} /></label><label>Document type *<select value={values.template_type} onChange={(event) => setValues({ ...values, template_type: event.target.value })}><option value="appointment_letter">Appointment letter</option><option value="payslip">Payslip</option><option value="employment_contract">Employment contract</option><option value="confirmation_letter">Confirmation letter</option><option value="probation_review">Probation review</option><option value="custom">Custom document</option></select></label><label className="wide">Subject / heading<input value={values.subject} onChange={(event) => setValues({ ...values, subject: event.target.value })} /></label><label className="wide">Document text *<textarea className="template-editor" required value={values.content} onChange={(event) => setValues({ ...values, content: event.target.value })} /></label><div className="wide merge-fields"><strong>Insertable merge fields</strong><div>{mergeFields.map((field) => <button type="button" key={field} onClick={() => setValues({ ...values, content: `${values.content}${values.content ? " " : ""}${field}` })}>{field}</button>)}</div></div><label>Upload e-signature<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setSignature(event.target.files?.[0] ?? null)} /></label><label>Status<select value={values.status} onChange={(event) => setValues({ ...values, status: event.target.value })}><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></label><div className="form-actions wide"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button className="primary" disabled={busy === "template"}>{busy === "template" ? "Saving…" : "Save template"}</button></div></form></section></div>}
   </section>;
 }
-
-function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character] ?? character)); }

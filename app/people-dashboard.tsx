@@ -124,12 +124,19 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const moreLabels: readonly string[] = mode === "hr" ? hrMoreLabels : mode === "manager" ? managerMoreLabels : [];
   const labels = new Set([...baseGroups.flatMap(([, items]) => items.map(([label]) => label)), ...moreLabels, ...(mode === "employee" ? employeeQuickLabels : [])]);
   const libraryGranted = mode !== "admin" && Boolean(profile.dashboard_access?.includes("Book Library"));
-  const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = libraryGranted && mode !== "employee"
-    ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
-    : baseGroups;
+  // Document Studio is normally only reachable for admin/hr (see render() below), but any user
+  // explicitly granted the documents.verify permission (via Roles & Permissions / Edit access) can
+  // also reach it regardless of mode -- this is what makes "admin can give that access to other
+  // users" actually true, since the permission-grant mechanism already existed but the page wasn't
+  // reachable outside the two hardcoded modes.
+  const documentStudioGranted = mode !== "admin" && mode !== "hr" && profile.permissions.includes("documents.verify");
+  const extraGroups: (readonly [string, readonly (readonly [string, string])[]])[] = [];
+  if (libraryGranted && mode !== "employee") extraGroups.push(["LIBRARY", [["Book Library", "📚"]]] as const);
+  if (documentStudioGranted && mode === "manager") extraGroups.push(["DOCUMENTS", [["Documents & Templates", "◫"]]] as const);
+  const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = extraGroups.length ? [...baseGroups, ...extraGroups] : baseGroups;
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Home";
   const granted = profile.dashboard_access ?? [];
-  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted)) && (label === home || hasDashboardAccess(mode, label, granted));
+  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted) || (label === "Documents & Templates" && documentStudioGranted)) && (label === home || hasDashboardAccess(mode, label, granted));
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
@@ -151,6 +158,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
     if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />;
     if (active === "Profile Requests") return <ProfileRequestsPage accessToken={accessToken} />;
+    if (active === "Documents & Templates" && documentStudioGranted) return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id} />;
     if (mode === "employee") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection={active} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
 
     if (mode === "admin") {

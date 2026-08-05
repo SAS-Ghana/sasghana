@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { callRpc, DataRow, createRow, deleteRow, listRows, listRowsWhere, updateRow } from "./lib/supabase-data";
+import { callRpc, DataRow, createRow, deleteRow, listNamedRows, listRows, listRowsWhere, updateRow } from "./lib/supabase-data";
 import {
   applyOrganisationTheme,
   defaultOrganisationConfig,
@@ -16,6 +16,7 @@ const sections = [
   ["regional", "Regional", "Currency, locale, time zone and dates"],
   ["master", "Master data", "Departments, categories and reusable dropdown values"],
   ["documents", "Documents", "Letter templates, wording and document colours"],
+  ["uploads", "Storage & uploads", "File size and type limits, global and per user"],
   ["working", "Working hours", "Company working days and times"],
   ["security", "Security", "Login history, sessions, roles and account access"],
   ["backup", "Backup & restore", "Data protection and recovery tools"],
@@ -41,6 +42,27 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [securityBusy, setSecurityBusy] = useState(false);
+  const [buckets, setBuckets] = useState<DataRow[]>([]);
+  const [uploadLimits, setUploadLimits] = useState<DataRow[]>([]);
+  const [employees, setEmployees] = useState<DataRow[]>([]);
+  const [limitForm, setLimitForm] = useState({ employee_id: "", bucket_id: "employee-media", max_mb: "5" });
+  const [uploadsBusy, setUploadsBusy] = useState(false);
+
+  const reloadUploads = useCallback(async () => {
+    setError("");
+    try {
+      const [bucketRows, limitRows, employeeRows] = await Promise.all([
+        callRpc<DataRow[]>(accessToken, "list_upload_buckets", {}),
+        listRowsWhere(accessToken, "user_upload_limits", { organisation_id: organisationId }, "*", 500),
+        listNamedRows(accessToken, "employees", "id,first_name,last_name,employee_number,profile_id", "first_name"),
+      ]);
+      setBuckets(bucketRows);
+      setUploadLimits(limitRows);
+      setEmployees(employeeRows);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Storage settings could not be loaded.");
+    }
+  }, [accessToken, organisationId]);
 
   const reloadMasterData = useCallback(async (nextType = type) => {
     setMasterRows(await listRowsWhere(accessToken, "master_data", { organisation_id: organisationId, data_type: nextType }, "*", 500));
@@ -78,7 +100,44 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
 
   useEffect(() => {
     if (section === "security") void reloadSecurity();
-  }, [section, reloadSecurity]);
+    if (section === "uploads") void reloadUploads();
+  }, [section, reloadSecurity, reloadUploads]);
+
+  async function setBucketLimit(bucketId: string, maxMb: number) {
+    setUploadsBusy(true); setError(""); setNotice("");
+    try {
+      await callRpc(accessToken, "update_bucket_upload_limit", { p_bucket: bucketId, p_max_bytes: Math.round(maxMb * 1048576) });
+      await reloadUploads();
+      setNotice(`${bucketId} limit updated to ${maxMb}MB.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Bucket limit could not be updated."); }
+    finally { setUploadsBusy(false); }
+  }
+
+  async function saveUserLimit(event: FormEvent) {
+    event.preventDefault();
+    const employee = employees.find((row) => String(row.id) === limitForm.employee_id);
+    if (!employee?.profile_id) return setError("Select an employee with a linked login.");
+    const maxMb = Number(limitForm.max_mb);
+    if (!(maxMb > 0)) return setError("Enter a limit greater than zero.");
+    setUploadsBusy(true); setError(""); setNotice("");
+    try {
+      const existing = uploadLimits.find((row) => String(row.profile_id) === String(employee.profile_id) && row.bucket_id === limitForm.bucket_id);
+      const payload = { organisation_id: organisationId, profile_id: employee.profile_id, bucket_id: limitForm.bucket_id, max_bytes: Math.round(maxMb * 1048576) };
+      if (existing?.id) await updateRow(accessToken, "user_upload_limits", String(existing.id), payload);
+      else await createRow(accessToken, "user_upload_limits", payload);
+      await reloadUploads();
+      setNotice(`Upload limit set for ${employee.first_name} ${employee.last_name}.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "The per-user limit could not be saved."); }
+    finally { setUploadsBusy(false); }
+  }
+
+  async function removeUserLimit(row: DataRow) {
+    if (!row.id || !window.confirm("Remove this per-user upload limit? The bucket's global limit will apply instead.")) return;
+    setUploadsBusy(true); setError("");
+    try { await deleteRow(accessToken, "user_upload_limits", String(row.id)); await reloadUploads(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "The limit could not be removed."); }
+    finally { setUploadsBusy(false); }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -186,6 +245,21 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
           <div className="master-list">{masterRows.map((row) => <div key={String(row.id)}><div><strong>{String(row.name)}</strong><small>{String(row.description ?? '')}</small></div><select aria-label={`Status for ${String(row.name)}`} value={String(row.status)} onChange={async (event) => { await updateRow(accessToken, 'master_data', String(row.id), { status: event.target.value }); await reloadMasterData(); }}><option>active</option><option>inactive</option><option>archived</option></select><button type="button" className="danger" onClick={async () => { if (window.confirm('Archive this option?')) { await deleteRow(accessToken, 'master_data', String(row.id)); await reloadMasterData(); } }}>Remove</button></div>)}</div>
         </div>}
 
+        {section === "uploads" && <div className="uploads-settings-panel">
+          <h2>Global upload limits</h2><p className="muted">Applies to every user unless a per-user override below is set for that bucket.</p>
+          <div className="table-scroll"><table className="data-table"><thead><tr><th>Upload type</th><th>Current limit</th><th>Allowed file types</th><th>Update</th></tr></thead><tbody>{buckets.map((bucket) => <BucketLimitRow key={String(bucket.bucket_id)} bucket={bucket} busy={uploadsBusy} onSave={setBucketLimit} />)}</tbody></table></div>
+
+          <h2>Per-user overrides</h2><p className="muted">Set a tighter or looser limit for an individual user on a specific upload type.</p>
+          <form className="record-form" onSubmit={saveUserLimit}>
+            <label>Employee<select value={limitForm.employee_id} onChange={(event) => setLimitForm({ ...limitForm, employee_id: event.target.value })}><option value="">Select employee</option>{employees.filter((row) => row.profile_id).map((row) => <option key={String(row.id)} value={String(row.id)}>{row.first_name} {row.last_name} ({row.employee_number})</option>)}</select></label>
+            <label>Upload type<select value={limitForm.bucket_id} onChange={(event) => setLimitForm({ ...limitForm, bucket_id: event.target.value })}>{buckets.map((bucket) => <option key={String(bucket.bucket_id)} value={String(bucket.bucket_id)}>{String(bucket.bucket_id)}</option>)}</select></label>
+            <label>Limit (MB)<input type="number" min="0.1" step="0.1" value={limitForm.max_mb} onChange={(event) => setLimitForm({ ...limitForm, max_mb: event.target.value })} /></label>
+            <div className="form-actions"><button type="submit" className="primary" disabled={uploadsBusy}>Set limit</button></div>
+          </form>
+          <div className="table-scroll"><table className="data-table"><thead><tr><th>Employee</th><th>Upload type</th><th>Limit</th><th>Action</th></tr></thead><tbody>{uploadLimits.map((row) => { const employee = employees.find((employeeRow) => String(employeeRow.profile_id) === String(row.profile_id)); return <tr key={String(row.id)}><td>{employee ? `${employee.first_name} ${employee.last_name}` : "Unknown"}</td><td>{String(row.bucket_id)}</td><td>{(Number(row.max_bytes ?? 0) / 1048576).toFixed(1)}MB</td><td><button type="button" className="danger" disabled={uploadsBusy} onClick={() => void removeUserLimit(row)}>Remove</button></td></tr>; })}</tbody></table></div>
+          {!uploadLimits.length && <div className="empty-state compact"><h3>No overrides set</h3><p>Every user currently follows the global limits above.</p></div>}
+        </div>}
+
         {section === "working" && <Empty title="Working hours" text="Configure working days, start and end times, grace periods and attendance rules from Attendance Management." />}
 
         {section === "security" && <div className="security-settings-panel">
@@ -208,3 +282,13 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
 }
 
 function Empty({ title, text }: { title: string; text: string }) { return <div className="empty-state"><h2>{title}</h2><p>{text}</p></div>; }
+
+function BucketLimitRow({ bucket, busy, onSave }: { bucket: DataRow; busy: boolean; onSave: (bucketId: string, maxMb: number) => Promise<void> }) {
+  const [value, setValue] = useState(String((Number(bucket.file_size_limit ?? 0) / 1048576).toFixed(1)));
+  return <tr>
+    <td>{String(bucket.bucket_id)}</td>
+    <td>{(Number(bucket.file_size_limit ?? 0) / 1048576).toFixed(1)}MB</td>
+    <td>{Array.isArray(bucket.allowed_mime_types) ? (bucket.allowed_mime_types as string[]).map((type) => type.split("/")[1]).join(", ") : "—"}</td>
+    <td><div className="row-actions"><input type="number" min="0.1" step="0.1" value={value} onChange={(event) => setValue(event.target.value)} style={{ width: 90 }} /><button type="button" className="secondary" disabled={busy} onClick={() => void onSave(String(bucket.bucket_id), Number(value))}>Save</button></div></td>
+  </tr>;
+}

@@ -46,5 +46,16 @@ export async function createRows(accessToken:string,table:string,rows:DataRow[])
 export async function updateRow(accessToken:string,table:string,id:string,row:DataRow){const result=await request<DataRow[]>(accessToken,`${table}?id=eq.${id}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(row)});emitDataChanged(table);return result;}
 export async function updateRowsWhere(accessToken:string,table:string,column:string,value:string,row:DataRow){const result=await request<DataRow[]>(accessToken,`${table}?${column}=eq.${encodeURIComponent(value)}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(row)});emitDataChanged(table);return result;}
 export async function deleteRow(accessToken:string,table:string,id:string){await request<void>(accessToken,`${table}?id=eq.${id}`,{method:"DELETE"});emitDataChanged(table);}
-export async function uploadStorageFile(accessToken:string,bucket:string,path:string,file:File){const response=await authorisedFetch(accessToken,`${serviceUrl}/storage/v1/object/${bucket}/${path}`,{method:"POST",headers:{"Content-Type":file.type,"x-upsert":"true"},body:file});if(!response.ok){const body=await response.json().catch(()=>({})) as {message?:string};throw new Error(body.message??"File upload failed.");}emitDataChanged(bucket);return path;}
+export async function uploadStorageFile(accessToken:string,bucket:string,path:string,file:File){
+  // Checks the effective per-user (falling back to per-bucket) upload limit before attempting the
+  // upload, so a doomed upload fails fast with a clear message instead of a generic storage error.
+  // If the RPC isn't available yet (migration not applied) this silently skips the check -- the
+  // bucket's own hard file_size_limit still applies server-side regardless.
+  try{
+    const limit=await callRpc<number|null>(accessToken,"my_upload_limit",{p_bucket:bucket});
+    if(typeof limit==="number"&&limit>0&&file.size>limit){
+      throw new Error(`This file is ${(file.size/1048576).toFixed(1)}MB, which exceeds the ${(limit/1048576).toFixed(1)}MB limit for this upload type.`);
+    }
+  }catch(cause){if(cause instanceof Error&&cause.message.includes("exceeds the"))throw cause;}
+  const response=await authorisedFetch(accessToken,`${serviceUrl}/storage/v1/object/${bucket}/${path}`,{method:"POST",headers:{"Content-Type":file.type,"x-upsert":"true"},body:file});if(!response.ok){const body=await response.json().catch(()=>({})) as {message?:string};throw new Error(body.message??"File upload failed.");}emitDataChanged(bucket);return path;}
 export async function createSignedStorageUrl(accessToken:string,bucket:string,path:string,expiresIn=300){const response=await authorisedFetch(accessToken,`${serviceUrl}/storage/v1/object/sign/${bucket}/${path}`,{method:"POST",body:JSON.stringify({expiresIn})});const body=await response.json() as {signedURL?:string;message?:string};if(!response.ok||!body.signedURL)throw new Error(body.message??"Secure preview could not be created.");return `${serviceUrl}/storage/v1${body.signedURL}`;}
