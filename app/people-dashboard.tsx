@@ -164,7 +164,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
 
   return <div className="app">
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
-    <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
+    <aside className={`sidebar ${drawer ? "open" : ""} ${mode === "employee" ? "sidebar-light" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div></div>
       {groups.map(([group, items]) => <div key={group}>{group && <div className="nav-label">{group}</div>}<nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       {moreLabels.length > 0 && <div className="more-menu-wrap sidebar-more" ref={moreRef}>

@@ -1,4 +1,4 @@
-type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings";
+type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings"|"mail"|"phone"|"briefcase"|"badge";
 
 const paths:Record<IconName,string[]> = {
   dashboard:["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
@@ -41,7 +41,11 @@ const paths:Record<IconName,string[]> = {
   audit:["M5 4h14v16H5z","M9 8h6","M9 12h6","M9 16h4"],
   backup:["M4 7v5h5","M20 17v-5h-5","M6.5 17.5A8 8 0 0 0 20 12","M17.5 6.5A8 8 0 0 0 4 12"],
   billing:["M4 6h16v12H4z","M4 10h16","M8 15h4"],
-  settings:["M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z","M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 3.4-.2-.1a1.7 1.7 0 0 0-2 .2l-1.2.7a1.7 1.7 0 0 0-1 1.6V23h-4v-.3a1.7 1.7 0 0 0-1-1.6l-1.2-.7a1.7 1.7 0 0 0-2-.2l-.2.1-2-3.4.1-.1a1.7 1.7 0 0 0 .3-1.9v-1.4a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-3.4.2.1a1.7 1.7 0 0 0 2-.2l1.2-.7a1.7 1.7 0 0 0 1-1.6V1h4v.3a1.7 1.7 0 0 0 1 1.6l1.2.7a1.7 1.7 0 0 0 2 .2l.2-.1 2 3.4-.1.1a1.7 1.7 0 0 0-.3 1.9z"]
+  settings:["M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z","M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 3.4-.2-.1a1.7 1.7 0 0 0-2 .2l-1.2.7a1.7 1.7 0 0 0-1 1.6V23h-4v-.3a1.7 1.7 0 0 0-1-1.6l-1.2-.7a1.7 1.7 0 0 0-2-.2l-.2.1-2-3.4.1-.1a1.7 1.7 0 0 0 .3-1.9v-1.4a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-3.4.2.1a1.7 1.7 0 0 0 2-.2l1.2-.7a1.7 1.7 0 0 0 1-1.6V1h4v.3a1.7 1.7 0 0 0 1 1.6l1.2.7a1.7 1.7 0 0 0 2 .2l.2-.1 2 3.4-.1.1a1.7 1.7 0 0 0-.3 1.9z"],
+  mail:["M4 5h16v14H4z","m4 6 8 7 8-7"],
+  phone:["M6.6 4h3.2l1.4 4.2-2 1.6a12.4 12.4 0 0 0 5 5l1.6-2 4.2 1.4v3.2c0 1-.9 1.8-1.9 1.6C10.5 18.4 5.6 13.5 4 5.9 3.8 4.9 4.6 4 5.6 4z"],
+  briefcase:["M4 8h16v11H4z","M8 8V5h8v3","M4 13h16"],
+  badge:["M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z","M12 8v5","M12 16h.01"]
 };
 
 export function MenuIcon({name}:{name:IconName}){

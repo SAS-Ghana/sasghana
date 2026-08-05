@@ -43,6 +43,19 @@
 .module-count{background:var(--on-brand);color:#00aeef;border-radius:99px;font-size:10px;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
 .sidebar-footer{color:color-mix(in srgb,var(--on-brand) 60%,transparent)!important;border-top-color:rgb(4 20 35 / 12%)!important}
 
+/* Employee sidebar: theme-following (light/dark surface), not the brand color -- matches the
+   BambooHR reference image's white/neutral sidebar rather than a colored panel. */
+.sidebar.sidebar-light{background:var(--surface);border-right:1px solid var(--line)}
+.sidebar.sidebar-light .brand strong{color:var(--text)}
+.sidebar.sidebar-light .brand small{color:var(--muted)}
+.sidebar.sidebar-light .nav-label{color:var(--muted)}
+.sidebar.sidebar-light .nav button{color:var(--muted)}
+.sidebar.sidebar-light .nav button:hover{background:var(--surface-2);color:var(--text)}
+.sidebar.sidebar-light .nav button.active{background:var(--surface-2);color:var(--text);font-weight:700}
+.sidebar.sidebar-light .nav button.active::before{background:var(--brand)}
+.sidebar.sidebar-light .module-count{background:var(--brand);color:#fff}
+.sidebar.sidebar-light .sidebar-footer{color:var(--muted)!important;border-top-color:var(--line)!important}
+
 /* Top bar */
 .topbar{backdrop-filter:blur(6px);background:color-mix(in srgb,var(--surface) 92%,transparent)}
 .search{transition:box-shadow .15s ease,border-color .15s ease}
@@ -154,10 +167,12 @@ button.card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-2px)
 .profile-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start;margin-bottom:20px}
 .profile-layout-main{display:grid;gap:20px;min-width:0}
 .vitals-panel h2{margin:0 0 14px;font-size:15px}
-.vitals-list{display:grid;gap:12px}
-.vitals-list>div{display:grid;gap:2px}
+.vitals-list{display:grid;gap:14px}
+.vitals-list>div{display:grid;grid-template-columns:32px 1fr;align-items:start;gap:10px}
+.vitals-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--surface-2);color:var(--brand)}
+.vitals-icon svg{width:16px;height:16px}
 .vitals-list span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.vitals-list strong{font-size:13px;font-weight:650}
+.vitals-list strong{display:block;font-size:13px;font-weight:650;word-break:break-word}
 @media(max-width:900px){.profile-layout{grid-template-columns:1fr}}
 
 /* My Info / sidebar "More" popover */

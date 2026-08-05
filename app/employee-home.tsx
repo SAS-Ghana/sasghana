@@ -231,16 +231,16 @@ function ProfilePage({ employee, history, onRequest, accessToken }: { employee: 
 
 function VitalsPanel({ employee }: { employee: DataRow | null }) {
   const rows = ([
-    ["Work email", employee?.work_email],
-    ["Personal email", employee?.personal_email],
-    ["Phone", employee?.phone],
-    ["Job title", employee?.position_title],
-    ["Department", employee?.department_name],
-    ["Branch", employee?.branch],
-    ["Employee number", employee?.employee_number],
-    ["Start date", employee?.start_date],
-  ] as [string, unknown][]).filter(([, entry]) => entry);
-  return <article className="card data-panel vitals-panel"><h2>Vitals</h2><div className="vitals-list">{rows.map(([label, entry]) => <div key={String(label)}><span>{label}</span><strong>{value(entry)}</strong></div>)}{!rows.length && <p className="muted">No vitals on file yet.</p>}</div></article>;
+    ["Work email", employee?.work_email, "mail"],
+    ["Personal email", employee?.personal_email, "mail"],
+    ["Phone", employee?.phone, "phone"],
+    ["Job title", employee?.position_title, "briefcase"],
+    ["Department", employee?.department_name, "department"],
+    ["Branch", employee?.branch, "branch"],
+    ["Employee number", employee?.employee_number, "badge"],
+    ["Start date", employee?.start_date, "calendar"],
+  ] as [string, unknown, Parameters<typeof MenuIcon>[0]["name"]][]).filter(([, entry]) => entry);
+  return <article className="card data-panel vitals-panel"><h2>Vitals</h2><div className="vitals-list">{rows.map(([label, entry, icon]) => <div key={String(label)}><span className="vitals-icon"><MenuIcon name={icon} /></span><div><span>{label}</span><strong>{value(entry)}</strong></div></div>)}{!rows.length && <p className="muted">No vitals on file yet.</p>}</div></article>;
 }
 
 function AttendancePage({ rows, liveTime, clockedIn, onBreak, busy, onAction, rate, hours, overtime }: { rows: DataRow[]; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; rate: number; hours: number; overtime: number }) {
