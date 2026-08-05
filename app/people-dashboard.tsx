@@ -97,7 +97,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     ? [...baseGroups, ["LIBRARY", [["Book Library", "📚"]]] as const]
     : baseGroups;
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Dashboard";
-  const canAccess = (label: string) => !forbidden.test(label) && (mode === "employee" ? label === "Dashboard" || label === "My Profile" : labels.has(label) || Boolean(profile.dashboard_access?.includes(label)));
+  const canAccess = (label: string) => !forbidden.test(label) && (mode === "employee" ? label === "Dashboard" || label === "My Profile" : labels.has(label) || (label === "Book Library" && libraryGranted));
 
   function navigate(label: string) {
     if (!canAccess(label)) return;
