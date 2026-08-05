@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { callRpc, createRow, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
+import { callRpc, createRow, createRows, DataRow, listNamedRows, listRows, updateRow } from "./lib/supabase-data";
 
 type Config = {
   table: string;
@@ -367,4 +367,108 @@ function ActionDialog({ action, config, accessToken, organisationId, employees, 
       </form>
     </section>
   </div>;
+}
+
+const exportTables: [string, string][] = [["employees", "Employees"], ["departments", "Departments"], ["branches", "Branches"]];
+
+export function ImportExportPage({ accessToken, organisationId }: { accessToken: string; organisationId: string }) {
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<DataRow[]>([]);
+
+  async function exportTable(table: string) {
+    setBusy(table); setError(""); setNotice("");
+    try {
+      const rows = await listRows(accessToken, table, "*", 5000);
+      const keys = rows.length ? Object.keys(rows[0]) : ["id"];
+      const csv = [keys.join(","), ...rows.map((row) => keys.map((key) => `"${String(row[key] ?? "").replaceAll('"', '""')}"`).join(","))].join("\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${table}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The export could not be prepared.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function readFile(selected: File | null) {
+    setFile(selected);
+    setPreview([]);
+    setError("");
+    if (!selected) return;
+    try {
+      setPreview(parseCsv(await selected.text()).slice(0, 20));
+    } catch {
+      setError("The selected file could not be read as CSV.");
+    }
+  }
+
+  async function importEmployees() {
+    if (!file) { setError("Choose a CSV file first."); return; }
+    setBusy("import"); setError(""); setNotice("");
+    try {
+      const rows = parseCsv(await file.text()).map((row) => ({ ...row, organisation_id: organisationId }));
+      if (!rows.length) throw new Error("No rows were found in the selected file.");
+      await createRows(accessToken, "employees", rows);
+      setNotice(`${rows.length} employee record(s) imported.`);
+      setFile(null);
+      setPreview([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The file could not be imported.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return <section>
+    <header className="page-header"><div><span className="eyebrow">Organization administration</span><h1>Import & Export</h1><p className="muted">Download reference data as CSV, or bulk import new employee records from a CSV file.</p></div></header>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {notice && <p className="form-message" aria-live="polite">{notice}</p>}
+
+    <article className="card data-panel">
+      <div className="panel-head"><div><h2>Export</h2><p className="muted">Download the current records for a table as CSV.</p></div></div>
+      <div className="row-actions">{exportTables.map(([table, label]) => <button type="button" key={table} disabled={busy === table} onClick={() => void exportTable(table)}>{busy === table ? "Preparing…" : `Export ${label}`}</button>)}</div>
+    </article>
+
+    <article className="card data-panel">
+      <div className="panel-head"><div><h2>Import employees</h2><p className="muted">CSV column headers should match employee field names (first_name, last_name, work_email, employee_number, department_name, position_title...). New rows are created; existing employees are not matched or updated.</p></div></div>
+      <label htmlFor="import-file">CSV file<input id="import-file" name="import_file" type="file" accept=".csv,text/csv" onChange={(event) => void readFile(event.target.files?.[0] ?? null)} /></label>
+      {preview.length > 0 && <div className="table-scroll"><table className="data-table"><thead><tr>{Object.keys(preview[0]).map((key) => <th key={key}>{key}</th>)}</tr></thead><tbody>{preview.map((row, index) => <tr key={index}>{Object.keys(preview[0]).map((key) => <td key={key}>{String(row[key] ?? "")}</td>)}</tr>)}</tbody></table></div>}
+      <div className="form-actions"><button type="button" className="primary" disabled={!file || busy === "import"} onClick={() => void importEmployees()}>{busy === "import" ? "Importing…" : "Import employees"}</button></div>
+    </article>
+  </section>;
+}
+
+function parseCsv(text: string): DataRow[] {
+  const lines = text.replace(/\r\n/g, "\n").split("\n").filter((line) => line.trim().length > 0);
+  if (!lines.length) return [];
+  const parseLine = (line: string) => {
+    const cells: string[] = [];
+    let current = "", inQuotes = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      if (inQuotes) {
+        if (char === '"' && line[index + 1] === '"') { current += '"'; index += 1; }
+        else if (char === '"') inQuotes = false;
+        else current += char;
+      } else if (char === '"') inQuotes = true;
+      else if (char === ",") { cells.push(current); current = ""; }
+      else current += char;
+    }
+    cells.push(current);
+    return cells;
+  };
+  const headers = parseLine(lines[0]).map((header) => header.trim());
+  return lines.slice(1).map((line) => {
+    const cells = parseLine(line);
+    const row: DataRow = {};
+    headers.forEach((header, index) => { row[header] = (cells[index] ?? "").trim(); });
+    return row;
+  });
 }

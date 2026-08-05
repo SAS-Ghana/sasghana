@@ -24,13 +24,16 @@ import { ManagerSectionPage } from "./manager-section-page";
 import { HRDashboard } from "./hr-dashboard";
 import { HRSectionPage } from "./hr-section-page";
 import { AdminDashboard } from "./admin-dashboard";
-import { AdminSectionPage } from "./admin-section-page";
+import { AdminSectionPage, ImportExportPage } from "./admin-section-page";
+import { BookLibraryPage } from "./book-library-page";
 import { ApprovalWorkflowsPage } from "./approval-workflows-page";
 import { PayrollSettingsPage } from "./payroll-settings-page";
 import { AiAssistantPage } from "./ai-assistant-page";
 import { ExpenseManagementPage } from "./expense-management-page";
 import { AssetManagementWorkspace } from "./asset-management-workspace";
 import { useDashboardModuleCounts } from "./module-counters";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 const forbidden = /billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
 
@@ -63,7 +66,7 @@ const adminGroups = [
   ["TIME & LEAVE", [["Attendance Management", "◷"], ["Leave Management", "◴"], ["Meetings & Calendar", "▤"]]],
   ["TALENT", [["Recruitment", "⌕"], ["Onboarding", "↗"], ["Offboarding", "↘"], ["Performance Management", "★"], ["Learning & Development", "▤"]]],
   ["PAYROLL & PEOPLE SERVICES", [["Payroll & Payslips", "▧"], ["Expenses", "¤"], ["Benefits", "♡"]]],
-  ["DOCUMENTS & ASSETS", [["Documents & Templates", "◫"], ["Asset Management", "▣"]]],
+  ["DOCUMENTS & ASSETS", [["Documents & Templates", "◫"], ["Book Library", "📚"], ["Asset Management", "▣"]]],
   ["EMPLOYEE RELATIONS", [["Employee Relations & Cases", "!"], ["Communication", "✉"], ["Help Desk & Support", "?"]]],
   ["CONTROL & INSIGHTS", [["Reports & Analytics", "▥"], ["Approval Workflows", "⇄"], ["Notifications", "●"]]],
   ["SYSTEM", [["Settings Centre", "⚙"], ["Audit Logs", "▤"], ["Import & Export", "⇅"]]],
@@ -126,9 +129,11 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
       if (active === "Onboarding") return <OnboardingHub accessToken={accessToken} profile={profile} />;
       if (active === "Performance Management") return <PerformanceHub accessToken={accessToken} profile={profile} />;
       if (active === "Documents & Templates") return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id} />;
+      if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Approval Workflows") return <ApprovalWorkflowsPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Settings Centre") return <SettingsConfigurationPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       if (active === "Audit Logs") return <AuditHub accessToken={accessToken} />;
+      if (active === "Import & Export") return <ImportExportPage accessToken={accessToken} organisationId={profile.organisation_id} />;
       return <AdminSectionPage label={active} accessToken={accessToken} organisationId={profile.organisation_id} />;
     }
 
@@ -161,7 +166,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="56" height="40" alt="SAS Finance Group" /><div><strong>SAS People</strong><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : "Manager workspace"}</small></div></div>
-      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label, icon]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon">{icon}</span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
+      {groups.map(([group, items]) => <div key={group}><div className="nav-label">{group}</div><nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
       <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
     </aside>
     <main className="main" ref={mainRef}>

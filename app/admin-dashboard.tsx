@@ -3,6 +3,8 @@ import type { UserProfile } from "./lib/supabase-auth";
 import { DataRow, listRows } from "./lib/supabase-data";
 import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
+import { MenuIcon } from "./menu-icon";
+import { moduleIcon } from "./module-icons";
 
 type Props = { accessToken: string; profile: UserProfile; onNavigate: (label: string) => void };
 
@@ -65,10 +67,10 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
     <header className="page-header"><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS People.</p></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
-    <div className="dashboard-metric-grid">{metrics.map(([label, result, target]) => <button key={String(label)} className="card metric dashboard-metric-card" onClick={() => onNavigate(String(target))}><span>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>
+    <div className="dashboard-metric-grid">{metrics.map(([label, result, target]) => <button key={String(label)} className="card metric dashboard-metric-card" onClick={() => onNavigate(String(target))}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(String(target))} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>
     <div className="dashboard-chart-grid"><DashboardInsights title="Organisation health" items={[{ label: "Active users", value: profiles.filter((row) => String(row.status || "active") === "active").length, max: Math.max(profiles.length, 1) }, { label: "Present today", value: attendance.filter((row) => ["present", "late", "remote"].includes(String(row.status))).length, max: Math.max(employees.length, 1) }, { label: "Open support tickets", value: tickets.filter((row) => !["closed", "resolved"].includes(String(row.status))).length, max: Math.max(tickets.length, 1) }, { label: "Pending approvals", value: leave.filter((row) => String(row.status).includes("pending")).length, max: Math.max(leave.length, 1) }]} /><MiniTrend title="Six day organisation attendance" values={trend} /></div>
     <div className="dashboard-content-grid">
-      <article className="card panel dashboard-wide-panel"><div className="panel-head"><div><h2>Administrator quick actions</h2><p className="muted">Common organisation operations</p></div></div><div className="quick dashboard-quick-grid">{quick.map((item) => <button key={item} onClick={() => onNavigate(actionTarget(item))}><span>+</span>{item}</button>)}</div></article>
+      <article className="card panel dashboard-wide-panel"><div className="panel-head"><div><h2>Administrator quick actions</h2><p className="muted">Common organisation operations</p></div></div><div className="quick dashboard-quick-grid">{quick.map((item) => <button key={item} onClick={() => onNavigate(actionTarget(item))}><span><MenuIcon name={moduleIcon(actionTarget(item))} /></span>{item}</button>)}</div></article>
       <article className="card panel"><h2>Recent system activity</h2><SimpleList rows={(data.audit ?? []).slice(0, 8)} primary="action" secondary="created_at" /></article>
       <article className="card panel"><h2>Important announcements</h2><SimpleList rows={(data.announcements ?? []).filter((row) => String(row.status) === "published").slice(0, 8)} primary="title" secondary="publish_at" /></article>
     </div>
