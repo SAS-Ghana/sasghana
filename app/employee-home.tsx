@@ -40,6 +40,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onN
   const [aiAnswer, setAiAnswer] = useState("Ask about leave, payroll, attendance, policies, training or career development.");
 
   useEffect(() => { setTab(sectionTab[activeSection] ?? "dashboard"); setMoreOpen(false); }, [activeSection]);
+  useEffect(() => { setNotice(""); setError(""); }, [tab, activeSection]);
 
   const load = useCallback(async () => {
     setError("");
@@ -358,7 +359,14 @@ function BenefitsPage({ rows }: { rows: DataRow[] }) { return <RecordPage title=
 function RecruitmentPage({ jobs, applications, transfers, employeeId, organisationId, accessToken, onTransfer, onReload }: { jobs: DataRow[]; applications: DataRow[]; transfers: DataRow[]; employeeId?: string; organisationId: string; accessToken: string; onTransfer: () => void; onReload: () => Promise<void> }) {
   const [viewing, setViewing] = useState<DataRow | null>(null);
   const [applying, setApplying] = useState<DataRow | null>(null);
-  const openJobs = jobs.filter((job) => ["open", "published"].includes(String(job.status)));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const openJobs = jobs.filter((job) => {
+    if (!["open", "published"].includes(String(job.status))) return false;
+    if (!job.closing_date) return true;
+    const closingDate = new Date(String(job.closing_date));
+    return !Number.isNaN(closingDate.getTime()) && closingDate.getTime() >= startOfToday.getTime();
+  });
   const trackedApplications = applications.map((application) => ({ ...application, job_title: jobs.find((job) => String(job.id) === String(application.job_opening_id))?.title ?? "Vacancy" }));
   return <>
     <header className="page-header"><div><h1><MenuIcon name={moduleIcon("Recruitment")} />Internal Recruitment</h1><p className="muted">Vacancies, promotion opportunities, transfer requests and applications.</p></div><button className="secondary" onClick={onTransfer}>Request transfer</button></header>
@@ -403,8 +411,8 @@ function ApplyDialog({ job, employeeId, organisationId, accessToken, onClose, on
   }
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal record-modal" role="dialog" aria-modal="true"><button type="button" className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Internal recruitment</span><h2>Apply for {String(job.title)}</h2><form className="record-form" onSubmit={submit}>
-    <label className="wide">Cover note<textarea value={coverNote} onChange={(event) => setCoverNote(event.target.value)} placeholder="Tell the hiring manager why you're a good fit..." /></label>
-    <label className="wide">Attach CV / resume (optional)<input type="file" accept=".pdf,.doc,.docx" onChange={(event) => setResume(event.target.files?.[0] ?? null)} /></label>
+    <label className="wide" htmlFor="internal-application-cover-note">Cover note<textarea id="internal-application-cover-note" name="cover_note" value={coverNote} onChange={(event) => setCoverNote(event.target.value)} placeholder="Tell the hiring manager why you're a good fit..." /></label>
+    <label className="wide" htmlFor="internal-application-resume">Attach CV / resume (optional)<input id="internal-application-resume" name="resume" type="file" accept=".pdf,.doc,.docx" onChange={(event) => setResume(event.target.files?.[0] ?? null)} /></label>
     {error && <p className="form-error wide" role="alert">{error}</p>}
     <div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Submitting…" : "Submit application"}</button></div>
   </form></section></div>;
@@ -567,7 +575,7 @@ function SelfServiceDialog({ type, accessToken, profile, employee, onClose, onSa
     finally { setBusy(false); }
   }
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal record-modal" role="dialog" aria-modal="true"><button type="button" className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Employee self service</span><h2>{config.title}</h2><form className="record-form" onSubmit={submit}>{config.fields.map(([key, label, kind]) => <label className={kind === "textarea" ? "wide" : ""} key={key}>{label}{kind === "textarea" ? <textarea required value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })} /> : kind === "select" ? <select required value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })}><option value="">Select {label.toLowerCase()}</option>{optionsFor(type, key).map((option) => <option key={option} value={option}>{option.replaceAll("_", " ")}</option>)}</select> : <input required={key !== "receipt_url"} min={kind === "number" ? "0.01" : undefined} step={kind === "number" ? "0.01" : undefined} type={kind} value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />}</label>)}{error && <p className="form-error wide" role="alert">{error}</p>}<div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Submitting…" : "Submit request"}</button></div></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal record-modal" role="dialog" aria-modal="true"><button type="button" className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Employee self service</span><h2>{config.title}</h2><form className="record-form" onSubmit={submit}>{config.fields.map(([key, label, kind]) => <label htmlFor={`employee-${type}-${key}`} className={kind === "textarea" ? "wide" : ""} key={key}>{label}{kind === "textarea" ? <textarea id={`employee-${type}-${key}`} name={key} required value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })} /> : kind === "select" ? <select id={`employee-${type}-${key}`} name={key} required value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })}><option value="">Select {label.toLowerCase()}</option>{optionsFor(type, key).map((option) => <option key={option} value={option}>{option.replaceAll("_", " ")}</option>)}</select> : <input id={`employee-${type}-${key}`} name={key} required={key !== "receipt_url"} min={kind === "number" ? "0.01" : undefined} step={kind === "number" ? "0.01" : undefined} type={kind} value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />}</label>)}{error && <p className="form-error wide" role="alert">{error}</p>}<div className="form-actions wide"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Submitting…" : "Submit request"}</button></div></form></section></div>;
 }
 
 function optionsFor(type: string, key: string) { if (type === "leave") return ["Annual leave", "Sick leave", "Compassionate leave", "Maternity leave", "Paternity leave", "Study leave", "Unpaid leave", "Other"]; if (key === "priority") return ["low", "normal", "high", "urgent"]; if (key === "ticket_type") return ["HR Support", "IT Support", "Payroll Support", "Facilities", "Other"]; if (key === "field_name") return ["phone", "personal_email", "residential_address", "digital_address", "emergency_contact_name", "emergency_contact_phone", "bank_name", "bank_account_number", "profile_photo"]; return ["Other"]; }
