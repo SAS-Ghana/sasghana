@@ -63,7 +63,7 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
     ["Active Benefits", data.benefits.filter((row) => String(row.status) === "active").length, "Benefits Administration"],
     ["New Hires", data.employees.filter((row) => String(row.start_date).slice(0, 7) === today.slice(0, 7)).length, "Employee Management"],
     ["On Probation", data.employees.filter((row) => String(row.employment_status) === "probation").length, "Onboarding"],
-    ["Open Vacancies", data.jobs.filter((row) => ["open", "published"].includes(String(row.status))).length, "Recruitment"],
+    ["Open Vacancies", data.jobs.filter((row) => ["open", "published"].includes(String(row.status)) && (!row.closing_date || new Date(String(row.closing_date)).getTime() >= new Date(today + "T00:00:00").getTime())).length, "Recruitment"],
     ["New Applications", data.candidates.filter((row) => ["applied", "screening", "new", "submitted"].includes(String(row.stage ?? row.status))).length, "Recruitment"],
     ["Onboarding", data.onboarding.filter((row) => !["completed", "closed"].includes(String(row.status))).length, "Onboarding"],
     ["Offboarding", data.offboarding.filter((row) => !["completed", "closed"].includes(String(row.status))).length, "Offboarding"],
