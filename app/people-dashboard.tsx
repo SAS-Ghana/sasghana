@@ -36,6 +36,10 @@ import { AssetManagementWorkspace } from "./asset-management-workspace";
 import { useDashboardModuleCounts } from "./module-counters";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { ProcurementWorkspace } from "./procurement-workspace";
+import { NotificationsPage } from "./notifications-page";
+import { applyOrganisationTheme, defaultOrganisationConfig, loadOrganisationConfig, OrganisationConfig } from "./lib/organisation-config";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 const forbidden = /billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
 
@@ -44,7 +48,7 @@ const managerGroups = [
   ["PEOPLE", [["My Team", "♟"], ["Recruitment & Onboarding", "⌕"], ["Employee Requests", "!"]]],
   ["LEAVE MANAGEMENT", [["Team Attendance", "◷"], ["Leave Approvals", "✓"], ["Shift & Schedules", "▤"], ["Meetings & Calendar", "▤"]]],
   ["PERFORMANCE", [["Tasks", "☑"], ["Learning & Development", "▤"], ["One to One Meetings", "♟"]]],
-  ["OPERATIONS", [["Expense Approvals", "¤"], ["Documents", "◫"], ["Assets", "▣"]]],
+  ["OPERATIONS", [["Expense Approvals", "¤"], ["Purchase Approvals", "▣"], ["Documents", "◫"], ["Assets", "▣"]]],
   ["ENGAGEMENT", [["Team Communication", "✉"], ["Notifications", "●"]]],
   ["SYSTEM", [["Reports & Analytics", "▥"], ["AI Manager Assistant", "✦"]]],
 ] as const;
@@ -65,7 +69,7 @@ const adminGroups = [
   ["WORKFORCE", [["Employee Management", "◎"], ["Organization Structure", "▦"]]],
   ["TIME & LEAVE", [["Attendance Management", "◷"], ["Live Attendance", "◷"], ["Leave Management", "◴"], ["Meetings & Calendar", "▤"]]],
   ["TALENT", [["Recruitment", "⌕"], ["Onboarding", "↗"], ["Offboarding", "↘"], ["Performance Management", "★"], ["Learning & Development", "▤"]]],
-  ["PAYROLL & PEOPLE SERVICES", [["Payroll & Payslips", "▧"], ["Expenses", "¤"], ["Benefits", "♡"]]],
+  ["PAYROLL & PEOPLE SERVICES", [["Payroll & Payslips", "▧"], ["Expenses", "¤"], ["Procurement Control", "▣"], ["Benefits", "♡"]]],
   ["DOCUMENTS & ASSETS", [["Documents & Templates", "◫"], ["Book Library", "📚"], ["Asset Management", "▣"]]],
   ["EMPLOYEE RELATIONS", [["Employee Relations & Cases", "!"], ["Communication", "✉"], ["Help Desk & Support", "?"]]],
   ["CONTROL & INSIGHTS", [["Reports & Analytics", "▥"], ["Approval Workflows", "⇄"], ["Notifications", "●"]]],
@@ -87,6 +91,8 @@ const employeeGroups = [
     ["Assets", "▣"],
     ["Calendar", "▤"],
     ["Requests", "⇄"],
+    ["Purchase Requests", "▣"],
+    ["Notifications", "●"],
     ["Reports", "▥"],
     ["Support", "?"],
     ["Settings", "⚙"],
@@ -136,6 +142,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [notificationSettings, setNotificationSettings] = useState(false);
+  const [branding, setBranding] = useState<OrganisationConfig>(defaultOrganisationConfig);
   const mainRef = useRef<HTMLElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +151,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   const isHr = accountType === "hr" || profile.roles.some((role) => /human resources|\bhr\b/i.test(role));
   const isManager = accountType === "manager" || profile.roles.some((role) => /manager|supervisor|team lead/i.test(role));
   const isEmployeeOnly = !isAdmin && !isHr && !isManager && accountType !== "auditor";
+  const canProcurement = profile.roles.includes("Procurement Officer") || profile.permissions.some((permission) => permission.startsWith("procurement."));
   const mode = isEmployeeOnly ? "employee" : isAdmin ? "admin" : isHr ? "hr" : isManager ? "manager" : "admin";
   const { counts, markModuleSeen } = useDashboardModuleCounts(accessToken, profile, mode === "employee" ? "hr" : mode);
   const baseGroups: GroupSet = mode === "admin" ? adminGroups : mode === "hr" ? hrGroups : mode === "employee" ? employeeGroups : managerGroups;
@@ -164,21 +172,33 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   if (libraryGranted && mode !== "employee") extraGroups.push(["LIBRARY", [["Book Library", "📚"]]] as const);
   if (documentStudioGranted && mode === "manager") extraGroups.push(["DOCUMENTS", [["Documents & Templates", "◫"]]] as const);
   if (liveAttendanceGranted) extraGroups.push(["ATTENDANCE", [["Live Attendance", "◷"]]] as const);
+  if (canProcurement && mode !== "admin" && mode !== "employee") extraGroups.push(["PROCUREMENT", [["Procurement Review", "▣"]]] as const);
   const groups: readonly (readonly [string, readonly (readonly [string, string])[]])[] = extraGroups.length ? [...baseGroups, ...extraGroups] : baseGroups;
   const home = mode === "admin" ? "Administrator Dashboard" : mode === "hr" ? "HR Dashboard" : mode === "manager" ? "Manager Dashboard" : "Home";
   const granted = profile.dashboard_access ?? [];
-  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted) || (label === "Documents & Templates" && documentStudioGranted) || (label === "Live Attendance" && liveAttendanceGranted)) && (label === home || hasDashboardAccess(mode, label, granted));
+  const canAccess = (label: string) => !forbidden.test(label) && (labels.has(label) || (label === "Book Library" && libraryGranted) || (label === "Documents & Templates" && documentStudioGranted) || (label === "Live Attendance" && liveAttendanceGranted) || (label === "Procurement Review" && canProcurement)) && (label === home || hasDashboardAccess(mode, label, granted));
 
   function navigate(label: string) {
-    if (!canAccess(label)) return;
-    markModuleSeen(label);
-    setActive(label);
+    const target = label === "Purchase Approvals" && mode === "admin" ? "Procurement Control"
+      : label === "Purchase Approvals" && canProcurement && mode !== "manager" ? "Procurement Review"
+      : label;
+    if (!canAccess(target)) return;
+    markModuleSeen(target);
+    setActive(target);
     setDrawer(false);
     setSearch("");
     requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
   useEffect(() => { if (forbidden.test(active) || !canAccess(active)) setActive(home); }, [active, home, profile.id]);
+  useEffect(() => {
+    const loadBranding = () => void loadOrganisationConfig(accessToken, profile.organisation_id).then((next) => { setBranding(next); applyOrganisationTheme(next); });
+    loadBranding();
+    window.addEventListener("sas-branding-changed", loadBranding);
+    const client = realtimeClient(accessToken);
+    const channel = client.channel(`branding-${profile.organisation_id}`).on("postgres_changes", { event: "*", schema: "public", table: "public_branding", filter: `organisation_id=eq.${profile.organisation_id}` }, loadBranding).subscribe();
+    return () => { window.removeEventListener("sas-branding-changed", loadBranding); void client.removeChannel(channel); };
+  }, [accessToken, profile.organisation_id]);
   useEffect(() => { function close(event: PointerEvent) { if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false); } document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
   useEffect(() => { const expired = () => onLogout(); window.addEventListener("sas-session-expired", expired); return () => window.removeEventListener("sas-session-expired", expired); }, [onLogout]);
 
@@ -189,6 +209,11 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
     if (active === "Book Library") return <BookLibraryPage accessToken={accessToken} organisationId={profile.organisation_id} profile={profile} />;
     if (active === "Profile Requests") return <ProfileRequestsPage accessToken={accessToken} />;
+    if (active === "Notifications") return <NotificationsPage accessToken={accessToken} profile={profile} onNavigate={navigate} />;
+    if (active === "Purchase Requests") return <ProcurementWorkspace accessToken={accessToken} profile={profile} view="requester" />;
+    if (active === "Purchase Approvals") return <ProcurementWorkspace accessToken={accessToken} profile={profile} view="manager" />;
+    if (active === "Procurement Review") return <ProcurementWorkspace accessToken={accessToken} profile={profile} view="procurement" />;
+    if (active === "Procurement Control") return <ProcurementWorkspace accessToken={accessToken} profile={profile} view="admin" />;
     if (active === "Documents & Templates" && documentStudioGranted) return <DocumentStudio accessToken={accessToken} organisationId={profile.organisation_id} />;
     if (mode === "employee") return <EmployeeHome accessToken={accessToken} profile={profile} activeSection={active} onNavigate={navigate} onChangePassword={onChangePassword} onNotificationSettings={() => setNotificationSettings(true)} onLogout={onLogout} />;
 
@@ -243,9 +268,9 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
   return <div className={`app ${mode === "employee" ? "employee-app" : ""}`}>
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
-      <div className="brand"><img src="/logo.png" width="160" height="45" alt="SAS Finance Group" /><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div>
+      <div className="brand"><img src={branding.dashboardLogoUrl || branding.logoUrl || "/logo.png"} width="160" height="45" alt={branding.shortName} /><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div>
       {groups.map(([group, items]) => <div key={group}>{group && <div className="nav-label">{group}</div>}<nav className="nav">{items.filter(([label]) => canAccess(label)).map(([label]) => { const count = counts[label] ?? 0; return <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(label)}><span className="nav-icon"><MenuIcon name={moduleIcon(label)} /></span><span className="nav-text">{label}</span>{count > 0 && <span className="module-count" aria-label={`${count} new items`}>{count > 99 ? "99+" : count}</span>}</button>; })}</nav></div>)}
-      <div className="sidebar-footer">SAS Finance Group Ghana<br />Private & confidential</div>
+      <div className="sidebar-footer">{branding.companyName}<br />{branding.dashboardDescription}</div>
       {mode === "employee" && <div className="sidebar-account" ref={accountRef}>
         <button type="button" className="sidebar-avatar-btn" onClick={() => setAccountOpen((value) => !value)} aria-label="Account menu"><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div></button>
         <button type="button" className="sidebar-hamburger-btn" onClick={() => setAccountOpen((value) => !value)} aria-label="More account options"><MenuIcon name="settings" /></button>
@@ -262,7 +287,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
           <button type="button" className="ask-button" onClick={() => navigate("Ask")}><MenuIcon name="message" />Ask</button>
         </div>}
         <div className="profile" ref={mode === "employee" ? undefined : accountRef}>
-          <NotificationCenter accessToken={accessToken} profile={profile} />
+          <NotificationCenter accessToken={accessToken} profile={profile} onNavigate={navigate} />
           {mode !== "employee" && <button className="account-button" onClick={() => setAccountOpen((value) => !value)}><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profile.display_name}</strong><small>{profile.roles[0] ?? profile.account_type}</small></div></button>}
           {mode !== "employee" && accountOpen && <div className="account-menu"><button onClick={() => navigate("My Profile")}>My profile</button><button onClick={() => setNotificationSettings(true)}>Notification settings</button><button onClick={onChangePassword}>Change password</button><button onClick={onLogout}>Sign out</button></div>}
         </div>
