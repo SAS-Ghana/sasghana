@@ -73,9 +73,26 @@ const adminGroups = [
 ] as const;
 
 const employeeGroups = [
-  ["", [["Home", "⌂"], ["My Info", "●"], ["People", "♟"], ["Hiring", "⌕"], ["Reports", "▥"], ["Files", "▤"], ["Payroll", "▧"]]],
+  ["", [
+    ["Home", "⌂"],
+    ["My Info", "●"],
+    ["People", "♟"],
+    ["Time Off", "◴"],
+    ["Performance", "★"],
+    ["Payroll", "▧"],
+    ["Benefits", "♡"],
+    ["Documents", "◫"],
+    ["Training", "▤"],
+    ["Recruitment", "⌕"],
+    ["Assets", "▣"],
+    ["Calendar", "▤"],
+    ["Requests", "⇄"],
+    ["Reports", "▥"],
+    ["Support", "?"],
+    ["Settings", "⚙"],
+  ]],
 ] as const;
-const employeeQuickLabels = ["Help", "Settings", "Ask"] as const;
+const employeeQuickLabels = ["Ask"] as const;
 
 // Maps HR/Manager sidebar labels to the "Dashboard access" checkbox values an admin actually grants
 // per user in account-management-page.tsx's AccessDialog. A label with no entry here has no matching
