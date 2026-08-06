@@ -4,7 +4,8 @@ import { DataRow, deleteRow, updateRow } from "./lib/supabase-data";
 // Fields known to be computed client-side during load() rather than real columns on the
 // underlying table (e.g. AdminSectionPage/HRSectionPage/ManagerSectionPage all attach
 // employee_name by looking up the employee record after fetching). Never sent back on save.
-const derivedFields = new Set(["employee_name"]);
+const derivedFields = new Set(["employee_name", "record_type", "_source_table"]);
+const protectedFields = new Set(["id", "organisation_id", "created_by", "created_at", "updated_at"]);
 
 type FieldKind = "checkbox" | "date" | "textarea" | "number" | "text";
 const longTextKey = /note|description|reason|details|comment|body|summary/i;
@@ -117,7 +118,10 @@ function GenericEditDialog({ accessToken, table, row, columns, onClose, onSaved 
     setError("");
     try {
       const payload: DataRow = { ...values };
-      for (const key of derivedFields) delete payload[key];
+      for (const key of [...derivedFields, ...protectedFields]) delete payload[key];
+      for (const [key, value] of Object.entries(payload)) {
+        if (typeof value === "string" && value.trim() === "") payload[key] = null;
+      }
       await updateRow(accessToken, table, String(row.id), payload);
       await onSaved();
     } catch (cause) {
@@ -135,7 +139,7 @@ function GenericEditDialog({ accessToken, table, row, columns, onClose, onSaved 
       <form className="record-form" onSubmit={submit}>
         {columns.map(([key, fieldLabel]) => {
           const kind = fieldKind(key, row[key]);
-          const disabled = derivedFields.has(key);
+          const disabled = derivedFields.has(key) || protectedFields.has(key);
           if (kind === "checkbox") return <label key={key} className="check">
             <input type="checkbox" checked={Boolean(values[key])} disabled={disabled} onChange={(event) => setValues({ ...values, [key]: event.target.checked })} /> {fieldLabel}
           </label>;
