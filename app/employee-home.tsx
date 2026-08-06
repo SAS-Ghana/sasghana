@@ -143,6 +143,8 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
 
     {activeSection === "Home" && <header className="page-header"><div><span className="eyebrow">Employee self service</span><h1>Welcome, {firstName}</h1><p className="muted">{employee?.position_title || profile.job_title || "Employee"} · {employee?.department_name || "Your department"} · {new Date(now).toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p></div></header>}
 
+    {activeSection === "My Info" && <ProfileHero employee={employee} onRequest={() => setModal("profile")} accessToken={accessToken} profile={profile} />}
+
     {activeSection === "My Info" && <div className="employee-info-tabs-row">
       <nav className="segmented employee-info-tabs" aria-label="My Info sections">
         {infoTabs.map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}
@@ -153,7 +155,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
 
     {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onAskAi={() => setTab("ai")} />}
     {tab === "people" && <PeopleDirectory accessToken={accessToken} organisationId={profile.organisation_id} canManage={false} />}
-    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} accessToken={accessToken} profile={profile} />}
+    {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} />}
     {tab === "attendance" && <AttendancePage rows={data.attendance} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} rate={attendanceRate} hours={workedHours} overtime={overtime} />}
     {tab === "leave" && <LeavePage rows={data.leave} holidays={data.holidays} balance={leaveBalance} onApply={() => setModal("leave")} accessToken={accessToken} onReload={load} />}
     {tab === "payroll" && <PayrollPage rows={data.payroll} employee={employee} accessToken={accessToken} />}
@@ -203,7 +205,34 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
   </>;
 }
 
-function ProfilePage({ employee, history, onRequest, accessToken, profile }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void; accessToken: string; profile: UserProfile }) {
+function ProfileHero({ employee, onRequest, accessToken, profile }: { employee: DataRow | null; onRequest: () => void; accessToken: string; profile: UserProfile }) {
+  const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || profile.display_name || "Employee";
+  const initials = employee?.first_name
+    ? `${String(employee.first_name).slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase()
+    : profile.display_name.slice(0, 2).toUpperCase();
+  const [photoUrl, setPhotoUrl] = useState("");
+  const photoPath = employee?.passport_photo_path ?? profile.avatar_path;
+  useEffect(() => {
+    let cancelled = false;
+    (photoPath ? createSignedStorageUrl(accessToken, "employee-media", String(photoPath)) : Promise.resolve(""))
+      .then((url) => { if (!cancelled) setPhotoUrl(url); })
+      .catch(() => { if (!cancelled) setPhotoUrl(""); });
+    return () => { cancelled = true; };
+  }, [accessToken, photoPath]);
+
+  return <div className="profile-banner">
+    <div className="profile-banner-avatar">{photoUrl ? <img src={photoUrl} alt={`${fullName} profile`} /> : initials}</div>
+    <div className="profile-banner-info">
+      <span className="profile-status-badge">● Active employee</span>
+      <h1>{fullName}</h1>
+      <p>{String(employee?.position_title ?? profile.job_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
+      <span>{employee?.employee_number ? `Staff #${String(employee.employee_number)}` : "Staff number pending"}{employee?.branch ? ` · ${String(employee.branch)}` : ""}</span>
+    </div>
+    <button type="button" className="secondary profile-banner-action" onClick={onRequest}>Request a change</button>
+  </div>;
+}
+
+function ProfilePage({ employee, history, onRequest }: { employee: DataRow | null; history: DataRow[]; onRequest: () => void }) {
   const sections: [string, [string, unknown][]][] = [
     ["Contact information", [["Personal email", employee?.personal_email], ["Phone", employee?.phone], ["Nationality", employee?.nationality], ["Residential address", employee?.residential_address]]],
     ["Employment", [["Department", employee?.department_name], ["Branch", employee?.branch], ["Position", employee?.position_title], ["Status", employee?.employment_status], ["Reporting manager", employee?.manager_name], ["Employment type", employee?.employment_type], ["Start date", employee?.start_date]]],
@@ -224,19 +253,10 @@ function ProfilePage({ employee, history, onRequest, accessToken, profile }: { e
     return () => { cancelled = true; };
   }, [accessToken, photoPath]);
   return <>
-    <div className="profile-banner">
-      <div className="profile-banner-avatar">{photoUrl ? <img src={photoUrl} alt="" /> : initials}</div>
-      <div className="profile-banner-info">
-        <h1>{fullName}</h1>
-        <p>{String(employee?.position_title ?? profile.job_title ?? "Employee")}{employee?.department_name ? ` · ${String(employee.department_name)}` : ""}</p>
-        <span>{employee?.employee_number ? `Staff #${String(employee.employee_number)}` : "Staff number pending"}</span>
-      </div>
-      <button type="button" className="secondary profile-banner-action" onClick={onRequest}>Request a change</button>
-    </div>
     <div className="profile-layout">
       <VitalsPanel employee={employee} />
       <div className="profile-layout-main">
-        <div className="profile-section-title"><MenuIcon name="profile" />Personal</div>
+        <div className="profile-section-title"><MenuIcon name="profile" />Personal information</div>
         <BasicInformationCard employee={employee} onEdit={onRequest} />
         <div className="employee-profile-grid">{sections.map(([title, rows]) => <DetailCard key={title} title={title} rows={rows} />)}</div>
         <RecordPage title="Employment history" subtitle="Role, department, promotion and transfer history" rows={history} columns={[["effective_date", "Effective"], ["change_type", "Change"], ["position_title", "Position"], ["department_name", "Department"], ["notes", "Details"]]} downloadable />
@@ -244,7 +264,6 @@ function ProfilePage({ employee, history, onRequest, accessToken, profile }: { e
     </div>
   </>;
 }
-
 function BasicInformationCard({ employee, onEdit }: { employee: DataRow | null; onEdit: () => void }) {
   const dob = employee?.date_of_birth ? new Date(String(employee.date_of_birth)) : null;
   const age = dob && !Number.isNaN(dob.getTime()) ? Math.floor((new Date().getTime() - dob.getTime()) / 31557600000) : null;
