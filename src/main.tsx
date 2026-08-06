@@ -13,6 +13,7 @@ import "../app/globals.css";
 import "../app/design-system.css";
 import "../app/employee-shell.css";
 import "../app/employee-portal-v2.css";
+import "../app/employee-profile-redesign.css";
 import "../app/handover-polish.css";
 import "../app/runtime-ui-fixes.css";
 import "../app/dashboard-layout-fixes.css";
