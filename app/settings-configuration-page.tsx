@@ -208,11 +208,17 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
       <article className="card settings-panel">
         {(section === "organisation" || section === "appearance" || section === "regional" || section === "documents") && <form onSubmit={save} className="settings-form">
           {section === "organisation" && <>
-            <h2>Company branding</h2><p className="muted">Changes apply to every authorised dashboard, report and document.</p>
+            <h2>Company branding</h2><p className="muted">Changes apply to the public login page and every authorised dashboard in real time.</p>
             <label htmlFor="settings-company-name">Company name<input id="settings-company-name" name="company_name" value={config.companyName} onChange={(event) => setConfig({ ...config, companyName: event.target.value })} /></label>
             <label htmlFor="settings-application-name">Application name<input id="settings-application-name" name="application_name" value={config.shortName} onChange={(event) => setConfig({ ...config, shortName: event.target.value })} /></label>
             <label htmlFor="settings-description">Description<textarea id="settings-description" name="description" value={config.description} onChange={(event) => setConfig({ ...config, description: event.target.value })} /></label>
-            <label htmlFor="settings-logo-url">Logo URL<input id="settings-logo-url" name="logo_url" value={config.logoUrl} onChange={(event) => setConfig({ ...config, logoUrl: event.target.value })} /></label>
+            <label htmlFor="settings-logo-url">Default logo URL<input id="settings-logo-url" name="logo_url" value={config.logoUrl} onChange={(event) => setConfig({ ...config, logoUrl: event.target.value })} /></label>
+            <label htmlFor="settings-login-logo-url">Login page logo URL<input id="settings-login-logo-url" name="login_logo_url" value={config.loginLogoUrl} onChange={(event) => setConfig({ ...config, loginLogoUrl: event.target.value })} /></label>
+            <label htmlFor="settings-dashboard-logo-url">Dashboard logo URL<input id="settings-dashboard-logo-url" name="dashboard_logo_url" value={config.dashboardLogoUrl} onChange={(event) => setConfig({ ...config, dashboardLogoUrl: event.target.value })} /></label>
+            <label htmlFor="settings-login-eyebrow">Login page label<input id="settings-login-eyebrow" name="login_eyebrow" value={config.loginEyebrow} onChange={(event) => setConfig({ ...config, loginEyebrow: event.target.value })} /></label>
+            <label htmlFor="settings-login-title">Login page headline<textarea id="settings-login-title" name="login_title" value={config.loginTitle} onChange={(event) => setConfig({ ...config, loginTitle: event.target.value })} /></label>
+            <label htmlFor="settings-login-welcome">Login page description<textarea id="settings-login-welcome" name="login_welcome" value={config.loginWelcome} onChange={(event) => setConfig({ ...config, loginWelcome: event.target.value })} /></label>
+            <label htmlFor="settings-dashboard-description">Dashboard footer description<textarea id="settings-dashboard-description" name="dashboard_description" value={config.dashboardDescription} onChange={(event) => setConfig({ ...config, dashboardDescription: event.target.value })} /></label>
             <label htmlFor="settings-website">Website<input id="settings-website" name="website" value={config.website} onChange={(event) => setConfig({ ...config, website: event.target.value })} /></label>
             <label htmlFor="settings-email">Email<input id="settings-email" name="email" type="email" value={config.email} onChange={(event) => setConfig({ ...config, email: event.target.value })} /></label>
             <label htmlFor="settings-phone">Phone<input id="settings-phone" name="phone" value={config.phone} onChange={(event) => setConfig({ ...config, phone: event.target.value })} /></label>
