@@ -143,7 +143,7 @@ export async function loadOrganisationConfig(accessToken: string, organisationId
 }
 
 export async function saveOrganisationConfig(accessToken: string, organisationId: string, config: OrganisationConfig) {
-  for (const property of Object.keys(keys) as (keyof OrganisationConfig)[]) {
+  await Promise.all((Object.keys(keys) as (keyof OrganisationConfig)[]).map(async (property) => {
     const settingKey = keys[property];
     const existing = await listRowsWhere(accessToken, "system_settings", { organisation_id: organisationId, setting_key: settingKey }, "id", 1);
     const payload: DataRow = {
@@ -155,7 +155,7 @@ export async function saveOrganisationConfig(accessToken: string, organisationId
     };
     if (existing.length) await updateRowsWhere(accessToken, "system_settings", "id", String(existing[0].id), payload);
     else await createRow(accessToken, "system_settings", payload);
-  }
+  }));
 
   const branding: DataRow = {
     organisation_id: organisationId,
