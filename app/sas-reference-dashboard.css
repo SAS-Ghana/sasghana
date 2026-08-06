@@ -60,3 +60,39 @@
 .employee-portal-v2 .employee-dashboard-grid .dhv2-list-card .panel-head{margin-bottom:10px}
 @media(max-width:980px){.employee-portal-v2 .employee-info-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.employee-portal-v2 .employee-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"clock profile" "actions actions" "announcements requests" "notifications notifications" "upcoming learning" "benefits benefits" "ai ai"}}
 @media(max-width:620px){.employee-portal-v2 .employee-info-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.employee-portal-v2 .employee-dashboard-grid{grid-template-columns:1fr;grid-template-areas:"clock" "profile" "actions" "announcements" "requests" "notifications" "upcoming" "learning" "benefits" "ai"}}
+
+
+/* Home welcome and live attendance composition */
+.home-hero-row{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,.85fr);gap:12px;align-items:stretch}
+.home-hero-row>.page-header,.home-hero-row>.quick-attendance-card{height:100%;margin:0}
+.home-hero-row>.page-header{min-width:0}
+.home-hero-row>.quick-attendance-card{min-width:0;padding:16px}
+.home-hero-row .quick-attendance-card .panel-head{margin-bottom:10px}
+.home-hero-row .quick-attendance-card .attendance-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.home-hero-row .quick-attendance-card .attendance-quick-actions{gap:6px}
+.home-hero-row .quick-attendance-card button{min-width:0;flex:1 1 auto;padding-inline:9px}
+.employee-home-hero .employee-clock .attendance-live-time{font-size:22px}
+.employee-home-hero .employee-clock .panel-head p{margin:3px 0 0}
+
+.employee-portal-v2 .employee-dashboard-grid{grid-template-areas:"profile profile actions actions actions actions" "announcements announcements announcements requests requests requests" "notifications notifications notifications notifications notifications notifications" "upcoming upcoming learning learning benefits benefits" "ai ai ai ai ai ai"}
+.employee-portal-v2 .employee-dashboard-grid>article{grid-area:auto}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(1){grid-area:profile}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(2){grid-area:actions}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(3){grid-area:announcements}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(4){grid-area:notifications}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(5){grid-area:upcoming}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(6){grid-area:learning}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(7){grid-area:benefits}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(8){grid-area:requests}
+.employee-portal-v2 .employee-dashboard-grid>article:nth-of-type(9){grid-area:ai}
+
+@media(max-width:1050px){
+  .home-hero-row{grid-template-columns:1fr}
+  .home-hero-row>.quick-attendance-card{height:auto}
+  .employee-portal-v2 .employee-dashboard-grid{grid-template-areas:"profile actions" "announcements requests" "notifications notifications" "upcoming learning" "benefits benefits" "ai ai"}
+}
+@media(max-width:620px){
+  .home-hero-row .quick-attendance-card .attendance-summary{grid-template-columns:1fr}
+  .home-hero-row .quick-attendance-card .attendance-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .employee-portal-v2 .employee-dashboard-grid{grid-template-areas:"profile" "actions" "announcements" "requests" "notifications" "upcoming" "learning" "benefits" "ai"}
+}
