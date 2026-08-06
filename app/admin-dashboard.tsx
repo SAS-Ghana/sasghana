@@ -57,7 +57,7 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
     ["Payroll Drafts", payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll & Payslips"],
     ["New Hires", employees.filter((row) => String(row.start_date).slice(0, 7) === today.slice(0, 7)).length, "Employee Management"],
     ["Employees on Probation", employees.filter((row) => String(row.employment_status).toLowerCase().includes("probation")).length, "Employee Management"],
-    ["Open Vacancies", jobs.filter((row) => ["open", "published"].includes(String(row.status))).length, "Recruitment"],
+    ["Open Vacancies", jobs.filter((row) => ["open", "published"].includes(String(row.status)) && (!row.closing_date || new Date(String(row.closing_date)).getTime() >= new Date(today + "T00:00:00").getTime())).length, "Recruitment"],
     ["New Applications", applications.filter((row) => ["new", "submitted", "screening"].includes(String(row.status))).length, "Recruitment"],
     ["Onboarding in Progress", onboarding.filter((row) => !["complete", "completed", "closed"].includes(String(row.status))).length, "Onboarding"],
     ["Offboarding in Progress", offboarding.filter((row) => !["complete", "completed", "closed"].includes(String(row.status))).length, "Offboarding"],
