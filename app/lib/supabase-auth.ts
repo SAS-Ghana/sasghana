@@ -80,7 +80,7 @@ export async function revokeCurrentSession(accessToken:string){
   return response.ok;
 }
 
-export async function signOut(accessToken:string){const token=await getValidAccessToken(accessToken).catch(()=>accessToken);await fetch(`${serviceUrl}/auth/v1/logout`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${token}`}});clearSession();}
+export async function signOut(accessToken:string){try{const token=await getValidAccessToken(accessToken).catch(()=>accessToken);if(readSession()&&token)await fetch(`${serviceUrl}/auth/v1/logout`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${token}`}});}finally{clearSession();}}
 function normaliseSession(session:AuthSession):AuthSession{return {...session,expires_at:session.expires_at??(session.expires_in?Math.floor(Date.now()/1000)+session.expires_in:undefined)};}
 function sessionStorageTarget(){return sessionStorage.getItem("sas-people-session")?sessionStorage:localStorage;}
 export function saveSession(session:AuthSession,remember:boolean){const next=normaliseSession(session);(remember?localStorage:sessionStorage).setItem("sas-people-session",JSON.stringify(next));window.dispatchEvent(new CustomEvent("sas-session-changed",{detail:next}));}
