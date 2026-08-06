@@ -1,4 +1,4 @@
-import { createRow, DataRow, listRowsWhere, updateRowsWhere } from "./supabase-data";
+import { callRpc, createRow, DataRow, listRowsWhere, updateRowsWhere } from "./supabase-data";
 import { publishableKey, serviceUrl } from "./supabase-config";
 
 export type OrganisationConfig = {
@@ -178,9 +178,7 @@ export async function saveOrganisationConfig(accessToken: string, organisationId
     is_default: true,
     updated_at: new Date().toISOString(),
   };
-  const existingBranding = await listRowsWhere(accessToken, "public_branding", { organisation_id: organisationId }, "organisation_id", 1);
-  if (existingBranding.length) await updateRowsWhere(accessToken, "public_branding", "organisation_id", organisationId, branding);
-  else await createRow(accessToken, "public_branding", branding);
+  await callRpc(accessToken, "save_public_branding", { p_branding: branding });
   window.dispatchEvent(new Event("sas-branding-changed"));
 }
 
