@@ -11,11 +11,11 @@ import { AvatarPhoto } from "./avatar-photo";
 import { SelfRecordActions } from "./record-actions";
 import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
 
-type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
+type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "requests" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
 type EmployeeHomeProps = { accessToken: string; profile: UserProfile; activeSection?: string; onNavigate: (page: string) => void; onChangePassword?: () => void; onNotificationSettings?: () => void; onLogout?: () => void };
 
-const sectionTab: Record<string, Tab> = { "Home": "dashboard", "My Info": "profile", "People": "people", "Hiring": "recruitment", "Reports": "analytics", "Files": "documents", "Payroll": "payroll", "Help": "help", "Settings": "settings", "Ask": "ai" };
+const sectionTab: Record<string, Tab> = { "Home": "dashboard", "My Info": "profile", "People": "people", "Time Off": "leave", "Performance": "performance", "Payroll": "payroll", "Benefits": "benefits", "Documents": "documents", "Training": "learning", "Recruitment": "recruitment", "Assets": "assets", "Calendar": "calendar", "Requests": "requests", "Reports": "analytics", "Support": "help", "Settings": "settings", "Ask": "ai", "Hiring": "recruitment", "Files": "documents", "Help": "help" };
 const infoTabs: [Tab, string][] = [["profile", "Personal"], ["leave", "Time Off"], ["payroll", "Pay Info"], ["documents", "Documents"], ["performance", "Performance"], ["attendance", "Timesheet"]];
 const moreItems: [Tab, string][] = [["learning", "Learning & Development"], ["tasks", "Tasks"], ["expenses", "Expenses"], ["assets", "Assets"], ["benefits", "Benefits"], ["communication", "Comms"], ["calendar", "Calendar"], ["help", "Help Center"], ["notifications", "Notifications"], ["settings", "Settings"], ["ai", "AI Assistant"]];
 
@@ -164,6 +164,13 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
     {tab === "learning" && <LearningPage rows={data.learning} />}
     {tab === "tasks" && <RecordPage title="My tasks" subtitle="Assignments, priorities, progress and due dates" rows={data.tasks} columns={[["title", "Task"], ["due_date", "Due"], ["priority", "Priority"], ["progress", "Progress"], ["status", "Status"]]} downloadable />}
     {tab === "expenses" && <RecordPage title="Expenses and reimbursements" subtitle="Submit and track expense claims" rows={data.expenses} columns={[["expense_type", "Type"], ["amount", "Amount"], ["expense_date", "Date"], ["status", "Approval"], ["hr_comment", "Update"]]} action={<button className="primary" onClick={() => setModal("expense")}>Submit expense</button>} downloadable accessToken={accessToken} table="expense_claims" onReload={load} />}
+    {tab === "requests" && <RecordPage title="My requests" subtitle="Track all employee self-service requests in one place" rows={[
+      ...data.leave.map((row) => ({ ...row, request_type: "Leave", request_title: row.leave_type, request_update: row.hr_comment ?? row.manager_comment })),
+      ...data.expenses.map((row) => ({ ...row, request_type: "Expense", request_title: row.expense_type ?? row.category, request_update: row.hr_comment ?? row.manager_comment })),
+      ...data.assetRequests.map((row) => ({ ...row, request_type: "Asset", request_title: row.asset_type ?? row.category, request_update: row.hr_comment ?? row.manager_comment })),
+      ...data.transfers.map((row) => ({ ...row, request_type: "Transfer", request_title: row.requested_department ?? row.requested_branch, request_update: row.hr_comment ?? row.manager_comment })),
+      ...data.requests.map((row) => ({ ...row, request_type: "Profile change", request_title: row.field_name, request_update: row.review_note ?? row.manager_comment })),
+    ].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))} columns={[["request_type", "Type"], ["request_title", "Request"], ["created_at", "Submitted"], ["status", "Status"], ["request_update", "Latest update"]]} downloadable />}
     {tab === "assets" && <><RecordPage title="My company assets" subtitle="Equipment assigned to your custody and return history" rows={data.assets} columns={[["asset_code", "Asset ID"], ["category", "Asset"], ["description", "Description"], ["serial_number", "Serial"], ["condition", "Condition"], ["status", "Status"]]} action={<button className="primary" onClick={() => setModal("asset")}>Request an asset</button>} /><RecordPage title="My asset requests" subtitle="Requests awaiting HR or administrator action" rows={data.assetRequests} columns={[["asset_type", "Asset needed"], ["reason", "Reason"], ["priority", "Priority"], ["created_at", "Submitted"], ["status", "Status"]]} downloadable accessToken={accessToken} table="asset_requests" onReload={load} /></>}
     {tab === "benefits" && <BenefitsPage rows={data.benefits} />}
     {tab === "recruitment" && <RecruitmentPage jobs={data.jobs} applications={data.applications} transfers={data.transfers} employeeId={profile.employee_id} organisationId={profile.organisation_id} accessToken={accessToken} onTransfer={() => setModal("transfer")} onReload={load} />}
@@ -181,7 +188,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
 }
 
 function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBreak, busy, onAction, onTab, onAskAi }: { employee: DataRow | null; data: Dataset; metrics: { leaveBalance: number; pending: number; attendanceRate: number; overtime: number; openTasks: number; unread: number; performanceScore: number }; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; onTab: (tab: Tab) => void; onAskAi: () => void }) {
-  const cards = [["Present today", clockedIn ? "Clocked in" : "Not clocked in"], ["Leave balance", `${metrics.leaveBalance} days`], ["Pending requests", metrics.pending], ["Next payday", employee?.next_payday || "Not published"], ["Performance score", metrics.performanceScore || "—"], ["Attendance rate", `${metrics.attendanceRate}%`], ["Overtime hours", metrics.overtime.toFixed(1)], ["Assigned tasks", metrics.openTasks], ["Unread notifications", metrics.unread]];
+  const cards = [["Present today", clockedIn ? "Clocked in" : "Not clocked in"], ["Leave balance", `${metrics.leaveBalance} days`], ["Pending requests", metrics.pending], ["Performance score", metrics.performanceScore || "—"], ["Attendance rate", `${metrics.attendanceRate}%`], ["Overtime hours", metrics.overtime.toFixed(1)], ["Assigned tasks", metrics.openTasks], ["Unread notifications", metrics.unread]];
   const summaryBars = cards.slice(0, 6).map(([label, result]) => [label, String(result), Number(String(result).replace(/[^0-9.-]/g, "")) || 0] as [string, string, number]);
   const summaryMax = Math.max(1, ...summaryBars.map(([, , n]) => n));
   const upcomingEvents = data.meetings.filter((row) => new Date(String(row.starts_at)) > new Date()).slice(0, 5);
@@ -200,6 +207,12 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
       <ListCard title="Upcoming Events" rows={upcomingEvents.map((row) => ({ icon: "calendar" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.title ?? "Event"), trailing: { type: "pill" as const, label: new Date(String(row.starts_at)).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) } }))} emptyLabel="No upcoming events." />
       <ListCard title="Learning Due" rows={data.learning.filter((row) => !["completed", "cancelled"].includes(String(row.status))).slice(0, 5).map((row) => ({ icon: "book" as IconName, iconColor: "var(--viz-slate)", title: String(row.course_name ?? "Training"), subtitle: `Due ${row.due_date ?? "—"}` }))} emptyLabel="Nothing due." />
       <ListCard title="Benefits" rows={data.benefits.filter((row) => String(row.status) === "active").slice(0, 5).map((row) => ({ icon: "benefit" as IconName, iconColor: "var(--viz-red-strong)", title: String(row.benefit_name ?? "Benefit"), subtitle: `Since ${row.start_date ?? "—"}` }))} emptyLabel="No active benefits on file." />
+      <ListCard title="My Requests" action={{ label: "View All", onClick: () => onTab("requests") }} rows={[
+        ...data.leave.map((row) => ({ ...row, request_label: row.leave_type ?? "Leave request" })),
+        ...data.expenses.map((row) => ({ ...row, request_label: row.expense_type ?? row.category ?? "Expense claim" })),
+        ...data.assetRequests.map((row) => ({ ...row, request_label: row.asset_type ?? row.category ?? "Asset request" })),
+        ...data.transfers.map((row) => ({ ...row, request_label: row.requested_department ?? "Transfer request" })),
+      ].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))).slice(0, 5).map((row) => ({ icon: "request" as IconName, iconColor: "var(--sas-cyan-deep)", title: String(row.request_label), subtitle: String(row.status ?? "pending").replaceAll("_", " ") }))} emptyLabel="No requests submitted yet." />
       <article className="card span-two ai-teaser"><div><span className="eyebrow">AI HR Assistant</span><h2>Get answers from your employee workspace</h2><p>Ask about leave, attendance, payroll, policies, documents, training and career growth.</p></div><button className="primary" onClick={onAskAi}>Open AI Assistant</button></article>
     </div>
   </>;
@@ -239,19 +252,6 @@ function ProfilePage({ employee, history, onRequest }: { employee: DataRow | nul
     ["Emergency contacts", [["Name", employee?.emergency_contact_name], ["Phone", employee?.emergency_contact_phone], ["Relationship", employee?.emergency_contact_relationship]]],
     ["Bank, tax and pension", [["Bank", employee?.bank_name], ["Account name", employee?.bank_account_name], ["Account number", mask(employee?.bank_account_number)], ["Tax number", mask(employee?.tax_number)], ["SSNIT / pension", mask(employee?.ssnit_number)], ["Pension provider", employee?.pension_provider]]],
   ];
-  const fullName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || profile.display_name || "Employee";
-  const initials = employee?.first_name
-    ? `${String(employee.first_name).slice(0, 1)}${String(employee?.last_name ?? "").slice(0, 1)}`.toUpperCase()
-    : profile.display_name.slice(0, 2).toUpperCase();
-  const [photoUrl, setPhotoUrl] = useState("");
-  const photoPath = employee?.passport_photo_path ?? profile.avatar_path;
-  useEffect(() => {
-    let cancelled = false;
-    (photoPath ? createSignedStorageUrl(accessToken, "employee-media", String(photoPath)) : Promise.resolve(""))
-      .then((url) => { if (!cancelled) setPhotoUrl(url); })
-      .catch(() => { if (!cancelled) setPhotoUrl(""); });
-    return () => { cancelled = true; };
-  }, [accessToken, photoPath]);
   return <>
     <div className="profile-layout">
       <VitalsPanel employee={employee} />
