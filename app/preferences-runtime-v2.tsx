@@ -41,6 +41,7 @@ export function PreferencesRuntimeV2() {
     let organisationId = "";
     let email = "";
     let preferences: Preferences = getStoredPreferences();
+    let bootVersion = 0;
 
     function observe() {
       observer?.observe(document.body, { childList: true, subtree: true });
@@ -192,23 +193,30 @@ export function PreferencesRuntimeV2() {
     }
 
     async function boot() {
+      const version = ++bootVersion;
       applyPreferences(preferences);
       const session = readSession();
+      token = "";
+      profileId = "";
+      organisationId = "";
+      email = "";
+      exists = false;
       if (!session) {
         scheduleRefresh();
         return;
       }
       token = session.access_token;
       const profile = await fetchProfile(token, session.user.id);
-      if (!profile || stopped) return;
+      if (!profile || stopped || version !== bootVersion) return;
       profileId = profile.id;
       organisationId = profile.organisation_id;
       email = profile.email || session.user.email || "";
       const rows = await listRowsWhereUnordered(token, "user_preferences", { profile_id: profileId }, "*", 1).catch(() => []);
-      if (rows[0]) {
-        preferences = { ...preferenceDefaults, ...rows[0] } as Preferences;
-        exists = true;
-      }
+      if (stopped || version !== bootVersion) return;
+      preferences = rows[0]
+        ? ({ ...preferenceDefaults, ...rows[0] } as Preferences)
+        : { ...preferenceDefaults };
+      exists = Boolean(rows[0]);
       applyPreferences(preferences);
       scheduleRefresh();
     }
@@ -442,9 +450,16 @@ export function PreferencesRuntimeV2() {
       scheduleRefresh();
     }
 
+    function handleSessionChanged() {
+      preferences = { ...preferenceDefaults };
+      void boot();
+    }
+
     document.addEventListener("change", handleChange, true);
     document.addEventListener("click", handleClick, true);
     window.addEventListener("sas-preferences-changed", handlePreferencesChanged);
+    window.addEventListener("sas-session-changed", handleSessionChanged);
+    window.addEventListener("sas-session-refreshed", handleSessionChanged);
     observer = new MutationObserver(scheduleRefresh);
     observe();
     void boot();
@@ -455,6 +470,8 @@ export function PreferencesRuntimeV2() {
       document.removeEventListener("change", handleChange, true);
       document.removeEventListener("click", handleClick, true);
       window.removeEventListener("sas-preferences-changed", handlePreferencesChanged);
+      window.removeEventListener("sas-session-changed", handleSessionChanged);
+      window.removeEventListener("sas-session-refreshed", handleSessionChanged);
     };
   }, []);
 
