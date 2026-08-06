@@ -70,6 +70,8 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
     ["Reviews due", metrics.reviewsDue, "Team Performance"], ["Overdue tasks", metrics.overdueTasks, "Tasks"], ["Training due", metrics.trainingDue, "Learning & Development"],
   ];
 
+  const visibleCards = cards.filter(([label]) => label !== "Asset requests" || profile.dashboard_access.includes("Assets"));
+
   const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["One to One Meetings", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Meetings & Calendar", "View team calendar"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Book Library", "Open Book Library"]);
 
@@ -96,7 +98,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
       <QuickAttendance accessToken={accessToken} profile={profile} compact />
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}{loading && <p className="form-message">Loading team information…</p>}
-    <div className="dhv2-stat-grid">{cards.map(([label, result, page]) => <StatCard key={label} label={label} value={result} onClick={() => onNavigate(page)} />)}</div>
+    <div className="dhv2-stat-grid">{visibleCards.map(([label, result, page]) => <StatCard key={label} label={label} value={result} onClick={() => onNavigate(page)} />)}</div>
     <div className="dhv2-chart-row">
       <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends (Last 9 Months)</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Approvals")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article>
       <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Distribution</h2></div><DonutChart slices={departmentSlices} centerLabel={topDepartment ? { name: topDepartment.name, value: topDepartment.value } : undefined} /><div className="dhv2-donut-legend">{departmentSlices.map((slice) => <div className="dhv2-donut-legend-item" key={slice.name}><span>{slice.name}</span><b>{slice.value}</b></div>)}</div></article>
