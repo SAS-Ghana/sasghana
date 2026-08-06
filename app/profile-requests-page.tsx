@@ -50,7 +50,11 @@ export function ProfileRequestsPage({ accessToken }: { accessToken: string }) {
     setError("");
     setNotice("");
     try {
-      await callRpc(accessToken, "review_employee_change_request", { request_id: String(row.id), decision, note: note.trim() || null });
+      await callRpc(accessToken, "review_employee_change_request", {
+        p_request_id: String(row.id),
+        p_decision: decision,
+        p_review_note: note.trim() || null,
+      });
       await load();
       setNotice(`Request ${decision}.`);
     } catch (cause) {
