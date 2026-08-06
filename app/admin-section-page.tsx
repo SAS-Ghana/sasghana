@@ -36,7 +36,7 @@ const configs: Record<string, Config> = {
   Recruitment: { table: "job_openings", description: "Manage vacancies, stages, applicants, interviews, offers and completed campaigns.", columns: [["title", "Vacancy"], ["location", "Location"], ["employment_type", "Type"], ["status", "Status"], ["closing_date", "Closing"]], actions: ["Create vacancy", "Review applicants", "Export report"] },
   Offboarding: { table: "employee_offboarding", description: "Manage resignations, terminations, clearance, access revocation, exit records and archiving.", columns: [["employee_name", "Employee"], ["reason", "Reason"], ["last_working_date", "Last day"], ["status", "Status"], ["final_payroll_status", "Payroll"]], actions: ["Start offboarding", "Export report"] },
   "Payroll & Payslips": { table: "payroll_records", description: "Internal employee payroll administration only, including periods, inputs, approvals, payslips and audit history.", columns: [["employee_name", "Employee"], ["pay_period", "Period"], ["basic_salary", "Basic salary"], ["net_pay", "Net pay"], ["status", "Status"]], actions: ["Create payroll period", "Publish payslips", "Export report"] },
-  "Learning & Development": { table: "employee_training", description: "Manage programs, materials, workshops, requests, certificates, skills and development plans.", columns: [["employee_name", "Employee"], ["course_name", "Training"], ["status", "Status"], ["progress", "Progress"], ["due_date", "Due"]], actions: ["Create program", "Assign training", "Export report"] },
+  "Learning & Development": { table: "employee_training", description: "Manage programs, materials, workshops, requests, certificates, skills and development plans.", columns: [["record_type", "Type"], ["course_name", "Program / training"], ["employee_name", "Employee"], ["status", "Status"], ["progress", "Progress"], ["due_date", "Due"]], actions: ["Create program", "Assign training", "Export report"] },
   Expenses: { table: "expense_claims", description: "Configure categories and workflows, review receipts, decisions and reimbursement status.", columns: [["employee_name", "Employee"], ["category", "Category"], ["amount", "Amount"], ["submitted_at", "Submitted"], ["status", "Status"]], actions: ["Create category", "Export report"] },
   Benefits: { table: "employee_benefits", description: "Manage plans, eligibility, enrollment, insurance, pension, loans, allowances and benefit history.", columns: [["employee_name", "Employee"], ["benefit_name", "Benefit"], ["plan_name", "Plan"], ["status", "Status"], ["start_date", "Start"]], actions: ["Create plan", "Assign benefit", "Export report"] },
   "Asset Management": { table: "assets", description: "Register, assign, hand over, return, replace and report organization assets.", columns: [["asset_code", "Asset ID"], ["category", "Category"], ["description", "Description"], ["employee_name", "Assigned to"], ["condition", "Condition"], ["status", "Status"]], actions: ["Register asset", "Assign asset", "Export report"] },
@@ -111,24 +111,41 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
     if (!config) return;
     setError("");
     try {
-      const [records, people] = await Promise.all([
+      const [records, people, programs] = await Promise.all([
         listRows(accessToken, config.table, "*", 1000),
         listNamedRows(accessToken, "employees", "id,first_name,last_name,employee_number", "first_name"),
+        label === "Learning & Development" ? listRows(accessToken, "learning_courses", "*", 1000) : Promise.resolve([]),
       ]);
       setEmployees(people);
-      setRows(records.map((row) => {
+      const assignmentRows = records.map((row) => {
         const employeeId = String(row.employee_id ?? row.assigned_employee_id ?? "");
         const person = people.find((candidate) => String(candidate.id) === employeeId);
         return {
           ...row,
           employee_name: row.employee_name ?? (person ? `${person.first_name} ${person.last_name}` : null),
         };
-      }));
+      });
+      setRows(label === "Learning & Development" ? [
+        ...programs.map((program) => ({
+          ...program,
+          _source_table: "learning_courses",
+          record_type: "Program",
+          course_name: program.title,
+          employee_name: null,
+          progress: null,
+          due_date: null,
+        })),
+        ...assignmentRows.map((assignment) => ({
+          ...assignment,
+          _source_table: "employee_training",
+          record_type: "Assignment",
+        })),
+      ] : assignmentRows);
     } catch (cause) {
       setRows([]);
       setError(cause instanceof Error ? cause.message : "This administrator module could not be loaded.");
     }
-  }, [accessToken, config]);
+  }, [accessToken, config, label]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setSort(config?.columns[0]?.[0] ?? ""); setDirection("desc"); }, [config]);
@@ -207,7 +224,7 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
     setError("");
     setNotice("");
     try {
-      await updateRow(accessToken, config.table, String(row.id), { status: next });
+      await updateRow(accessToken, String(row._source_table ?? config.table), String(row.id), { status: next });
       await load();
       setNotice(`Record updated to ${next.replaceAll("_", " ")}.`);
     } catch (cause) {
@@ -261,12 +278,24 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
 
       {visible.length ? <div className="table-scroll"><table className="data-table">
         <thead><tr>{config.columns.map(([, name]) => <th key={name}>{name}</th>)}<th>Actions</th></tr></thead>
-        <tbody>{visible.map((row, index) => <tr key={String(row.id ?? index)}>
+        <tbody>{visible.map((row, index) => <tr key={`${String(row._source_table ?? config.table)}-${String(row.id ?? index)}`}>
           {config.columns.map(([key]) => <td key={key}>{displayValue(row[key])}</td>)}
           <td><div className="row-actions">
             {label === "Notifications" ? <button type="button" disabled={busy} onClick={() => void setNotificationRead(row)}>{row.is_read ? "Mark unread" : "Mark read"}</button> :
-              (statusActions[label] ?? []).map(([actionLabel, next]) => <button type="button" key={next} disabled={busy || String(row.status) === next} onClick={() => void setState(row, next)}>{actionLabel}</button>)}
-            {label !== "Audit Logs" && label !== "Notifications" && <RecordActions accessToken={accessToken} table={config.table} row={row} columns={config.columns} label={label} onReload={load} />}
+              (label === "Learning & Development" && row._source_table === "learning_courses"
+                ? [["Activate", "active"], ["Archive", "archived"]] as [string, string][]
+                : statusActions[label] ?? []
+              ).map(([actionLabel, next]) => <button type="button" key={next} disabled={busy || String(row.status) === next} onClick={() => void setState(row, next)}>{actionLabel}</button>)}
+            {label !== "Audit Logs" && label !== "Notifications" && <RecordActions
+              accessToken={accessToken}
+              table={String(row._source_table ?? config.table)}
+              row={row}
+              columns={row._source_table === "learning_courses"
+                ? [["title", "Program title"], ["category", "Category"], ["delivery_type", "Delivery type"], ["description", "Description"], ["content_url", "Learning material URL"], ["status", "Status"]]
+                : config.columns.filter(([key]) => key !== "record_type")}
+              label={row._source_table === "learning_courses" ? "Learning program" : label}
+              onReload={load}
+            />}
             <button type="button" onClick={() => window.print()}>Print</button>
           </div></td>
         </tr>)}</tbody>
