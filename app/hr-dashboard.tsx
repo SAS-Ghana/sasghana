@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { DataRow, listRows } from "./lib/supabase-data";
-import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
-import { MenuIcon } from "./menu-icon";
+import { MenuIcon, IconName } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 import { AvatarPhoto } from "./avatar-photo";
+import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
+import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
+import { monthDelta, monthlyBuckets, monthlyCumulative, groupCounts } from "./lib/dashboard-metrics";
 
 type HRData = {
   employees: DataRow[]; attendance: DataRow[]; leave: DataRow[]; jobs: DataRow[]; candidates: DataRow[];
   onboarding: DataRow[]; offboarding: DataRow[]; documents: DataRow[]; reviews: DataRow[]; training: DataRow[];
-  payroll: DataRow[]; tickets: DataRow[]; announcements: DataRow[]; expenses: DataRow[]; assets: DataRow[]; benefits: DataRow[];
+  payroll: DataRow[]; tickets: DataRow[]; announcements: DataRow[]; expenses: DataRow[]; assets: DataRow[]; benefits: DataRow[]; audit: DataRow[];
 };
 
-const empty: HRData = { employees: [], attendance: [], leave: [], jobs: [], candidates: [], onboarding: [], offboarding: [], documents: [], reviews: [], training: [], payroll: [], tickets: [], announcements: [], expenses: [], assets: [], benefits: [] };
+const empty: HRData = { employees: [], attendance: [], leave: [], jobs: [], candidates: [], onboarding: [], offboarding: [], documents: [], reviews: [], training: [], payroll: [], tickets: [], announcements: [], expenses: [], assets: [], benefits: [], audit: [] };
+const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
+const quickActionIcon: Record<string, IconName> = { "Add employee": "user-plus", "Live attendance": "attendance", "Start onboarding": "recruitment", "Start offboarding": "disciplinary", "Review leave": "leave", "Review expenses": "expense", "Review assets": "asset", "Create vacancy": "briefcase", "Generate HR letter": "audit", "Open HR tickets": "help", "Open Book Library": "book" };
+const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Add employee": "blue", "Live attendance": "blue", "Start onboarding": "orange", "Start offboarding": "slate", "Review leave": "orange", "Review expenses": "purple", "Review assets": "slate", "Create vacancy": "purple", "Generate HR letter": "slate", "Open HR tickets": "red", "Open Book Library": "blue" };
 
 export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
   const [data, setData] = useState<HRData>(empty);
@@ -27,13 +32,13 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
       catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; }
     };
 
-    const [employees, attendance, leave, jobs, candidates, onboarding, offboarding, documents, reviews, training, payroll, tickets, announcements, expenses, assets, benefits] = await Promise.all([
+    const [employees, attendance, leave, jobs, candidates, onboarding, offboarding, documents, reviews, training, payroll, tickets, announcements, expenses, assets, benefits, audit] = await Promise.all([
       read("employees"), read("attendance_records"), read("leave_requests"), read("job_openings"), read("candidates"),
       read("employee_onboarding"), read("employee_offboarding"), read("employee_documents"), read("performance_reviews"),
       read("employee_training"), read("payroll_records"), read("support_tickets"), read("announcements", 50),
-      read("expense_claims"), read("asset_requests"), read("employee_benefits"),
+      read("expense_claims"), read("asset_requests"), read("employee_benefits"), read("audit_logs", 100),
     ]);
-    setData({ employees, attendance, leave, jobs, candidates, onboarding, offboarding, documents, reviews, training, payroll, tickets, announcements, expenses, assets, benefits });
+    setData({ employees, attendance, leave, jobs, candidates, onboarding, offboarding, documents, reviews, training, payroll, tickets, announcements, expenses, assets, benefits, audit });
     if (issues.length) setError(`Some HR data could not be refreshed. ${issues.slice(0, 3).join(" · ")}${issues.length > 3 ? ` · ${issues.length - 3} more` : ""}`);
   }, [accessToken]);
 
@@ -70,23 +75,45 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
     ["Payroll Drafts", data.payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll Administration"],
   ], [data, active, present, onLeave, today, now]);
 
-  const quickActions: [string, string][] = [["Add employee", "Employee Management"], ["Start onboarding", "Onboarding"], ["Start offboarding", "Offboarding"], ["Review leave", "Leave Management"], ["Review expenses", "Expense Management"], ["Review assets", "Asset Management"], ["Create vacancy", "Recruitment"], ["Generate HR letter", "Documents & Templates"], ["Open HR tickets", "HR Help Desk"]];
+  const quickActions: [string, string][] = [["Add employee", "Employee Management"], ["Live attendance", "Live Attendance"], ["Start onboarding", "Onboarding"], ["Start offboarding", "Offboarding"], ["Review leave", "Leave Management"], ["Review expenses", "Expense Management"], ["Review assets", "Asset Management"], ["Create vacancy", "Recruitment"], ["Generate HR letter", "Documents & Templates"], ["Open HR tickets", "HR Help Desk"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Open Book Library", "Book Library"]);
 
-  const attendanceTrend = Array.from({ length: 6 }, (_, offset) => {
-    const date = new Date(); date.setDate(date.getDate() - (5 - offset)); const key = date.toISOString().slice(0, 10);
-    return data.attendance.filter((row) => String(row.attendance_date) === key && ["present", "late", "remote"].includes(String(row.status))).length;
-  });
+  const newHiresTrend = useMemo(() => monthDelta(data.employees, "start_date"), [data.employees]);
+
+  const leaveTypes = useMemo(() => groupCounts(data.leave, "leave_type", 4), [data.leave]);
+  const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(data.leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [data.leave, leaveTypes]);
+  const leaveMonthLabels = useMemo(() => monthlyBuckets(data.leave, "start_date", 9).labels, [data.leave]);
+
+  const departmentSlices = useMemo(() => groupCounts(data.employees, "department_name", 6).map(([name, value], index) => ({ name, value, color: vizPalette[index] })), [data.employees]);
+  const topDepartment = departmentSlices[0];
+
+  const headcount = useMemo(() => monthlyCumulative(data.employees, "start_date", 7), [data.employees]);
+
+  const pendingApprovals = useMemo(() => data.leave.filter((row) => String(row.status) === "pending").slice(0, 5), [data.leave]);
+  const publishedAnnouncements = useMemo(() => data.announcements.filter((row) => String(row.status) === "published").slice(0, 6), [data.announcements]);
 
   return <section className="hr-dashboard dashboard-workspace">
-    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">HR workspace</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Organisation-wide workforce administration, approvals, people operations and HR compliance.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <div className="breadcrumb-trail"><span>SAS Finance Group</span><span aria-hidden="true">›</span><span>HR Dashboard</span></div>
+    <header className="page-header">
+      <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">HR workspace</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Organisation-wide workforce administration, approvals, people operations and HR compliance.</p></div></div>
+      <div className="page-header-actions"><button className="secondary" onClick={() => void load()}><MenuIcon name="report" />Refresh</button><button type="button" className="link-button" onClick={() => onNavigate("Reports & Analytics")}>Quick Actions</button></div>
+    </header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
-    <div className="dashboard-metric-grid">{metrics.map(([label, result, page]) => <button className="card metric dashboard-metric-card" key={String(label)} onClick={() => onNavigate(String(page))}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(String(page))} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>
-    <div className="dashboard-chart-grid"><DashboardInsights title="Workforce health" items={[{ label: "Present today", value: present, max: Math.max(active, 1) }, { label: "On leave", value: onLeave, max: Math.max(active, 1) }, { label: "Pending leave", value: data.leave.filter((row) => String(row.status) === "pending").length, max: Math.max(data.leave.length, 1) }, { label: "Reviews due", value: data.reviews.filter((row) => String(row.status) !== "completed").length, max: Math.max(data.reviews.length, 1) }]} /><MiniTrend title="Six day attendance" values={attendanceTrend} /></div>
-    <div className="dashboard-content-grid">
-      <article className="card panel"><div className="panel-head"><div><h2>HR quick actions</h2><p className="muted">Common workforce operations</p></div></div><div className="quick dashboard-quick-grid">{quickActions.map(([label, page]) => <button key={label} onClick={() => onNavigate(page)}><span><MenuIcon name={moduleIcon(page)} /></span>{label}</button>)}</div></article>
-      <article className="card panel"><div className="panel-head"><div><h2>Announcements</h2><p className="muted">Recent organisation updates</p></div></div><div className="activity">{data.announcements.filter((row) => String(row.status) === "published").slice(0, 6).map((row, index) => <div className="activity-row" key={String(row.id ?? index)}><div className="task-icon">A</div><p><strong>{String(row.title ?? "Announcement")}</strong><br /><small>{String(row.body ?? "").slice(0, 90)}</small></p><time>{String(row.publish_at ?? row.created_at ?? "").slice(0, 10)}</time></div>)}{!data.announcements.some((row) => String(row.status) === "published") && <p className="muted">No announcements have been published.</p>}</div></article>
+    <div className="dhv2-stat-grid">{metrics.map(([label, result, page]) => <StatCard key={String(label)} label={String(label)} value={result} trend={label === "New Hires" ? newHiresTrend : undefined} onClick={() => onNavigate(String(page))} />)}</div>
+    <div className="dhv2-chart-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends (Last 9 Months)</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Management")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Distribution</h2></div><DonutChart slices={departmentSlices} centerLabel={topDepartment ? { name: topDepartment.name, value: topDepartment.value } : undefined} /><div className="dhv2-donut-legend">{departmentSlices.map((slice) => <div className="dhv2-donut-legend-item" key={slice.name}><span>{slice.name}</span><b>{slice.value}</b></div>)}</div></article>
     </div>
+    <div className="dhv2-list-row-grid">
+      <ListCard title="Pending Approvals" count={pendingApprovals.length} rows={pendingApprovals.map((row) => ({ icon: "leave" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.employee_name ?? "Employee"), subtitle: `${row.leave_type ?? "Leave"} — ${row.days ?? "?"} days`, trailing: { type: "check" as const, onClick: () => onNavigate("Leave Management") } }))} emptyLabel="No leave requests are waiting on approval." />
+      <ListCard title="Recent Activity" rows={data.audit.slice(0, 6).map((row) => ({ icon: "audit" as IconName, iconColor: "var(--viz-slate)", title: String(row.action ?? row.description ?? "System activity"), subtitle: String(row.created_at ?? "") }))} emptyLabel="Nothing has been recorded yet." />
+      <ListCard title="Announcements" action={{ label: "View All", onClick: () => onNavigate("Announcements & Communication") }} rows={publishedAnnouncements.map((row) => ({ icon: "announcement" as IconName, iconColor: "var(--viz-purple-strong)", title: String(row.title ?? "Announcement"), subtitle: String(row.body ?? "").slice(0, 90) }))} emptyLabel="No announcements have been published." />
+    </div>
+    <div className="dhv2-bottom-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Headcount Trend</h2></div><BarChart values={headcount.values} xLabels={headcount.labels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Quick Actions</h2></div><QuickActionsGrid items={quickActions.slice(0, 6).map(([label, page]) => ({ label, icon: quickActionIcon[label] ?? moduleIcon(page), color: quickActionColor[label] ?? "slate", onClick: () => onNavigate(page) }))} /></article>
+    </div>
+    <article className="card panel"><div className="panel-head"><div><h2>All HR quick actions</h2><p className="muted">Common workforce operations</p></div></div><div className="quick dashboard-quick-grid">{quickActions.map(([label, page]) => <button key={label} onClick={() => onNavigate(page)}><span><MenuIcon name={moduleIcon(page)} /></span>{label}</button>)}</div></article>
   </section>;
 }

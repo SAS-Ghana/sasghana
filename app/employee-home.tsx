@@ -5,10 +5,11 @@ import { printTemplateDocument, renderTemplateContent } from "./lib/document-tem
 import { loadAttendancePolicy, runAttendanceAction } from "./quick-attendance";
 import { BookLibraryPage, libraryAccess } from "./book-library-page";
 import { PeopleDirectory } from "./people-directory";
-import { MenuIcon } from "./menu-icon";
+import { MenuIcon, IconName } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 import { AvatarPhoto } from "./avatar-photo";
 import { SelfRecordActions } from "./record-actions";
+import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
 
 type Tab = "dashboard" | "profile" | "people" | "attendance" | "leave" | "payroll" | "documents" | "performance" | "learning" | "tasks" | "expenses" | "assets" | "benefits" | "recruitment" | "communication" | "calendar" | "help" | "notifications" | "analytics" | "settings" | "ai" | "library";
 type Dataset = Record<string, DataRow[]> & { employee: DataRow[] };
@@ -142,13 +143,13 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onC
 
     {activeSection === "Home" && <header className="page-header"><div><span className="eyebrow">Employee self service</span><h1>Welcome, {firstName}</h1><p className="muted">{employee?.position_title || profile.job_title || "Employee"} · {employee?.department_name || "Your department"} · {new Date(now).toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p></div></header>}
 
-    {activeSection === "My Info" && <nav className="segmented employee-info-tabs" aria-label="My Info sections">
-      {infoTabs.map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}
-      <div className="more-menu-wrap">
+    {activeSection === "My Info" && <div className="employee-info-tabs-row">
+      <nav className="segmented employee-info-tabs" aria-label="My Info sections">
+        {infoTabs.map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}
         <button type="button" className={moreEntries.some(([id]) => id === tab) ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>More</button>
-        {moreOpen && <div className="account-menu more-menu">{moreEntries.map(([id, label]) => <button type="button" key={id} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}</div>}
-      </div>
-    </nav>}
+      </nav>
+      {moreOpen && <div className="account-menu more-menu employee-info-more-menu">{moreEntries.map(([id, label]) => <button type="button" key={id} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}</div>}
+    </div>}
 
     {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onAskAi={() => setTab("ai")} />}
     {tab === "people" && <PeopleDirectory accessToken={accessToken} organisationId={profile.organisation_id} canManage={false} />}
@@ -181,8 +182,9 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
   const cards = [["Present today", clockedIn ? "Clocked in" : "Not clocked in"], ["Leave balance", `${metrics.leaveBalance} days`], ["Pending requests", metrics.pending], ["Next payday", employee?.next_payday || "Not published"], ["Performance score", metrics.performanceScore || "—"], ["Attendance rate", `${metrics.attendanceRate}%`], ["Overtime hours", metrics.overtime.toFixed(1)], ["Assigned tasks", metrics.openTasks], ["Unread notifications", metrics.unread]];
   const summaryBars = cards.slice(0, 6).map(([label, result]) => [label, String(result), Number(String(result).replace(/[^0-9.-]/g, "")) || 0] as [string, string, number]);
   const summaryMax = Math.max(1, ...summaryBars.map(([, , n]) => n));
+  const upcomingEvents = data.meetings.filter((row) => new Date(String(row.starts_at)) > new Date()).slice(0, 5);
   return <>
-    <div className="employee-quick-cards">{cards.map(([label, result]) => <article key={String(label)}><span>{label}</span><strong>{String(result)}</strong></article>)}</div>
+    <div className="dhv2-stat-grid">{cards.map(([label, result]) => <StatCard key={String(label)} label={String(label)} value={String(result)} />)}</div>
     <article className="card dashboard-insights employee-home-summary">
       <div className="panel-head"><div><h2>My quick summary</h2><p className="muted">Live indicators from your employee workspace</p></div></div>
       <div className="insight-bars">{summaryBars.map(([label, raw, value]) => <div className="insight-row" key={label}><div className="insight-label"><span>{label}</span><strong>{raw}</strong></div><div className="insight-track"><span style={{ width: `${Math.min(100, value / summaryMax * 100)}%` }} /></div></div>)}</div>
@@ -190,12 +192,12 @@ function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBre
     <div className="employee-dashboard-grid">
       <article className="card employee-clock"><h2>Live attendance</h2><strong>{clockedIn ? liveTime : "Ready to start"}</strong><p>{onBreak ? "You are currently on break." : clockedIn ? "Your workday is active." : "Clock in to begin today's attendance."}</p><div className="employee-actions"><button className="primary" disabled={clockedIn || Boolean(busy)} onClick={() => onAction("clock_in")}>Clock In</button><button className="secondary" disabled={!clockedIn || Boolean(busy)} onClick={() => onAction("clock_out")}>Clock Out</button><button className="secondary" disabled={!clockedIn || onBreak || Boolean(busy)} onClick={() => onAction("break_in")}>Break In</button><button className="secondary" disabled={!onBreak || Boolean(busy)} onClick={() => onAction("break_out")}>Break Out</button></div></article>
       <article className="card employee-profile-card"><h2>Employee profile</h2><div className="profile-summary"><div className="profile-photo">{String(employee?.first_name ?? "E").slice(0, 1)}{String(employee?.last_name ?? "").slice(0, 1)}</div><div><h3>{`${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || "Employee"}</h3><p>{String(employee?.position_title ?? "Employee")}</p><span>{String(employee?.employee_number ?? "Staff number pending")}</span></div></div><button className="secondary wide-button" onClick={() => onTab("profile")}>View full profile</button></article>
-      <article className="card span-two"><div className="panel-head"><div><h2>Quick actions</h2><p className="muted">Common self service tasks</p></div></div><div className="employee-shortcuts">{[["Apply for leave", "leave"], ["View payslip", "payroll"], ["Submit expense", "expenses"], ["View tasks", "tasks"], ["My documents", "documents"], ["Get HR help", "help"]].map(([label, id]) => <button key={id} onClick={() => onTab(id as Tab)}>{label}</button>)}</div></article>
-      <article className="card span-two"><h2>Company announcements</h2><Rows rows={data.announcements.filter((row) => row.status === "published").slice(0, 5)} columns={[["title", "Announcement"], ["body", "Message"], ["publish_at", "Published"]]} /></article>
-      <article className="card"><h2>Recent notifications</h2><Rows rows={data.notifications.slice(0, 5)} columns={[["title", "Notification"], ["created_at", "Date"]]} /></article>
-      <article className="card"><h2>Upcoming events</h2><Rows rows={data.meetings.filter((row) => new Date(String(row.starts_at)) > new Date()).slice(0, 5)} columns={[["title", "Event"], ["starts_at", "Starts"]]} /></article>
-      <article className="card"><h2>Learning due</h2><Rows rows={data.learning.filter((row) => !["completed", "cancelled"].includes(String(row.status))).slice(0, 5)} columns={[["course_name", "Training"], ["due_date", "Due"]]} /></article>
-      <article className="card"><h2>Benefits</h2><Rows rows={data.benefits.filter((row) => String(row.status) === "active").slice(0, 5)} columns={[["benefit_name", "Benefit"], ["start_date", "Starts"]]} /></article>
+      <article className="card span-two"><div className="panel-head"><div><h2>Quick actions</h2><p className="muted">Common self service tasks</p></div></div><QuickActionsGrid items={[{ label: "Apply for leave", id: "leave", icon: "leave" as IconName, color: "orange" as const }, { label: "View payslip", id: "payroll", icon: "payroll" as IconName, color: "purple" as const }, { label: "Submit expense", id: "expenses", icon: "expense" as IconName, color: "purple" as const }, { label: "View tasks", id: "tasks", icon: "task" as IconName, color: "blue" as const }, { label: "My documents", id: "documents", icon: "audit" as IconName, color: "slate" as const }, { label: "Get HR help", id: "help", icon: "help" as IconName, color: "red" as const }].map(({ id, ...item }) => ({ ...item, onClick: () => onTab(id as Tab) }))} /></article>
+      <ListCard title="Company Announcements" action={{ label: "View All", onClick: () => onTab("communication") }} rows={data.announcements.filter((row) => row.status === "published").slice(0, 5).map((row) => ({ icon: "announcement" as IconName, iconColor: "var(--viz-purple-strong)", title: String(row.title ?? "Announcement"), subtitle: String(row.body ?? "").slice(0, 90) }))} emptyLabel="No announcements have been published yet." />
+      <ListCard title="Recent Notifications" rows={data.notifications.slice(0, 5).map((row) => ({ icon: "bell" as IconName, iconColor: "var(--viz-blue)", title: String(row.title ?? "Notification"), subtitle: String(row.created_at ?? "") }))} emptyLabel="No notifications yet." />
+      <ListCard title="Upcoming Events" rows={upcomingEvents.map((row) => ({ icon: "calendar" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.title ?? "Event"), trailing: { type: "pill" as const, label: new Date(String(row.starts_at)).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) } }))} emptyLabel="No upcoming events." />
+      <ListCard title="Learning Due" rows={data.learning.filter((row) => !["completed", "cancelled"].includes(String(row.status))).slice(0, 5).map((row) => ({ icon: "book" as IconName, iconColor: "var(--viz-slate)", title: String(row.course_name ?? "Training"), subtitle: `Due ${row.due_date ?? "—"}` }))} emptyLabel="Nothing due." />
+      <ListCard title="Benefits" rows={data.benefits.filter((row) => String(row.status) === "active").slice(0, 5).map((row) => ({ icon: "benefit" as IconName, iconColor: "var(--viz-red-strong)", title: String(row.benefit_name ?? "Benefit"), subtitle: `Since ${row.start_date ?? "—"}` }))} emptyLabel="No active benefits on file." />
       <article className="card span-two ai-teaser"><div><span className="eyebrow">AI HR Assistant</span><h2>Get answers from your employee workspace</h2><p>Ask about leave, attendance, payroll, policies, documents, training and career growth.</p></div><button className="primary" onClick={onAskAi}>Open AI Assistant</button></article>
     </div>
   </>;

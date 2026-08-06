@@ -4,6 +4,8 @@ import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
 type AuditView = "activity" | "logins";
+type SortField = "time" | "name" | "location";
+type SortState = { field: SortField; dir: "asc" | "desc" };
 
 function formatDate(value: unknown) {
   if (!value) return "—";
@@ -19,12 +21,34 @@ function accountName(row: DataRow) {
   return "Account";
 }
 
+function locationLabel(row: DataRow) {
+  const parts = [row.city, row.region, row.country].map((part) => (part ? String(part) : "")).filter(Boolean);
+  if (parts.length) return parts.join(", ");
+  if (row.ip_address) return String(row.ip_address);
+  return "Location not available";
+}
+
+function sortRows(rows: DataRow[], sort: SortState) {
+  const factor = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (sort.field === "time") return (new Date(String(a.created_at)).getTime() - new Date(String(b.created_at)).getTime()) * factor;
+    if (sort.field === "name") return accountName(a).localeCompare(accountName(b)) * factor;
+    return locationLabel(a).localeCompare(locationLabel(b)) * factor;
+  });
+}
+
+function SortableHeader({ label, field, sort, onSort }: { label: string; field: SortField; sort: SortState; onSort: (field: SortField) => void }) {
+  const active = sort.field === field;
+  return <th><button type="button" className="audit-sort-button" onClick={() => onSort(field)}>{label}{active && <span aria-hidden="true">{sort.dir === "asc" ? " ↑" : " ↓"}</span>}</button></th>;
+}
+
 export function AuditHub({ accessToken }: { accessToken: string }) {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [loginRows, setLoginRows] = useState<DataRow[]>([]);
   const [view, setView] = useState<AuditView>("activity");
   const [query, setQuery] = useState("");
   const [outcome, setOutcome] = useState("all");
+  const [sort, setSort] = useState<SortState>({ field: "time", dir: "desc" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -48,25 +72,31 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
   useEffect(() => { void load(); }, [load]);
 
   const source = view === "logins" ? loginRows : rows;
-  const visible = useMemo(() => source.filter((row) => {
+  const filtered = useMemo(() => source.filter((row) => {
     const matchesOutcome = outcome === "all" || String(row.outcome) === outcome;
     const matchesQuery = !query || Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase()));
     return matchesOutcome && matchesQuery;
   }), [source, query, outcome]);
+  const visible = useMemo(() => sortRows(filtered, sort), [filtered, sort]);
+
+  function toggleSort(field: SortField) {
+    setSort((current) => current.field === field ? { field, dir: current.dir === "asc" ? "desc" : "asc" } : { field, dir: "asc" });
+  }
 
   const successful = loginRows.filter((row) => row.outcome === "success").length;
   const failed = loginRows.filter((row) => row.outcome === "failed").length;
 
-  return <section>
+  return <section className="audit-hub-page">
     <header className="page-header">
       <div>
         <span className="eyebrow">Security & accountability</span>
         <h1><MenuIcon name={moduleIcon("Audit Logs")} />{view === "logins" ? "Login history" : "Complete activity audit"}</h1>
-        <p className="muted">Audit history is permanent and read only. Login history includes successful and failed account access attempts.</p>
+        <p className="muted">Audit history is permanent and read only. Login history includes successful and failed account access attempts, with the approximate location and device used.</p>
       </div>
       <div className="row-actions audit-view-actions">
         <button type="button" className={view === "activity" ? "primary" : "secondary"} onClick={() => setView("activity")}>All activity</button>
         <button type="button" className={view === "logins" ? "primary" : "secondary"} onClick={() => setView("logins")}>Login history</button>
+        <button type="button" className="secondary" onClick={() => window.print()}><MenuIcon name="report" />Print</button>
         <button type="button" className="secondary" disabled={loading} onClick={() => void load()}>{loading ? "Refreshing…" : "Refresh"}</button>
       </div>
     </header>
@@ -79,7 +109,7 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
 
     <article className="card data-panel">
       <div className="filter-toolbar">
-        <input id="audit-search" name="audit_search" aria-label="Search audit" placeholder={view === "logins" ? "Search account, email or device…" : "Search person, action, resource or device…"} value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input id="audit-search" name="audit_search" aria-label="Search audit" placeholder={view === "logins" ? "Search account, email, device or location…" : "Search person, action, resource, device or location…"} value={query} onChange={(event) => setQuery(event.target.value)} />
         <select id="audit-outcome" name="audit_outcome" aria-label="Audit outcome" value={outcome} onChange={(event) => setOutcome(event.target.value)}>
           <option value="all">All outcomes</option>
           <option value="success">Success</option>
@@ -93,16 +123,16 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
 
       <div className="table-scroll">
         {view === "logins" ? <table className="data-table">
-          <thead><tr><th>Date & time</th><th>Account</th><th>Result</th><th>Device / browser</th><th>Details</th></tr></thead>
+          <thead><tr><SortableHeader label="Date & time" field="time" sort={sort} onSort={toggleSort} /><SortableHeader label="Account" field="name" sort={sort} onSort={toggleSort} /><th>Result</th><th>Device / browser</th><SortableHeader label="Location" field="location" sort={sort} onSort={toggleSort} /></tr></thead>
           <tbody>{visible.map((row) => <tr key={String(row.id)}>
             <td>{formatDate(row.created_at)}</td>
             <td><strong>{String(row.actor_name ?? row.actor_username ?? "Account")}</strong><small className="table-subline">{String(row.actor_username ?? "—")} · {String(row.actor_email ?? "—")}</small></td>
             <td><span className={`status-pill ${row.outcome}`}>{String(row.outcome ?? "recorded")}</span></td>
             <td><span className="audit-agent">{String(row.user_agent ?? "Device not supplied")}</span></td>
-            <td>{String(row.action ?? "").replaceAll("_", " ")}<small className="table-subline">{row.ip_address ? `IP: ${String(row.ip_address)}` : "IP not supplied by browser"}</small></td>
+            <td>{locationLabel(row)}<small className="table-subline">{row.ip_address ? `IP: ${String(row.ip_address)}` : "IP not supplied by browser"}</small></td>
           </tr>)}</tbody>
         </table> : <table className="data-table">
-          <thead><tr><th>Date & time</th><th>Account</th><th>Action</th><th>Resource</th><th>Outcome</th><th>Device / details</th></tr></thead>
+          <thead><tr><SortableHeader label="Date & time" field="time" sort={sort} onSort={toggleSort} /><SortableHeader label="Account" field="name" sort={sort} onSort={toggleSort} /><th>Action</th><th>Resource</th><th>Outcome</th><th>Device / details</th><SortableHeader label="Location" field="location" sort={sort} onSort={toggleSort} /></tr></thead>
           <tbody>{visible.map((row) => <tr key={String(row.id)}>
             <td>{formatDate(row.created_at)}</td>
             <td><strong>{accountName(row)}</strong><small className="table-subline">{String(row.actor_username ?? "—")} · {String(row.account_type ?? "—")}</small></td>
@@ -110,6 +140,7 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
             <td>{String(row.resource ?? "—")}<small className="table-subline">{String(row.resource_id ?? "")}</small></td>
             <td><span className={`status-pill ${row.outcome}`}>{String(row.outcome ?? "recorded")}</span></td>
             <td><span className="audit-agent">{String(row.user_agent ?? JSON.stringify(row.metadata ?? {}))}</span></td>
+            <td>{locationLabel(row)}</td>
           </tr>)}</tbody>
         </table>}
       </div>

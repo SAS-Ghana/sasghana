@@ -1,4 +1,4 @@
-type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings"|"mail"|"phone"|"briefcase"|"badge"|"home"|"folder"|"location"|"search"|"help";
+export type IconName = "dashboard"|"branch"|"department"|"asset"|"category"|"leave"|"calendar"|"attendance"|"expense"|"compensation"|"paygrade"|"financial"|"payroll"|"tax"|"benefit"|"performance"|"goal"|"feedback"|"meeting"|"workflow"|"automation"|"recruitment"|"disciplinary"|"report"|"compliance"|"task"|"global"|"training"|"survey"|"analytics"|"announcement"|"message"|"employees"|"users"|"profile-request"|"self-service"|"profile"|"audit"|"backup"|"billing"|"settings"|"mail"|"phone"|"briefcase"|"badge"|"home"|"folder"|"location"|"search"|"help"|"book"|"user-plus"|"bell"|"trending-up"|"trending-down";
 
 const paths:Record<IconName,string[]> = {
   dashboard:["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
@@ -50,7 +50,12 @@ const paths:Record<IconName,string[]> = {
   folder:["M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
   location:["M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z","M12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
   search:["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z","m21 21-4.3-4.3"],
-  help:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 2","M12 17h.01"]
+  help:["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 2","M12 17h.01"],
+  book:["M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z","M4 19.5A2.5 2.5 0 0 1 6.5 17H20"],
+  "user-plus":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z","M4 21v-2a5 5 0 0 1 5-5h1","M17 11v6","M14 14h6"],
+  bell:["M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9","M10 21h4"],
+  "trending-up":["M3 17l6-6 4 4 8-8","M15 7h6v6"],
+  "trending-down":["M3 7l6 6 4-4 8 8","M15 17h6v-6"]
 };
 
 export function MenuIcon({name}:{name:IconName}){

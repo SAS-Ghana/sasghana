@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { DataRow, listRows } from "./lib/supabase-data";
-import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
-import { MenuIcon } from "./menu-icon";
+import { MenuIcon, IconName } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 import { AvatarPhoto } from "./avatar-photo";
+import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
+import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
+import { monthDelta, monthlyBuckets, monthlyCumulative, groupCounts } from "./lib/dashboard-metrics";
+
+const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
+const quickActionIcon: Record<string, IconName> = { "Add Employee": "user-plus", "Live Attendance": "attendance", "Invite User": "mail", "Assign Role": "badge", "Create Department": "department", "Create Branch": "branch", "Start Onboarding": "recruitment", "Start Offboarding": "disciplinary", "Review Attendance": "attendance", "Review Leave": "leave", "Open Payroll": "payroll", "Create Vacancy": "briefcase", "Generate Document": "audit", "Publish Announcement": "announcement", "View Security Alerts": "compliance", "Export Report": "report", "Open System Settings": "settings" };
+const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Add Employee": "blue", "Live Attendance": "blue", "Invite User": "blue", "Assign Role": "blue", "Create Department": "slate", "Create Branch": "slate", "Start Onboarding": "orange", "Start Offboarding": "slate", "Review Attendance": "orange", "Review Leave": "orange", "Open Payroll": "purple", "Create Vacancy": "purple", "Generate Document": "slate", "Publish Announcement": "purple", "View Security Alerts": "red", "Export Report": "slate", "Open System Settings": "slate" };
 
 type Props = { accessToken: string; profile: UserProfile; onNavigate: (label: string) => void };
 
@@ -61,22 +67,44 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
     ["Security Alerts", (data.audit ?? []).filter((row) => /failed|security|suspicious|lock/i.test(String(row.event_type || row.action || row.description))).length, "Audit Logs"],
   ], [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, expenses, assetRequests, benefits, payroll, data.audit, today]);
 
-  const trend = Array.from({ length: 6 }, (_, offset) => { const date = new Date(); date.setDate(date.getDate() - (5 - offset)); const key = date.toISOString().slice(0, 10); return attendanceAll.filter((row) => String(row.attendance_date) === key && ["present", "late", "remote"].includes(String(row.status))).length; });
-  const quick = ["Add Employee", "Invite User", "Assign Role", "Create Department", "Create Branch", "Start Onboarding", "Start Offboarding", "Review Attendance", "Review Leave", "Open Payroll", "Create Vacancy", "Generate Document", "Publish Announcement", "View Security Alerts", "Export Report", "Open System Settings"];
+  const newHiresTrend = useMemo(() => monthDelta(employees, "start_date"), [employees]);
+  const quick = ["Add Employee", "Live Attendance", "Invite User", "Assign Role", "Create Department", "Create Branch", "Start Onboarding", "Start Offboarding", "Review Attendance", "Review Leave", "Open Payroll", "Create Vacancy", "Generate Document", "Publish Announcement", "View Security Alerts", "Export Report", "Open System Settings"];
+
+  const leaveTypes = useMemo(() => groupCounts(leave, "leave_type", 4), [leave]);
+  const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [leave, leaveTypes]);
+  const leaveMonthLabels = useMemo(() => monthlyBuckets(leave, "start_date", 9).labels, [leave]);
+
+  const departmentSlices = useMemo(() => groupCounts(employees, "department_name", 6).map(([name, value], index) => ({ name, value, color: vizPalette[index] })), [employees]);
+  const topDepartment = departmentSlices[0];
+
+  const headcount = useMemo(() => monthlyCumulative(employees, "start_date", 7), [employees]);
+
+  const pendingApprovals = useMemo(() => leave.filter((row) => String(row.status) === "pending").slice(0, 5), [leave]);
 
   return <section className="dashboard-workspace">
-    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS Finance Group.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <div className="breadcrumb-trail"><span>SAS Finance Group</span><span aria-hidden="true">›</span><span>Administrator Dashboard</span></div>
+    <header className="page-header">
+      <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS Finance Group.</p></div></div>
+      <div className="page-header-actions"><button className="secondary" onClick={() => void load()}><MenuIcon name="report" />Refresh</button><button type="button" className="link-button" onClick={() => onNavigate("Reports & Analytics")}>Quick Actions</button></div>
+    </header>
     {error && <p className="form-error" role="alert">{error}</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
-    <div className="dashboard-metric-grid">{metrics.map(([label, result, target]) => <button key={String(label)} className="card metric dashboard-metric-card" onClick={() => onNavigate(String(target))}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(String(target))} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>
-    <div className="dashboard-chart-grid"><DashboardInsights title="Organisation health" items={[{ label: "Active users", value: profiles.filter((row) => String(row.status || "active") === "active").length, max: Math.max(profiles.length, 1) }, { label: "Present today", value: attendance.filter((row) => ["present", "late", "remote"].includes(String(row.status))).length, max: Math.max(employees.length, 1) }, { label: "Open support tickets", value: tickets.filter((row) => !["closed", "resolved"].includes(String(row.status))).length, max: Math.max(tickets.length, 1) }, { label: "Pending approvals", value: leave.filter((row) => String(row.status).includes("pending")).length, max: Math.max(leave.length, 1) }]} /><MiniTrend title="Six day organisation attendance" values={trend} /></div>
-    <div className="dashboard-content-grid">
-      <article className="card panel dashboard-wide-panel"><div className="panel-head"><div><h2>Administrator quick actions</h2><p className="muted">Common organisation operations</p></div></div><div className="quick dashboard-quick-grid">{quick.map((item) => <button key={item} onClick={() => onNavigate(actionTarget(item))}><span><MenuIcon name={moduleIcon(actionTarget(item))} /></span>{item}</button>)}</div></article>
-      <article className="card panel"><h2>Recent system activity</h2><SimpleList rows={(data.audit ?? []).slice(0, 8)} primary="action" secondary="created_at" /></article>
-      <article className="card panel"><h2>Important announcements</h2><SimpleList rows={(data.announcements ?? []).filter((row) => String(row.status) === "published").slice(0, 8)} primary="title" secondary="publish_at" /></article>
+    <div className="dhv2-stat-grid">{metrics.map(([label, result, target]) => <StatCard key={String(label)} label={String(label)} value={result} trend={label === "New Hires" ? newHiresTrend : undefined} onClick={() => onNavigate(String(target))} />)}</div>
+    <div className="dhv2-chart-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends (Last 9 Months)</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Management")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Distribution</h2></div><DonutChart slices={departmentSlices} centerLabel={topDepartment ? { name: topDepartment.name, value: topDepartment.value } : undefined} /><div className="dhv2-donut-legend">{departmentSlices.map((slice) => <div className="dhv2-donut-legend-item" key={slice.name}><span>{slice.name}</span><b>{slice.value}</b></div>)}</div></article>
     </div>
+    <div className="dhv2-list-row-grid">
+      <ListCard title="Pending Approvals" count={pendingApprovals.length} rows={pendingApprovals.map((row) => ({ icon: "leave" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.employee_name ?? "Employee"), subtitle: `${row.leave_type ?? "Leave"} — ${row.days ?? "?"} days`, trailing: { type: "check" as const, onClick: () => onNavigate("Leave Management") } }))} emptyLabel="No leave requests are waiting on approval." />
+      <ListCard title="Recent Activity" rows={(data.audit ?? []).slice(0, 6).map((row) => ({ icon: "audit" as IconName, iconColor: "var(--viz-slate)", title: String(row.action ?? row.description ?? "System activity"), subtitle: String(row.created_at ?? "") }))} emptyLabel="Nothing has been recorded yet." />
+      <ListCard title="Important Announcements" action={{ label: "View All", onClick: () => onNavigate("Communication") }} rows={(data.announcements ?? []).filter((row) => String(row.status) === "published").slice(0, 6).map((row) => ({ icon: "announcement" as IconName, iconColor: "var(--viz-purple-strong)", title: String(row.title ?? "Announcement"), subtitle: String(row.publish_at ?? "") }))} emptyLabel="No announcements have been published yet." />
+    </div>
+    <div className="dhv2-bottom-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Headcount Trend</h2></div><BarChart values={headcount.values} xLabels={headcount.labels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Quick Actions</h2></div><QuickActionsGrid items={quick.slice(0, 6).map((item) => ({ label: item, icon: quickActionIcon[item] ?? moduleIcon(actionTarget(item)), color: quickActionColor[item] ?? "slate", onClick: () => onNavigate(actionTarget(item)) }))} /></article>
+    </div>
+    <article className="card panel dashboard-wide-panel"><div className="panel-head"><div><h2>All administrator quick actions</h2><p className="muted">Common organisation operations</p></div></div><div className="quick dashboard-quick-grid">{quick.map((item) => <button key={item} onClick={() => onNavigate(actionTarget(item))}><span><MenuIcon name={moduleIcon(actionTarget(item))} /></span>{item}</button>)}</div></article>
   </section>;
 }
 
-function actionTarget(label: string) { if (/employee/i.test(label)) return "Employee Management"; if (/user|role/i.test(label)) return "User & Account Management"; if (/department|branch/i.test(label)) return "Organization Structure"; if (/onboarding/i.test(label)) return "Onboarding"; if (/offboarding/i.test(label)) return "Offboarding"; if (/attendance/i.test(label)) return "Attendance Management"; if (/leave/i.test(label)) return "Leave Management"; if (/payroll/i.test(label)) return "Payroll & Payslips"; if (/vacancy/i.test(label)) return "Recruitment"; if (/document/i.test(label)) return "Documents & Templates"; if (/announcement/i.test(label)) return "Communication"; if (/security/i.test(label)) return "Audit Logs"; if (/export|report/i.test(label)) return "Reports & Analytics"; return "Settings Centre"; }
-function SimpleList({ rows, primary, secondary }: { rows: DataRow[]; primary: string; secondary: string }) { return rows.length ? <div className="activity">{rows.map((row, index) => <div className="activity-row" key={String(row.id ?? index)}><div className="task-icon">•</div><p>{String(row[primary] ?? row.title ?? row.description ?? "Activity")}</p><time>{String(row[secondary] ?? "")}</time></div>)}</div> : <div className="empty-state compact"><h3>No records</h3><p>Nothing has been recorded yet.</p></div>; }
+function actionTarget(label: string) { if (/live attendance/i.test(label)) return "Live Attendance"; if (/employee/i.test(label)) return "Employee Management"; if (/user|role/i.test(label)) return "User & Account Management"; if (/department|branch/i.test(label)) return "Organization Structure"; if (/onboarding/i.test(label)) return "Onboarding"; if (/offboarding/i.test(label)) return "Offboarding"; if (/attendance/i.test(label)) return "Attendance Management"; if (/leave/i.test(label)) return "Leave Management"; if (/payroll/i.test(label)) return "Payroll & Payslips"; if (/vacancy/i.test(label)) return "Recruitment"; if (/document/i.test(label)) return "Documents & Templates"; if (/announcement/i.test(label)) return "Communication"; if (/security/i.test(label)) return "Audit Logs"; if (/export|report/i.test(label)) return "Reports & Analytics"; return "Settings Centre"; }

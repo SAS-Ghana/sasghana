@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { DataRow, listNamedRows, listRows } from "./lib/supabase-data";
-import { DashboardInsights, MiniTrend } from "./dashboard-insights";
 import { QuickAttendance } from "./quick-attendance";
-import { MenuIcon } from "./menu-icon";
+import { MenuIcon, IconName } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 import { AvatarPhoto } from "./avatar-photo";
+import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
+import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
+import { monthlyBuckets, groupCounts } from "./lib/dashboard-metrics";
 
 type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[] };
 const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [] };
+const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
+const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Start performance review": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Assign training": "training", "Send team message": "message", "View team calendar": "calendar", "Request employee document": "audit", "Review employee requests": "help", "Open Book Library": "book" };
+const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Approve leave": "orange", "Review attendance": "orange", "Assign task": "blue", "Start performance review": "purple", "Schedule one to one": "purple", "Submit recruitment request": "blue", "Approve expense": "purple", "Assign training": "slate", "Send team message": "purple", "View team calendar": "slate", "Request employee document": "slate", "Review employee requests": "red", "Open Book Library": "blue" };
 
 export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
   const [data, setData] = useState<ManagerData>(empty);
@@ -57,8 +62,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
     };
   }, [data, today]);
 
-  const trend = Array.from({ length: 6 }, (_, offset) => { const date = new Date(); date.setDate(date.getDate() - (5 - offset)); const key = date.toISOString().slice(0, 10); return data.attendance.filter((row) => String(row.attendance_date) === key && ["present", "late", "remote"].includes(String(row.status))).length; });
-  const birthdays = data.team.filter((person) => { if (!person.date_of_birth) return false; const date = new Date(String(person.date_of_birth)), current = new Date(); return date.getMonth() === current.getMonth() && date.getDate() >= current.getDate(); }).slice(0, 5);
+  const birthdays = useMemo(() => data.team.filter((person) => { if (!person.date_of_birth) return false; const date = new Date(String(person.date_of_birth)), current = new Date(); return date.getMonth() === current.getMonth() && date.getDate() >= current.getDate(); }).slice(0, 5), [data.team]);
   const cards: [string, number, string][] = [
     ["Total team members", data.team.length, "My Team"], ["Present today", metrics.present, "Team Attendance"], ["Absent today", Math.max(0, data.team.length - metrics.present - metrics.onLeave), "Team Attendance"],
     ["On leave", metrics.onLeave, "Leave Approvals"], ["Late today", metrics.late, "Team Attendance"], ["Pending leave approvals", metrics.pendingLeave, "Leave Approvals"],
@@ -69,17 +73,44 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
   const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["One to One Meetings", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Meetings & Calendar", "View team calendar"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Book Library", "Open Book Library"]);
 
+  const leaveTypes = useMemo(() => groupCounts(data.leave, "leave_type", 4), [data.leave]);
+  const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(data.leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [data.leave, leaveTypes]);
+  const leaveMonthLabels = useMemo(() => monthlyBuckets(data.leave, "start_date", 9).labels, [data.leave]);
+
+  const departmentSlices = useMemo(() => groupCounts(data.team, "department_name", 6).map(([name, value], index) => ({ name, value, color: vizPalette[index] })), [data.team]);
+  const topDepartment = departmentSlices[0];
+
+  const attendanceTrend = useMemo(() => monthlyBuckets(data.attendance.filter((row) => ["present", "late", "remote"].includes(String(row.status))), "attendance_date", 9), [data.attendance]);
+
+  const pendingApprovals = useMemo(() => data.leave.filter((row) => String(row.status) === "pending" && String(row.workflow_stage ?? "manager_review") === "manager_review").slice(0, 5), [data.leave]);
+  const openTasks = useMemo(() => data.tasks.filter((row) => String(row.status) !== "completed").slice(0, 6), [data.tasks]);
+  const publishedAnnouncements = useMemo(() => data.announcements.filter((row) => String(row.status) === "published").slice(0, 5), [data.announcements]);
+
   return <section className="dashboard-workspace">
-    <header className="page-header"><div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Manager workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">Your authorised team, approvals, performance and workload in one place.</p></div></div><button className="secondary" onClick={() => void load()}>Refresh</button></header>
+    <div className="breadcrumb-trail"><span>SAS Finance Group</span><span aria-hidden="true">›</span><span>Manager Dashboard</span></div>
+    <header className="page-header">
+      <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Manager workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">Your authorised team, approvals, performance and workload in one place.</p></div></div>
+      <div className="page-header-actions"><button className="secondary" onClick={() => void load()}><MenuIcon name="report" />Refresh</button><button type="button" className="link-button" onClick={() => onNavigate("Reports & Analytics")}>Quick Actions</button></div>
+    </header>
     {error && <p className="form-error" role="alert">{error}</p>}{loading && <p className="form-message">Loading team information…</p>}
     <QuickAttendance accessToken={accessToken} profile={profile} />
-    <div className="dashboard-metric-grid">{cards.map(([label, result, page]) => <button className="card metric dashboard-metric-card" key={label} onClick={() => onNavigate(page)}><span className="metric-top"><i className="metric-icon-chip"><MenuIcon name={moduleIcon(page)} /></i>{label}</span><strong>{result}</strong><small>Open module</small></button>)}</div>
-    <div className="dashboard-chart-grid"><DashboardInsights title="Team workload summary" items={[{ label: "Present today", value: metrics.present, max: Math.max(data.team.length, 1), detail: `${data.team.length} team members` }, { label: "Pending leave", value: metrics.pendingLeave, max: Math.max(data.team.length, 1) }, { label: "Reviews due", value: metrics.reviewsDue, max: Math.max(data.team.length, 1) }, { label: "Overdue tasks", value: metrics.overdueTasks, max: Math.max(data.tasks.length, 1) }]} /><MiniTrend title="Six day attendance" values={trend} /></div>
-    <div className="quick dashboard-quick-grid manager-quick">{quickActions.map(([page, label]) => <button key={page} onClick={() => onNavigate(page)}><span><MenuIcon name={moduleIcon(page)} /></span>{label}</button>)}</div>
+    <div className="dhv2-stat-grid">{cards.map(([label, result, page]) => <StatCard key={label} label={label} value={result} onClick={() => onNavigate(page)} />)}</div>
+    <div className="dhv2-chart-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends (Last 9 Months)</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Approvals")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Distribution</h2></div><DonutChart slices={departmentSlices} centerLabel={topDepartment ? { name: topDepartment.name, value: topDepartment.value } : undefined} /><div className="dhv2-donut-legend">{departmentSlices.map((slice) => <div className="dhv2-donut-legend-item" key={slice.name}><span>{slice.name}</span><b>{slice.value}</b></div>)}</div></article>
+    </div>
+    <div className="dhv2-list-row-grid">
+      <ListCard title="Pending Approvals" count={pendingApprovals.length} rows={pendingApprovals.map((row) => ({ icon: "leave" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.employee_name ?? "Employee"), subtitle: `${row.leave_type ?? "Leave"} — ${row.days ?? "?"} days`, trailing: { type: "check" as const, onClick: () => onNavigate("Leave Approvals") } }))} emptyLabel="No leave requests are waiting on your approval." />
+      <ListCard title="Tasks Requiring Attention" action={{ label: "View All", onClick: () => onNavigate("Tasks") }} rows={openTasks.map((row) => ({ icon: "task" as IconName, iconColor: "var(--viz-blue)", title: String(row.title ?? "Task"), subtitle: String(row.due_date ?? "No due date") }))} emptyLabel="No team tasks require attention." />
+      <ListCard title="Upcoming Events" rows={birthdays.map((person) => ({ icon: "profile" as IconName, iconColor: "var(--viz-purple-strong)", title: String(person.full_name ?? "Team member"), subtitle: String(person.position_title ?? "Birthday"), trailing: { type: "pill" as const, label: new Date(String(person.date_of_birth)).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) } }))} emptyLabel="No upcoming birthdays this month." />
+    </div>
+    <div className="dhv2-bottom-row">
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Attendance Trend</h2></div><BarChart values={attendanceTrend.values} xLabels={attendanceTrend.labels} /></article>
+      <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Quick Actions</h2></div><QuickActionsGrid items={quickActions.slice(0, 6).map(([page, label]) => ({ label, icon: quickActionIcon[label] ?? moduleIcon(page), color: quickActionColor[label] ?? "slate", onClick: () => onNavigate(page) }))} /></article>
+    </div>
     <div className="dashboard-content-grid">
-      <article className="card panel"><div className="panel-head"><h2>Tasks requiring attention</h2><button className="text-btn" onClick={() => onNavigate("Tasks")}>View all</button></div><div className="tasks">{data.tasks.filter((row) => String(row.status) !== "completed").slice(0, 6).map((row) => <div className="task" key={String(row.id)}><div className="task-icon">✓</div><div><strong>{String(row.title ?? "Task")}</strong><small>{String(row.due_date ?? "No due date")}</small></div><span className="badge">{String(row.priority ?? row.status ?? "open")}</span></div>)}{!data.tasks.some((row) => String(row.status) !== "completed") && <p className="muted">No team tasks require attention.</p>}</div></article>
-      <article className="card panel"><div className="panel-head"><h2>Upcoming birthdays</h2></div><div className="activity">{birthdays.map((person) => <div className="activity-row" key={String(person.id)}><div className="avatar">{String(person.full_name ?? "TM").slice(0, 2).toUpperCase()}</div><p><strong>{String(person.full_name)}</strong><br /><span className="muted">{String(person.position_title ?? "Team member")}</span></p><time>{new Date(String(person.date_of_birth)).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}</time></div>)}{!birthdays.length && <p className="muted">No upcoming birthdays this month.</p>}</div></article>
-      <article className="card panel"><div className="panel-head"><h2>Important announcements</h2></div><div className="activity">{data.announcements.filter((row) => String(row.status) === "published").slice(0, 5).map((row) => <div className="activity-row" key={String(row.id)}><div className="task-icon">i</div><p><strong>{String(row.title)}</strong><br /><span className="muted">{String(row.body ?? "").slice(0, 90)}</span></p></div>)}{!data.announcements.some((row) => String(row.status) === "published") && <p className="muted">No published announcements.</p>}</div></article>
+      <article className="card panel"><div className="panel-head"><div><h2>All manager quick actions</h2><p className="muted">Common team operations</p></div></div><div className="quick dashboard-quick-grid">{quickActions.map(([page, label]) => <button key={page} onClick={() => onNavigate(page)}><span><MenuIcon name={moduleIcon(page)} /></span>{label}</button>)}</div></article>
+      <article className="card panel"><div className="panel-head"><h2>Important announcements</h2></div><div className="activity">{publishedAnnouncements.map((row) => <div className="activity-row" key={String(row.id)}><div className="task-icon">i</div><p><strong>{String(row.title)}</strong><br /><span className="muted">{String(row.body ?? "").slice(0, 90)}</span></p></div>)}{!publishedAnnouncements.length && <p className="muted">No published announcements.</p>}</div></article>
       <article className="card panel"><div className="panel-head"><h2>AI manager insights</h2></div><p className="muted">AI suggestions support decisions but never approve, reject, discipline, terminate or promote employees automatically.</p></article>
     </div>
   </section>;

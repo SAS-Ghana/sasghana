@@ -8,7 +8,22 @@ let refreshPromise:Promise<AuthSession|null>|null=null;
 function loginEmail(username:string){const clean=username.trim();return clean.includes("@")?clean.toLowerCase():`${clean.toLowerCase()}@saspeople.local`;}
 export async function resolveLoginEmail(usernameOrEmail:string){const clean=usernameOrEmail.trim().toLowerCase();if(clean.includes("@"))return clean;const response=await fetch(`${serviceUrl}/rest/v1/rpc/resolve_login_email`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:clean})});if(!response.ok)return loginEmail(clean);const email=await response.json() as string|null;return email||loginEmail(clean);}
 export async function signIn(username:string,password:string):Promise<{session:AuthSession;profile:UserProfile}>{const response=await fetch(`${serviceUrl}/auth/v1/token?grant_type=password`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email:await resolveLoginEmail(username),password})});if(!response.ok){void recordLoginEvent(username,false);throw new Error("The username or password is incorrect.");}const session=normaliseSession(await response.json() as AuthSession);const profile=await fetchProfile(session.access_token,session.user.id);if(!profile||!["active","password_change_required"].includes(profile.status))throw new Error("This account is not active. Contact an administrator.");void recordLoginEvent(username,true,session.access_token);return{session,profile};}
-async function recordLoginEvent(login:string,success:boolean,accessToken?:string){await fetch(`${serviceUrl}/rest/v1/rpc/record_login_event`,{method:"POST",headers:{...jsonHeaders,...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})},body:JSON.stringify({login_name:login,was_successful:success,client_agent:navigator.userAgent})}).catch(()=>undefined);}
+// Best-effort approximate location for the audit trail -- resolved via the browser's own request to
+// a free IP-geolocation lookup (the request naturally carries the user's real public IP), since
+// Postgres has no city/country database of its own. Never blocks or fails the login flow: any error
+// (offline, blocked, rate-limited) just means the audit entry has no location, not a broken sign-in.
+async function resolveApproximateLocation():Promise<{ip?:string;city?:string;region?:string;country?:string}>{
+  try{
+    const controller=new AbortController();
+    const timeout=window.setTimeout(()=>controller.abort(),3000);
+    const response=await fetch("https://ipapi.co/json/",{signal:controller.signal});
+    window.clearTimeout(timeout);
+    if(!response.ok)return{};
+    const data=await response.json() as {ip?:string;city?:string;region?:string;country_name?:string};
+    return{ip:data.ip,city:data.city,region:data.region,country:data.country_name};
+  }catch{return{};}
+}
+async function recordLoginEvent(login:string,success:boolean,accessToken?:string){const location=await resolveApproximateLocation();await fetch(`${serviceUrl}/rest/v1/rpc/record_login_event`,{method:"POST",headers:{...jsonHeaders,...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})},body:JSON.stringify({login_name:login,was_successful:success,client_agent:navigator.userAgent,p_ip_address:location.ip??null,p_city:location.city??null,p_region:location.region??null,p_country:location.country??null})}).catch(()=>undefined);}
 export async function requestPasswordReset(usernameOrEmail:string){const email=await resolveLoginEmail(usernameOrEmail);await fetch(`${serviceUrl}/rest/v1/rpc/request_password_reset_notice`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:usernameOrEmail.trim()})});const response=await fetch(`${serviceUrl}/auth/v1/recover`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,redirect_to:`${window.location.origin}/`})});if(!response.ok)throw new Error("Password reset email could not be sent. Confirm that this account has a valid email.");return "If the account exists and has an email, a secure reset link has been sent. An administrator has also been notified.";}
 const profileBaseColumns="id,organisation_id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,preferred_dashboard,self_service_enabled,two_step_email_enabled,two_step_email_verified_at";
 export async function fetchProfile(accessToken:string,userId:string){

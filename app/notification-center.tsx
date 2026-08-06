@@ -2,12 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { callRpc, DataRow, deleteRow, listRows, updateRow } from "./lib/supabase-data";
 import { realtimeClient } from "./lib/supabase-realtime";
+import { MenuIcon } from "./menu-icon";
 
 type Filter="all"|"unread"|"read"|"archived";
 type Sort="newest"|"oldest"|"priority"|"unread";
 const rank:Record<string,number>={critical:4,high:3,normal:2,low:1};
-
-function BellIcon(){return <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
 
 export function NotificationCenter({accessToken,profile}:{accessToken:string;profile:UserProfile}) {
   const [open,setOpen]=useState(false),[items,setItems]=useState<DataRow[]>([]),[filter,setFilter]=useState<Filter>("all"),[sort,setSort]=useState<Sort>("newest"),[query,setQuery]=useState(""),[busy,setBusy]=useState("");
@@ -42,7 +41,7 @@ export function NotificationCenter({accessToken,profile}:{accessToken:string;pro
   async function remove(item:DataRow){if(!confirm("Delete this notification?"))return;setBusy(String(item.id));try{await deleteRow(accessToken,"notifications",String(item.id));await load();}finally{setBusy("");}}
 
   return <div className="notification-center" ref={containerRef}>
-    <button className="icon-btn notification-bell" aria-label={`Notifications${unread?` (${unread} unread)`:""}`} onClick={()=>setOpen(value=>!value)}><BellIcon/>{unread>0&&<span className="notification-count">{unread>99?"99+":unread}</span>}</button>
+    <button className="icon-btn notification-bell" aria-label={`Notifications${unread?` (${unread} unread)`:""}`} onClick={()=>setOpen(value=>!value)}><MenuIcon name="bell"/>{unread>0&&<span className="notification-count">{unread>99?"99+":unread}</span>}</button>
     {open&&<section className="notification-popover" aria-label="Notification center">
       <header><div><strong>Notifications</strong><span>{unread} unread</span></div><button aria-label="Close notifications" onClick={()=>setOpen(false)}>×</button></header>
       <div className="notification-tools"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search notifications..."/><select value={filter} onChange={e=>setFilter(e.target.value as Filter)}><option value="all">All active</option><option value="unread">Unread</option><option value="read">Read</option><option value="archived">Archived</option></select><select value={sort} onChange={e=>setSort(e.target.value as Sort)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="priority">Priority</option><option value="unread">Unread first</option></select></div>
