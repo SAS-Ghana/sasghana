@@ -83,12 +83,14 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
 
   return <section className="dashboard-workspace">
     <div className="breadcrumb-trail"><span>SAS Finance Group</span><span aria-hidden="true">›</span><span>Administrator Dashboard</span></div>
-    <header className="page-header">
-      <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS Finance Group.</p></div></div>
-      <div className="page-header-actions"><button className="secondary" onClick={() => void load()}><MenuIcon name="report" />Refresh</button><button type="button" className="link-button" onClick={() => onNavigate("Reports & Analytics")}>Quick Actions</button></div>
-    </header>
+    <div className="home-hero-row">
+      <header className="page-header">
+        <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">Organisation administrator</span><h1>Welcome, {profile.display_name}</h1><p className="muted">Complete workforce, security, configuration and operational control for SAS Finance Group.</p></div></div>
+        <div className="page-header-actions"><button className="secondary" onClick={() => void load()}><MenuIcon name="report" />Refresh</button><button type="button" className="link-button" onClick={() => onNavigate("Reports & Analytics")}>Quick Actions</button></div>
+      </header>
+      <QuickAttendance accessToken={accessToken} profile={profile} compact />
+    </div>
     {error && <p className="form-error" role="alert">{error}</p>}
-    <QuickAttendance accessToken={accessToken} profile={profile} />
     <div className="dhv2-stat-grid">{metrics.map(([label, result, target]) => <StatCard key={String(label)} label={String(label)} value={result} trend={label === "New Hires" ? newHiresTrend : undefined} onClick={() => onNavigate(String(target))} />)}</div>
     <div className="dhv2-chart-row">
       <article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends (Last 9 Months)</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Management")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article>
