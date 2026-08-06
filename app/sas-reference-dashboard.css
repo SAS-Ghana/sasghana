@@ -22,3 +22,16 @@
 .employee-portal-v2 .profile-layout{margin-top:18px}
 .employee-portal-v2 .profile-banner+.employee-info-tabs-row{margin-top:-59px}
 @media(max-width:760px){.employee-portal-v2 .profile-banner+.employee-info-tabs-row{margin-top:0}}
+
+
+/* Employee reference navigation and gap-free home */
+.employee-app .sidebar{overflow-y:auto}
+.employee-app .sidebar .brand{padding-bottom:14px}
+.employee-app .sidebar .nav{gap:2px}
+.employee-app .sidebar .nav button{min-height:38px;padding:8px 12px;border-radius:10px;font-size:13px}
+.employee-app .sidebar .nav button.active{background:color-mix(in srgb,var(--sas-cyan) 12%,var(--surface));color:var(--sas-cyan-deep)}
+.employee-app .sidebar-footer{margin-top:12px}
+.employee-portal-v2 .dhv2-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.employee-portal-v2 .employee-dashboard-grid{grid-auto-flow:row dense}
+@media(max-width:1180px){.employee-portal-v2 .dhv2-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.employee-portal-v2 .dhv2-stat-grid{grid-template-columns:1fr}}
