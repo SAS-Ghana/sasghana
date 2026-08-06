@@ -157,7 +157,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onN
       {moreOpen && <div className="account-menu more-menu employee-info-more-menu">{moreEntries.map(([id, label]) => <button type="button" key={id} onClick={() => { setTab(id); setMoreOpen(false); }}>{label}</button>)}</div>}
     </div>}
 
-    {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} onTab={setTab} onProfile={() => onNavigate("My Info")} onAskAi={() => setTab("ai")} />}
+    {tab === "dashboard" && <DashboardOverview employee={employee} data={data} metrics={{ leaveBalance, pending, attendanceRate, overtime, openTasks, unread, performanceScore }} clockedIn={clockedIn} onTab={setTab} onProfile={() => onNavigate("My Info")} onAskAi={() => setTab("ai")} />}
     {tab === "people" && <PeopleDirectory accessToken={accessToken} organisationId={profile.organisation_id} canManage={false} />}
     {tab === "profile" && <ProfilePage employee={employee} history={data.history} onRequest={() => setModal("profile")} />}
     {tab === "attendance" && <AttendancePage rows={data.attendance} liveTime={liveTime} clockedIn={clockedIn} onBreak={onBreak} busy={busy} onAction={attendanceAction} rate={attendanceRate} hours={workedHours} overtime={overtime} />}
@@ -191,7 +191,7 @@ export function EmployeeHome({ accessToken, profile, activeSection = "Home", onN
   </section>;
 }
 
-function DashboardOverview({ employee, data, metrics, liveTime, clockedIn, onBreak, busy, onAction, onTab, onProfile, onAskAi }: { employee: DataRow | null; data: Dataset; metrics: { leaveBalance: number; pending: number; attendanceRate: number; overtime: number; openTasks: number; unread: number; performanceScore: number }; liveTime: string; clockedIn: boolean; onBreak: boolean; busy: string; onAction: (action: "clock_in" | "clock_out" | "break_in" | "break_out") => void; onTab: (tab: Tab) => void; onProfile: () => void; onAskAi: () => void }) {
+function DashboardOverview({ employee, data, metrics, clockedIn, onTab, onProfile, onAskAi }: { employee: DataRow | null; data: Dataset; metrics: { leaveBalance: number; pending: number; attendanceRate: number; overtime: number; openTasks: number; unread: number; performanceScore: number }; clockedIn: boolean; onTab: (tab: Tab) => void; onProfile: () => void; onAskAi: () => void }) {
   const cards = [["Present today", clockedIn ? "Clocked in" : "Not clocked in"], ["Leave balance", `${metrics.leaveBalance} days`], ["Pending requests", metrics.pending], ["Performance score", metrics.performanceScore || "—"], ["Attendance rate", `${metrics.attendanceRate}%`], ["Overtime hours", metrics.overtime.toFixed(1)], ["Assigned tasks", metrics.openTasks], ["Unread notifications", metrics.unread]];
   const summaryBars = cards.slice(0, 6).map(([label, result]) => [label, String(result), Number(String(result).replace(/[^0-9.-]/g, "")) || 0] as [string, string, number]);
   const summaryMax = Math.max(1, ...summaryBars.map(([, , n]) => n));
