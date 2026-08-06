@@ -36,7 +36,7 @@ const configs: Record<string, Config> = {
   Recruitment: { table: "job_openings", description: "Manage vacancies, stages, applicants, interviews, offers and completed campaigns.", columns: [["title", "Vacancy"], ["location", "Location"], ["employment_type", "Type"], ["status", "Status"], ["closing_date", "Closing"]], actions: ["Create vacancy", "Review applicants", "Export report"] },
   Offboarding: { table: "employee_offboarding", description: "Manage resignations, terminations, clearance, access revocation, exit records and archiving.", columns: [["employee_name", "Employee"], ["reason", "Reason"], ["last_working_date", "Last day"], ["status", "Status"], ["final_payroll_status", "Payroll"]], actions: ["Start offboarding", "Export report"] },
   "Payroll & Payslips": { table: "payroll_records", description: "Internal employee payroll administration only, including periods, inputs, approvals, payslips and audit history.", columns: [["employee_name", "Employee"], ["pay_period", "Period"], ["basic_salary", "Basic salary"], ["net_pay", "Net pay"], ["status", "Status"]], actions: ["Create payroll period", "Publish payslips", "Export report"] },
-  "Learning & Development": { table: "learning_courses", description: "Manage programs, materials, workshops, requests, certificates, skills and development plans.", columns: [["title", "Program"], ["category", "Category"], ["delivery_type", "Delivery"], ["mandatory", "Mandatory"], ["status", "Status"], ["created_at", "Created"]], actions: ["Create program", "Assign training", "Export report"] },
+  "Learning & Development": { table: "employee_training", description: "Manage programs, materials, workshops, requests, certificates, skills and development plans.", columns: [["record_type", "Type"], ["course_name", "Program / training"], ["employee_name", "Employee"], ["status", "Status"], ["progress", "Progress"], ["due_date", "Due"]], actions: ["Create program", "Assign training", "Export report"] },
   Expenses: { table: "expense_claims", description: "Configure categories and workflows, review receipts, decisions and reimbursement status.", columns: [["employee_name", "Employee"], ["category", "Category"], ["amount", "Amount"], ["submitted_at", "Submitted"], ["status", "Status"]], actions: ["Create category", "Export report"] },
   Benefits: { table: "employee_benefits", description: "Manage plans, eligibility, enrollment, insurance, pension, loans, allowances and benefit history.", columns: [["employee_name", "Employee"], ["benefit_name", "Benefit"], ["plan_name", "Plan"], ["status", "Status"], ["start_date", "Start"]], actions: ["Create plan", "Assign benefit", "Export report"] },
   "Asset Management": { table: "assets", description: "Register, assign, hand over, return, replace and report organization assets.", columns: [["asset_code", "Asset ID"], ["category", "Category"], ["description", "Description"], ["employee_name", "Assigned to"], ["condition", "Condition"], ["status", "Status"]], actions: ["Register asset", "Assign asset", "Export report"] },
@@ -314,6 +314,7 @@ export function AdminSectionPage({ label, accessToken, organisationId }: { label
         setDialog(null);
         setError("");
         await load();
+        window.setTimeout(() => void load(), 350);
         setNotice(`${dialog} completed successfully.`);
       }}
     />}
