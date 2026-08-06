@@ -187,9 +187,18 @@ export function applyOrganisationTheme(config: OrganisationConfig) {
   root.style.setProperty("--brand", config.primary);
   root.style.setProperty("--brand-strong", config.secondary);
   root.style.setProperty("--accent", config.accent);
-  root.style.setProperty("--bg", config.background);
-  root.style.setProperty("--surface", config.surface);
-  root.style.setProperty("--sidebar", config.sidebar);
+  root.style.setProperty("--navy", config.secondary);
+  root.style.setProperty("--configured-bg", config.background);
+  root.style.setProperty("--configured-surface", config.surface);
+  root.style.setProperty("--configured-sidebar", config.sidebar);
+  // Never pin semantic light surfaces inline: inline values override the user's dark/system
+  // preference and create white cards with white text. Theme selectors own these tokens.
+  root.style.removeProperty("--bg");
+  root.style.removeProperty("--surface");
+  root.style.removeProperty("--surface-2");
+  root.style.removeProperty("--text");
+  root.style.removeProperty("--muted");
+  root.style.removeProperty("--line");
   document.title = `${config.shortName} · ${config.companyName}`;
   if (config.faviconUrl) {
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
