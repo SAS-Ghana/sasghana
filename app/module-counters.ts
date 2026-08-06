@@ -70,13 +70,14 @@ export function useDashboardModuleCounts(accessToken: string, profile: UserProfi
     ]);
 
     const now = Date.now();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const leaveCount = (label: string) => unseenCount(leave, label, seenAt, (row) => ["pending", "draft"].includes(statusOf(row)) || ["manager_review", "hr_review"].includes(String(row.workflow_stage ?? "")));
     const expenseCount = (label: string) => unseenCount(expenses, label, seenAt, (row) => ["submitted", "manager_approved", "hr_approved", "finance_review", "returned", "draft"].includes(statusOf(row)));
     const assetCount = (label: string) => unseenCount(assetRequests, label, seenAt, (row) => ["pending", "manager_review", "hr_review", "approved"].includes(statusOf(row)));
     const benefitCount = (label: string) => unseenCount(benefits, label, seenAt, (row) => !["inactive", "cancelled", "expired", "archived"].includes(statusOf(row)));
     const onboardingCount = (label: string) => unseenCount(onboarding, label, seenAt, isActive);
     const offboardingCount = (label: string) => unseenCount(offboarding, label, seenAt, isActive);
-    const recruitmentCount = (label: string, includeOnboarding = false) => unseenCount(jobs, label, seenAt, (row) => ["open", "published", "draft"].includes(statusOf(row))) + unseenCount(applications, label, seenAt, (row) => ["new", "submitted", "screening", "shortlisted"].includes(statusOf(row))) + (includeOnboarding ? unseenCount(onboarding, label, seenAt, isActive) : 0);
+    const recruitmentCount = (label: string, includeOnboarding = false) => unseenCount(jobs, label, seenAt, (row) => ["open", "published", "draft"].includes(statusOf(row)) && (!row.closing_date || new Date(String(row.closing_date)).getTime() >= todayStart.getTime())) + unseenCount(applications, label, seenAt, (row) => ["new", "submitted", "screening", "shortlisted"].includes(statusOf(row))) + (includeOnboarding ? unseenCount(onboarding, label, seenAt, isActive) : 0);
     const reviewCount = (label: string) => unseenCount(assignments, label, seenAt, isActive) + unseenCount(reviews, label, seenAt, (row) => ["pending", "draft", "in_progress", "self_assessment", "manager_review"].includes(statusOf(row)));
     const trainingCount = (label: string) => unseenCount(training, label, seenAt, (row) => !["completed", "cancelled", "expired"].includes(statusOf(row)));
     const documentCount = (label: string) => unseenCount(documents, label, seenAt, (row) => { if (!row.expiry_date) return false; const expiry = new Date(String(row.expiry_date)).getTime(); return Number.isFinite(expiry) && expiry >= now && expiry - now <= 30 * 86400000; });
