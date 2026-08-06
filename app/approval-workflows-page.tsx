@@ -142,12 +142,13 @@ export function ApprovalWorkflowsPage({ accessToken, organisationId, scope = "ad
     <header className="page-header"><div><span className="eyebrow">{scope === "hr" ? "HR workflow administration" : "Organization workflow control"}</span><h1><MenuIcon name={moduleIcon("Approval Workflows")} />Approval Workflows</h1><p className="muted">A written record of your approval routes and expected turnaround, for reference and planning.</p></div><div className="row-actions"><button type="button" className="primary" onClick={openNew}>Create workflow</button><button type="button" className="secondary" onClick={() => void load()}>Refresh</button></div></header>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-message" aria-live="polite">{notice}</p>}
 
-    <article className="card data-panel"><h2>How approvals actually work today</h2><p className="muted">The routes below run automatically, independent of anything recorded on this page — this page is a reference and planning tool, not a live workflow engine yet.</p>
-      <div className="master-list">
+    <article className="card data-panel approval-route-overview"><h2>How approvals actually work today</h2><p className="muted">These live routes run automatically. The workflow records below document additional approval designs and expected turnaround.</p>
+      <div className="master-list approval-route-list">
         <div><strong>Leave requests</strong><span>Employee submits → Manager reviews → HR gives the final decision.</span></div>
-        <div><strong>Expense claims</strong><span>Employee submits → moves through Manager, Finance and Accounts review stages in order.</span></div>
-        <div><strong>Profile change requests</strong><span>Employee requests a change → HR or an Administrator approves or rejects it directly.</span></div>
-        <div><strong>Asset and transfer requests</strong><span>Employee submits → Manager approves, returns or rejects it.</span></div>
+        <div><strong>Expense claims</strong><span>Employee submits → Manager → Finance → Accounts review in sequence.</span></div>
+        <div><strong>Purchase requests</strong><span>Requester submits → Accountant/Manager reviews → Procurement approves, denies or asks a question.</span></div>
+        <div><strong>Profile changes</strong><span>Employee requests a change → HR or Administrator approves or rejects it.</span></div>
+        <div><strong>Assets and transfers</strong><span>Employee submits → Manager approves, returns or rejects it.</span></div>
       </div>
     </article>
 
