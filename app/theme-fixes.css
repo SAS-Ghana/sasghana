@@ -73,3 +73,13 @@ button:hover:not(:disabled){transform:translateY(-1px)}button:disabled{cursor:no
   .notifications-page-filters,.procurement-filters{grid-template-columns:1fr!important}
   .procurement-grid{grid-template-columns:1fr!important}
 }
+
+
+/* Theme-safe filter controls: inputs may grow, action buttons keep their own bordered hit area. */
+.filter-toolbar{display:flex!important;flex-wrap:wrap!important;gap:10px!important;align-items:center!important}
+.filter-toolbar>input{flex:1 1 260px!important;min-width:200px!important}
+.filter-toolbar>select{flex:0 1 220px!important;min-width:150px!important}
+.filter-toolbar>button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;min-width:104px!important;min-height:44px!important;padding:10px 14px!important;border:1px solid var(--line)!important;border-radius:10px!important;background:var(--surface)!important;color:var(--text)!important;white-space:nowrap!important}
+.filter-toolbar>button:hover{border-color:var(--brand)!important;background:color-mix(in srgb,var(--brand) 8%,var(--surface))!important}
+.notifications-page-filters,.procurement-filters{display:grid!important}
+@media(max-width:620px){.filter-toolbar>input,.filter-toolbar>select,.filter-toolbar>button{flex:1 1 100%!important;width:100%!important}}
