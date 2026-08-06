@@ -10,7 +10,7 @@ function emitDataChanged(resource:string){
 
 async function authorisedFetch(accessToken:string,url:string,init:RequestInit={},retry=true){
   const token=await getValidAccessToken(accessToken);
-  const response=await fetch(url,{...init,headers:{apikey:publishableKey,Authorization:`Bearer ${token}`,"Content-Type":"application/json",...init.headers}});
+  const response=await fetch(url,{cache:"no-store",...init,headers:{apikey:publishableKey,Authorization:`Bearer ${token}`,"Content-Type":"application/json",...init.headers}});
   if(retry&&(response.status===401||response.status===403)){
     const body=await response.clone().json().catch(()=>({})) as {message?:string;msg?:string;code?:string};
     if(/jwt|token|expired/i.test(`${body.message??""} ${body.msg??""} ${body.code??""}`)){
