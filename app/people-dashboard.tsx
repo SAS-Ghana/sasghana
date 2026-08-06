@@ -240,7 +240,7 @@ export function PeopleDashboard({ accessToken, profile, onLogout, onChangePasswo
     return <ManagerSectionPage label={active} accessToken={accessToken} profile={profile} />;
   };
 
-  return <div className="app">
+  return <div className={`app ${mode === "employee" ? "employee-app" : ""}`}>
     <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
     <aside className={`sidebar ${drawer ? "open" : ""}`} aria-label="Primary navigation">
       <div className="brand"><img src="/logo.png" width="160" height="45" alt="SAS Finance Group" /><small>{mode === "admin" ? "Organization control" : mode === "hr" ? "HR administration" : mode === "employee" ? "Employee workspace" : "Manager workspace"}</small></div>
