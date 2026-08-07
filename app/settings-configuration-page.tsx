@@ -9,6 +9,8 @@ import {
 } from "./lib/organisation-config";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import type { UserProfile } from "./lib/supabase-auth";
+import { BackupCenter } from "./backup-center";
 
 const sections = [
   ["organisation", "Organisation", "Company profile, logo and descriptions"],
@@ -30,7 +32,7 @@ function formatDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("en-GB");
 }
 
-export function SettingsConfigurationPage({ accessToken, organisationId }: { accessToken: string; organisationId: string }) {
+export function SettingsConfigurationPage({ accessToken, organisationId, profile }: { accessToken: string; organisationId: string; profile: UserProfile }) {
   const [section, setSection] = useState<SectionId>("organisation");
   const [config, setConfig] = useState<OrganisationConfig>(defaultOrganisationConfig);
   const [masterRows, setMasterRows] = useState<DataRow[]>([]);
@@ -281,7 +283,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId }: { acc
           {!sessionRows.length && !securityBusy && <div className="empty-state compact"><h3>No recorded sessions</h3><p>Sessions will appear after users sign in on the updated application.</p></div>}
         </div>}
 
-        {section === "backup" && <Empty title="Backup & restore" text="Create secure backups, review deletion requests and restore approved recovery points here." />}
+        {section === "backup" && <BackupCenter accessToken={accessToken} profile={profile} embedded />}
       </article>
     </div>
   </section>;

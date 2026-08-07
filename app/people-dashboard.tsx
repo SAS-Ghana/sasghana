@@ -469,7 +469,9 @@ export function PeopleDashboard({
   }
 
   useEffect(() => {
-    if (forbidden.test(active) || !canAccess(active)) setActive(home);
+    if (forbidden.test(active) || !canAccess(active)) {
+      void Promise.resolve().then(() => setActive(home));
+    }
   }, [active, home, profile.id]);
   useEffect(() => {
     const loadBranding = () =>
@@ -685,6 +687,7 @@ export function PeopleDashboard({
           <SettingsConfigurationPage
             accessToken={accessToken}
             organisationId={profile.organisation_id}
+            profile={profile}
           />
         );
       if (active === "Audit Logs")

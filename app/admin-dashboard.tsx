@@ -10,7 +10,7 @@ import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
 import { monthDelta, monthlyBuckets, monthlyCumulative, groupCounts } from "./lib/dashboard-metrics";
 
 const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
-const quickActionIcon: Record<string, IconName> = { "Add Employee": "user-plus", "Live Attendance": "attendance", "Invite User": "mail", "Assign Role": "badge", "Create Department": "department", "Create Branch": "branch", "Start Onboarding": "recruitment", "Start Offboarding": "disciplinary", "Review Attendance": "attendance", "Review Leave": "leave", "Open Payroll": "payroll", "Create Vacancy": "briefcase", "Generate Document": "audit", "Publish Announcement": "announcement", "View Security Alerts": "compliance", "Export Report": "report", "Open System Settings": "settings" };
+const quickActionIcon: Record<string, IconName> = { "Add Employee": "user-plus", "Live Attendance": "attendance", "Invite User": "mail", "Assign Role": "badge", "Create Department": "department", "Create Branch": "branch", "Start Onboarding": "recruitment", "Start Offboarding": "disciplinary", "Review Attendance": "attendance", "Review Leave": "leave", "Open Payroll": "payroll", "Create Vacancy": "briefcase", "Generate Document": "audit", "Publish Announcement": "announcement", "View Security Alerts": "compliance", "Backup & Restore": "backup", "Export Report": "report", "Open System Settings": "settings" };
 const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Add Employee": "blue", "Live Attendance": "blue", "Invite User": "blue", "Assign Role": "blue", "Create Department": "slate", "Create Branch": "slate", "Start Onboarding": "orange", "Start Offboarding": "slate", "Review Attendance": "orange", "Review Leave": "orange", "Open Payroll": "purple", "Create Vacancy": "purple", "Generate Document": "slate", "Publish Announcement": "purple", "View Security Alerts": "red", "Export Report": "slate", "Open System Settings": "slate" };
 
 type Props = { accessToken: string; profile: UserProfile; onNavigate: (label: string) => void };
@@ -18,6 +18,7 @@ type Props = { accessToken: string; profile: UserProfile; onNavigate: (label: st
 export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
   const [data, setData] = useState<Record<string, DataRow[]>>({});
   const [error, setError] = useState("");
+  const [dashboardNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     setError("");
@@ -26,17 +27,18 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
       try { return await listRows(accessToken, table, "*", limit); }
       catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; }
     };
-    const [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll] = await Promise.all([
+    const [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll, deletedRecords, backups] = await Promise.all([
       read("employees"), read("profiles"), read("attendance_records"), read("leave_requests"), read("job_openings"), read("internal_job_applications"),
       read("employee_onboarding"), read("employee_offboarding"), read("performance_reviews"), read("employee_documents"), read("support_tickets"),
-      read("audit_logs", 100), read("announcements", 50), read("expense_claims"), read("asset_requests"), read("employee_benefits"), read("payroll_records"),
+      read("audit_logs", 100), read("announcements", 50), read("expense_claims"), read("asset_requests"), read("employee_benefits"), read("payroll_records"), read("deleted_records", 250), read("backup_records", 100),
     ]);
-    setData({ employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll });
+    setData({ employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll, deletedRecords, backups });
     if (issues.length) setError(`Some administrator data could not be refreshed. ${issues.slice(0, 3).join(" · ")}${issues.length > 3 ? ` · ${issues.length - 3} more` : ""}`);
   }, [accessToken]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
+  useEffect(() => { const timer = window.setInterval(() => void load(), 30000); return () => window.clearInterval(timer); }, [load]);
 
   const today = new Date().toISOString().slice(0, 10);
   const employees = data.employees ?? [], profiles = data.profiles ?? [], attendanceAll = data.attendance ?? [];
@@ -62,13 +64,15 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
     ["Onboarding in Progress", onboarding.filter((row) => !["complete", "completed", "closed"].includes(String(row.status))).length, "Onboarding"],
     ["Offboarding in Progress", offboarding.filter((row) => !["complete", "completed", "closed"].includes(String(row.status))).length, "Offboarding"],
     ["Reviews Due", reviews.filter((row) => String(row.status) !== "completed").length, "Performance Management"],
-    ["Expiring Documents", documents.filter((row) => row.expiry_date && new Date(String(row.expiry_date)).getTime() >= Date.now() && new Date(String(row.expiry_date)).getTime() - Date.now() < 30 * 86400000).length, "Documents & Templates"],
+    ["Expiring Documents", documents.filter((row) => row.expiry_date && new Date(String(row.expiry_date)).getTime() >= dashboardNow && new Date(String(row.expiry_date)).getTime() - dashboardNow < 30 * 86400000).length, "Documents & Templates"],
     ["Open Support Tickets", tickets.filter((row) => !["closed", "resolved"].includes(String(row.status))).length, "Help Desk & Support"],
+    ["Deletion Reviews", (data.deletedRecords ?? []).filter((row) => String(row.status) === "pending").length, "Settings Centre"],
+    ["Recovery Points", (data.backups ?? []).filter((row) => String(row.backup_type) === "recovery_point").length, "Settings Centre"],
     ["Security Alerts", (data.audit ?? []).filter((row) => /failed|security|suspicious|lock/i.test(String(row.event_type || row.action || row.description))).length, "Audit Logs"],
-  ], [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, expenses, assetRequests, benefits, payroll, data.audit, today]);
+  ], [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, expenses, assetRequests, benefits, payroll, data.audit, data.deletedRecords, data.backups, dashboardNow, today]);
 
   const newHiresTrend = useMemo(() => monthDelta(employees, "start_date"), [employees]);
-  const quick = ["Add Employee", "Live Attendance", "Invite User", "Assign Role", "Create Department", "Create Branch", "Start Onboarding", "Start Offboarding", "Review Attendance", "Review Leave", "Open Payroll", "Create Vacancy", "Generate Document", "Publish Announcement", "View Security Alerts", "Export Report", "Open System Settings"];
+  const quick = ["Add Employee", "Live Attendance", "Invite User", "Assign Role", "Create Department", "Create Branch", "Start Onboarding", "Start Offboarding", "Review Attendance", "Review Leave", "Open Payroll", "Create Vacancy", "Generate Document", "Publish Announcement", "View Security Alerts", "Backup & Restore", "Export Report", "Open System Settings"];
 
   const leaveTypes = useMemo(() => groupCounts(leave, "leave_type", 4), [leave]);
   const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [leave, leaveTypes]);

@@ -8,11 +8,12 @@ import { AvatarPhoto } from "./avatar-photo";
 import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
 import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
 import { monthlyBuckets, groupCounts } from "./lib/dashboard-metrics";
+import { realtimeClient } from "./lib/supabase-realtime";
 
-type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[] };
-const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [] };
+type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[]; purchases: DataRow[] };
+const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [], purchases: [] };
 const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
-const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Start performance review": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Assign training": "training", "Send team message": "message", "View team calendar": "calendar", "Request employee document": "audit", "Review employee requests": "help", "Open Book Library": "book" };
+const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Start performance review": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Review purchase requests": "asset", "Assign training": "training", "Send team message": "message", "View team calendar": "calendar", "Request employee document": "audit", "Review employee requests": "help", "Open Book Library": "book" };
 const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Approve leave": "orange", "Review attendance": "orange", "Assign task": "blue", "Start performance review": "purple", "Schedule one to one": "purple", "Submit recruitment request": "blue", "Approve expense": "purple", "Assign training": "slate", "Send team message": "purple", "View team calendar": "slate", "Request employee document": "slate", "Review employee requests": "red", "Open Book Library": "blue" };
 
 export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
@@ -32,11 +33,11 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
         } catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; }
       };
       const read = async (table: string, limit = 100) => { try { return await listRows(accessToken, table, "*", limit); } catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; } };
-      const [attendance, leave, expenses, reviews, tasks, training, announcements, assets, requests] = await Promise.all([
+      const [attendance, leave, expenses, reviews, tasks, training, announcements, assets, requests, purchases] = await Promise.all([
         scoped("attendance_records"), scoped("leave_requests"), scoped("expense_claims"), scoped("performance_reviews"),
-        scoped("tasks", "assigned_to_employee_id"), scoped("employee_training"), read("announcements", 30), scoped("asset_requests"), scoped("hr_requests"),
+        scoped("tasks", "assigned_to_employee_id"), scoped("employee_training"), read("announcements", 30), scoped("asset_requests"), scoped("hr_requests"), read("purchase_requests", 200),
       ]);
-      setData({ team, attendance, leave, expenses, reviews, tasks, training, announcements, assets, requests });
+      setData({ team, attendance, leave, expenses, reviews, tasks, training, announcements, assets, requests, purchases });
       if (issues.length) setError(`Some manager data could not be refreshed. ${issues.slice(0, 3).join(" · ")}${issues.length > 3 ? ` · ${issues.length - 3} more` : ""}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Manager dashboard could not be loaded."); }
     finally { setLoading(false); }
@@ -44,6 +45,16 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
+  useEffect(() => {
+    const client = realtimeClient(accessToken);
+    let channel = client.channel(`manager-dashboard-${profile.organisation_id}-${profile.id}`);
+    for (const table of ["leave_requests", "tasks", "purchase_requests"]) {
+      channel = channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` }, () => void load());
+    }
+    channel.subscribe();
+    const timer = window.setInterval(() => void load(), 30000);
+    return () => { window.clearInterval(timer); void client.removeChannel(channel); };
+  }, [accessToken,load,profile.id,profile.organisation_id]);
 
   const today = new Date().toISOString().slice(0, 10);
   const metrics = useMemo(() => {
@@ -59,6 +70,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
       trainingDue: data.training.filter((row) => String(row.status) !== "completed" && row.due_date && String(row.due_date) <= today).length,
       assetRequests: data.assets.filter((row) => ["pending", "manager_review"].includes(String(row.status))).length,
       employeeRequests: data.requests.filter((row) => !["closed", "resolved", "rejected"].includes(String(row.status))).length,
+      purchaseRequests: data.purchases.filter((row) => ["pending_manager", "pending_procurement", "clarification_requested"].includes(String(row.status))).length,
     };
   }, [data, today]);
 
@@ -67,12 +79,13 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
     ["Total team members", data.team.length, "My Team"], ["Present today", metrics.present, "Team Attendance"], ["Absent today", Math.max(0, data.team.length - metrics.present - metrics.onLeave), "Team Attendance"],
     ["On leave", metrics.onLeave, "Leave Approvals"], ["Late today", metrics.late, "Team Attendance"], ["Pending leave approvals", metrics.pendingLeave, "Leave Approvals"],
     ["Pending expense claims", metrics.pendingExpenses, "Expense Approvals"], ["Asset requests", metrics.assetRequests, "Assets"], ["Employee requests", metrics.employeeRequests, "Employee Requests"],
+    ["Purchase requests", metrics.purchaseRequests, "Purchase Approvals"],
     ["Reviews due", metrics.reviewsDue, "Team Performance"], ["Overdue tasks", metrics.overdueTasks, "Tasks"], ["Training due", metrics.trainingDue, "Learning & Development"],
   ];
 
   const visibleCards = cards.filter(([label]) => label !== "Asset requests" || profile.dashboard_access.includes("Assets"));
 
-  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["One to One Meetings", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Meetings & Calendar", "View team calendar"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
+  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["One to One Meetings", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Purchase Approvals", "Review purchase requests"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Meetings & Calendar", "View team calendar"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Book Library", "Open Book Library"]);
 
   const leaveTypes = useMemo(() => groupCounts(data.leave, "leave_type", 4), [data.leave]);
