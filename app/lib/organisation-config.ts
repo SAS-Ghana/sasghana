@@ -3,6 +3,7 @@ import {
   createRow,
   DataRow,
   listRowsWhere,
+  listRowsWhereUnordered,
   updateRowsWhere,
 } from "./supabase-data";
 import { publishableKey, serviceUrl } from "./supabase-config";
@@ -168,7 +169,7 @@ export async function loadOrganisationConfig(
       "setting_key,setting_value,category",
       500,
     ),
-    listRowsWhere(
+    listRowsWhereUnordered(
       accessToken,
       "public_branding",
       { organisation_id: organisationId },
