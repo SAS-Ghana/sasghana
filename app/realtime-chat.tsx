@@ -19,7 +19,7 @@ export function ChatPopup({accessToken,profile}:{accessToken:string;profile:User
     if(!id)return;
     try{
       setError("");
-      const rows=await listRowsWhere(accessToken,"chat_messages_with_sender",{channel_id:id},"*",200,"created_at");
+      const rows=await listRowsWhere(accessToken,"chat_messages",{channel_id:id},"*",200,"created_at");
       setMessages(rows.filter(row=>!row.deleted_at).reverse());
     }catch(cause){
       setError(cause instanceof Error?cause.message:"Messages could not be loaded.");
