@@ -8,7 +8,7 @@ export function realtimeClient(accessToken:string){
   if(existing)return existing;
   const client=createClient(serviceUrl,publishableKey,{
     global:{headers:{Authorization:`Bearer ${accessToken}`}},
-    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:"sas-realtime-client"},
   });
   void client.realtime.setAuth(accessToken);
   clients.set(accessToken,client);
