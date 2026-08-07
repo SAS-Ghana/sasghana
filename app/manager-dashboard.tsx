@@ -85,7 +85,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
 
   const visibleCards = cards.filter(([label]) => label !== "Asset requests" || profile.dashboard_access.includes("Assets"));
 
-  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["One to One Meetings", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Purchase Approvals", "Review purchase requests"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Meetings & Calendar", "View team calendar"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
+  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["Meetings & Calendar", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Purchase Approvals", "Review purchase requests"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"], ["Documents", "Request employee document"], ["Employee Requests", "Review employee requests"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Book Library", "Open Book Library"]);
 
   const leaveTypes = useMemo(() => groupCounts(data.leave, "leave_type", 4), [data.leave]);

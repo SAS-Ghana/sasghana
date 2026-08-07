@@ -79,7 +79,6 @@ const managerGroups = [
     [
       ["Tasks", "☑"],
       ["Learning & Development", "▤"],
-      ["One to One Meetings", "♟"],
     ],
   ],
   [
@@ -305,7 +304,6 @@ const dashboardAccessMap: Record<string, readonly string[]> = {
   "Team Communication": ["Community"],
   "Organization Structure": ["Directory"],
   "Meetings & Calendar": ["Meetings"],
-  "One to One Meetings": ["Meetings"],
   "Employee Requests": ["HR Requests"],
   "Profile Requests": ["Profile Requests"],
 };
@@ -453,7 +451,9 @@ export function PeopleDashboard({
 
   function navigate(label: string) {
     const target =
-      label === "Purchase Approvals" && mode === "admin"
+      label === "One to One Meetings"
+        ? "Meetings & Calendar"
+        : label === "Purchase Approvals" && mode === "admin"
         ? "Procurement Control"
         : label === "Purchase Approvals" && canProcurement && mode !== "manager"
           ? "Procurement Review"
@@ -821,8 +821,6 @@ export function PeopleDashboard({
       return <LiveAttendancePage accessToken={accessToken} profile={profile} />;
     if (active === "Team Performance")
       return <PerformanceHub accessToken={accessToken} profile={profile} />;
-    if (active === "One to One Meetings")
-      return <CalendarHub accessToken={accessToken} profile={profile} />;
     return (
       <ManagerSectionPage
         label={active}
