@@ -30,6 +30,7 @@ import { moduleIcon } from "./module-icons";
 import { AvatarPhoto } from "./avatar-photo";
 import { SelfRecordActions } from "./record-actions";
 import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 type Tab =
   | "dashboard"
@@ -115,6 +116,7 @@ const empty: Dataset = {
   attendance: [],
   overtimeRequests: [],
   leave: [],
+  leaveBalances: [],
   payroll: [],
   documents: [],
   performance: [],
@@ -219,6 +221,7 @@ export function EmployeeHome({
       attendance,
       overtimeRequests,
       leave,
+      leaveBalances,
       payroll,
       documents,
       performance,
@@ -255,6 +258,7 @@ export function EmployeeHome({
       own("attendance_records"),
       own("attendance_overtime_requests"),
       own("leave_requests"),
+      own("leave_balance_summary"),
       own("payroll_records"),
       own("employee_documents"),
       own("performance_reviews"),
@@ -308,6 +312,7 @@ export function EmployeeHome({
       attendance,
       overtimeRequests,
       leave,
+      leaveBalances,
       payroll,
       documents,
       performance,
@@ -351,6 +356,20 @@ export function EmployeeHome({
     window.addEventListener("sas-data-changed", refresh);
     return () => window.removeEventListener("sas-data-changed", refresh);
   }, [load]);
+  useEffect(() => {
+    const client = realtimeClient(accessToken);
+    let channel = client.channel(`employee-summary-${profile.organisation_id}-${profile.id}`);
+    for (const table of ["leave_requests", "leave_entitlements", "attendance_records", "tasks", "notifications", "performance_reviews"]) {
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` },
+        () => void load(),
+      );
+    }
+    channel.subscribe();
+    const timer = window.setInterval(() => void load(), 30000);
+    return () => { window.clearInterval(timer); void client.removeChannel(channel); };
+  }, [accessToken, load, profile.id, profile.organisation_id]);
 
   const employee = data.employee[0] ?? null;
   const today = new Date().toISOString().slice(0, 10);
@@ -397,11 +416,15 @@ export function EmployeeHome({
       Number(row.overtime_hours ?? Number(row.overtime_minutes ?? 0) / 60),
     0,
   );
-  const leaveBalance = Number(
-    employee?.annual_leave_balance ?? employee?.leave_balance ?? 0,
+  const currentYear = new Date().getFullYear();
+  const currentLeaveBalances = data.leaveBalances.filter(
+    (row) => Number(row.leave_year) === currentYear,
   );
+  const leaveBalance = currentLeaveBalances.length
+    ? currentLeaveBalances.reduce((sum, row) => sum + Number(row.remaining_days ?? 0), 0)
+    : Number(employee?.annual_leave_balance ?? employee?.leave_balance ?? 0);
   const unread = data.notifications.filter(
-    (row) => !Boolean(row.is_read) && !row.archived_at,
+    (row) => !row.is_read && !row.archived_at,
   ).length;
   const pending =
     data.leave.filter((row) =>
@@ -691,6 +714,7 @@ export function EmployeeHome({
         <LeavePage
           rows={data.leave}
           holidays={data.holidays}
+          balances={currentLeaveBalances}
           balance={leaveBalance}
           onApply={() => setModal("leave")}
           accessToken={accessToken}
@@ -1747,6 +1771,7 @@ function AttendanceCalendar({ rows }: { rows: DataRow[] }) {
 function LeavePage({
   rows,
   holidays,
+  balances,
   balance,
   onApply,
   accessToken,
@@ -1754,6 +1779,7 @@ function LeavePage({
 }: {
   rows: DataRow[];
   holidays: DataRow[];
+  balances: DataRow[];
   balance: number;
   onApply: () => void;
   accessToken: string;
@@ -1799,6 +1825,20 @@ function LeavePage({
           </strong>
         </article>
       </div>
+      <article className="card data-panel">
+        <div className="panel-head"><div><h2>My leave days</h2><p className="muted">Allocated, used, pending and remaining days for the current year.</p></div></div>
+        {balances.length ? (
+          <div className="table-scroll"><table className="data-table">
+            <thead><tr><th>Leave type</th><th>Allocated</th><th>Carry over</th><th>Emergency</th><th>Used</th><th>Pending</th><th>Remaining</th></tr></thead>
+            <tbody>{balances.map((item) => <tr key={String(item.id)}>
+              <td>{String(item.leave_type)}</td><td>{String(item.allocated_days)}</td><td>{String(item.carry_over_days)}</td>
+              <td>{String(item.emergency_days)}</td><td>{String(item.used_days)}</td><td>{String(item.pending_days)}</td><td><strong>{String(item.remaining_days)}</strong></td>
+            </tr>)}</tbody>
+          </table></div>
+        ) : (
+          <div className="empty-state compact"><h3>Leave days have not been allocated</h3><p>HR or an administrator can set your yearly leave entitlement.</p></div>
+        )}
+      </article>
       <RecordPage
         title="My leave requests"
         subtitle="Annual, sick, compassionate, maternity, paternity and other authorised leave"

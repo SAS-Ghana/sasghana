@@ -8,8 +8,10 @@ import { AvatarPhoto } from "./avatar-photo";
 import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
 import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
 import { monthDelta, monthlyBuckets, monthlyCumulative, groupCounts } from "./lib/dashboard-metrics";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 const vizPalette = ["var(--viz-blue)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--brand)", "var(--viz-slate)"];
+const emptyRows: DataRow[] = [];
 const quickActionIcon: Record<string, IconName> = { "Add Employee": "user-plus", "Live Attendance": "attendance", "Invite User": "mail", "Assign Role": "badge", "Create Department": "department", "Create Branch": "branch", "Start Onboarding": "recruitment", "Start Offboarding": "disciplinary", "Review Attendance": "attendance", "Review Leave": "leave", "Open Payroll": "payroll", "Create Vacancy": "briefcase", "Generate Document": "audit", "Publish Announcement": "announcement", "View Security Alerts": "compliance", "Backup & Restore": "backup", "Export Report": "report", "Open System Settings": "settings" };
 const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | "red"> = { "Add Employee": "blue", "Live Attendance": "blue", "Invite User": "blue", "Assign Role": "blue", "Create Department": "slate", "Create Branch": "slate", "Start Onboarding": "orange", "Start Offboarding": "slate", "Review Attendance": "orange", "Review Leave": "orange", "Open Payroll": "purple", "Create Vacancy": "purple", "Generate Document": "slate", "Publish Announcement": "purple", "View Security Alerts": "red", "Export Report": "slate", "Open System Settings": "slate" };
 
@@ -39,12 +41,21 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
   useEffect(() => { const timer = window.setInterval(() => void load(), 30000); return () => window.clearInterval(timer); }, [load]);
+  useEffect(() => {
+    const client = realtimeClient(accessToken);
+    let channel = client.channel(`admin-dashboard-${profile.organisation_id}-${profile.id}`);
+    for (const table of ["employees", "profiles", "attendance_records", "leave_requests", "leave_entitlements", "expense_claims", "asset_requests", "employee_benefits", "payroll_records", "job_openings", "internal_job_applications", "employee_onboarding", "employee_offboarding", "performance_reviews", "employee_documents", "support_tickets"]) {
+      channel = channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` }, () => void load());
+    }
+    channel.subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, [accessToken, load, profile.id, profile.organisation_id]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const employees = data.employees ?? [], profiles = data.profiles ?? [], attendanceAll = data.attendance ?? [];
+  const employees = data.employees ?? emptyRows, profiles = data.profiles ?? emptyRows, attendanceAll = data.attendance ?? emptyRows;
   const attendance = attendanceAll.filter((row) => String(row.attendance_date) === today);
-  const leave = data.leave ?? [], jobs = data.jobs ?? [], applications = data.applications ?? [], onboarding = data.onboarding ?? [], offboarding = data.offboarding ?? [];
-  const reviews = data.reviews ?? [], documents = data.documents ?? [], tickets = data.tickets ?? [], expenses = data.expenses ?? [], assetRequests = data.assetRequests ?? [], benefits = data.benefits ?? [], payroll = data.payroll ?? [];
+  const leave = data.leave ?? emptyRows, jobs = data.jobs ?? emptyRows, applications = data.applications ?? emptyRows, onboarding = data.onboarding ?? emptyRows, offboarding = data.offboarding ?? emptyRows;
+  const reviews = data.reviews ?? emptyRows, documents = data.documents ?? emptyRows, tickets = data.tickets ?? emptyRows, expenses = data.expenses ?? emptyRows, assetRequests = data.assetRequests ?? emptyRows, benefits = data.benefits ?? emptyRows, payroll = data.payroll ?? emptyRows;
 
   const metrics = useMemo(() => [
     ["Total Employees", employees.length, "Employee Management"],

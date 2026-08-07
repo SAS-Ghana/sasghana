@@ -48,7 +48,7 @@ export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessT
   useEffect(() => {
     const client = realtimeClient(accessToken);
     let channel = client.channel(`manager-dashboard-${profile.organisation_id}-${profile.id}`);
-    for (const table of ["leave_requests", "tasks", "purchase_requests"]) {
+    for (const table of ["attendance_records", "leave_requests", "leave_entitlements", "expense_claims", "performance_reviews", "tasks", "employee_training", "asset_requests", "hr_requests", "purchase_requests"]) {
       channel = channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` }, () => void load());
     }
     channel.subscribe();

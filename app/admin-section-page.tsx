@@ -28,6 +28,7 @@ type Field = {
   source?: "employees" | "assets";
   placeholder?: string;
   allowOther?: boolean;
+  allowAllEmployees?: boolean;
 };
 
 type ActionConfig = {
@@ -35,7 +36,7 @@ type ActionConfig = {
   title: string;
   fields: Field[];
   defaults?: DataRow;
-  mode?: "create" | "assign_asset";
+  mode?: "create" | "assign_asset" | "leave_entitlement";
 };
 
 const configs: Record<string, Config> = {
@@ -61,7 +62,7 @@ const configs: Record<string, Config> = {
       ["days", "Days"],
       ["status", "Status"],
     ],
-    actions: ["Create leave type", "Record leave", "Export report"],
+    actions: ["Set leave days", "Create leave type", "Record leave", "Export report"],
   },
   Recruitment: {
     table: "job_openings",
@@ -240,6 +241,32 @@ const configs: Record<string, Config> = {
 };
 
 const actionConfigs: Record<string, ActionConfig> = {
+  "Set leave days": {
+    table: "leave_entitlements",
+    title: "Set employee leave days",
+    mode: "leave_entitlement",
+    defaults: {
+      leave_type: "Annual leave",
+      leave_year: new Date().getFullYear(),
+      carry_over_days: 0,
+      emergency_days: 0,
+    },
+    fields: [
+      {
+        key: "employee_id",
+        label: "Employee",
+        source: "employees",
+        required: true,
+        allowAllEmployees: true,
+      },
+      { key: "leave_type", label: "Leave type", required: true },
+      { key: "leave_year", label: "Leave year", type: "number", required: true },
+      { key: "allocated_days", label: "Allocated days", type: "number", required: true },
+      { key: "carry_over_days", label: "Carried over days", type: "number" },
+      { key: "emergency_days", label: "Emergency days", type: "number" },
+      { key: "notes", label: "Notes", type: "textarea" },
+    ],
+  },
   "Create role": {
     table: "roles",
     title: "Create role",
@@ -674,12 +701,13 @@ export function AdminSectionPage({
   const [dialog, setDialog] = useState<string | null>(null);
   const [applicants, setApplicants] = useState<DataRow[]>([]);
   const [showApplicants, setShowApplicants] = useState(false);
+  const [leaveBalances, setLeaveBalances] = useState<DataRow[]>([]);
 
   const load = useCallback(async () => {
     if (!config) return;
     setError("");
     try {
-      const [records, people, programs, accounts, applications] = await Promise.all([
+      const [records, people, programs, accounts, applications, balances] = await Promise.all([
         listRows(accessToken, config.table, "*", 1000),
         listNamedRows(
           accessToken,
@@ -692,8 +720,12 @@ export function AdminSectionPage({
           : Promise.resolve([]),
         listRows(accessToken, "profiles", "id,display_name,username,profile_code", 1000),
         label === "Recruitment" ? listRows(accessToken, "internal_job_applications", "*", 1000) : Promise.resolve([]),
+        label === "Leave Management"
+          ? listRows(accessToken, "leave_balance_summary", "*", 1000, "employee_name", true)
+          : Promise.resolve([]),
       ]);
       setEmployees(people);
+      setLeaveBalances(balances);
       const assignmentRows = records.map((row) => {
         const employeeId = String(
           row.employee_id ?? row.assigned_employee_id ?? "",
@@ -877,18 +909,56 @@ export function AdminSectionPage({
     setError("");
     setNotice("");
     try {
-      await updateRow(
-        accessToken,
-        String(row._source_table ?? config.table),
-        String(row.id),
-        { status: next },
-      );
+      if (label === "Leave Management" && ["approved", "rejected"].includes(next)) {
+        await callRpc(accessToken, "review_leave_request", {
+          p_request_id: String(row.id),
+          p_decision: next,
+          p_allow_emergency: false,
+          p_note: null,
+        });
+      } else {
+        await updateRow(
+          accessToken,
+          String(row._source_table ?? config.table),
+          String(row.id),
+          { status: next },
+        );
+      }
       await load();
       setNotice(`Record updated to ${next.replaceAll("_", " ")}.`);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Record could not be updated.",
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveEmergencyLeave(row: DataRow) {
+    if (!row.id) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await callRpc<{ emergency_days_added?: number }>(
+        accessToken,
+        "review_leave_request",
+        {
+          p_request_id: String(row.id),
+          p_decision: "approved",
+          p_allow_emergency: true,
+          p_note: "Emergency leave approved beyond the available balance.",
+        },
+      );
+      await load();
+      setNotice(
+        Number(result?.emergency_days_added ?? 0) > 0
+          ? `Emergency leave approved. ${result.emergency_days_added} extra day(s) were added to the employee's entitlement.`
+          : "Leave approved from the employee's available balance.",
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Emergency leave could not be approved.");
     } finally {
       setBusy(false);
     }
@@ -960,6 +1030,29 @@ export function AdminSectionPage({
       )}
 
       {label === "Recruitment" && showApplicants && <article className="card data-panel applicant-review-panel"><div className="panel-head"><div><h2>Applicants</h2><p className="muted">Review candidates and move them through the recruitment stages.</p></div><button type="button" onClick={() => setShowApplicants(false)}>Close applicants</button></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Applicant</th><th>Employee ID</th><th>Vacancy</th><th>Applied</th><th>Status</th><th>Update</th></tr></thead><tbody>{applicants.map((applicant) => <tr key={String(applicant.id)}><td>{String(applicant.employee_name)}</td><td>{String(applicant.employee_number ?? "—")}</td><td>{String(applicant.vacancy_name)}</td><td>{displayValue(applicant.created_at)}</td><td><span className={`status-pill ${String(applicant.status)}`}>{displayValue(applicant.status)}</span></td><td><select aria-label={`Application status for ${String(applicant.employee_name)}`} value={String(applicant.status)} onChange={async (event) => { await updateRow(accessToken, "internal_job_applications", String(applicant.id), { status: event.target.value }); await load(); }}><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted</option><option value="interview">Interview</option><option value="offered">Offered</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></td></tr>)}</tbody></table></div>{!applicants.length && <div className="empty-state compact"><h3>No applications yet</h3><p>Applications submitted by employees will appear here immediately.</p></div>}</article>}
+
+      {label === "Leave Management" && (
+        <article className="card data-panel">
+          <div className="panel-head"><div><h2>Employee leave balances</h2><p className="muted">Yearly allocations update automatically when leave is approved.</p></div></div>
+          {leaveBalances.length ? (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead><tr><th>Employee</th><th>Year</th><th>Type</th><th>Allocated</th><th>Carry over</th><th>Emergency</th><th>Used</th><th>Pending</th><th>Remaining</th></tr></thead>
+                <tbody>{leaveBalances.map((balance) => (
+                  <tr key={String(balance.id)}>
+                    <td>{displayValue(balance.employee_name)} <small>{displayValue(balance.employee_number)}</small></td>
+                    <td>{displayValue(balance.leave_year)}</td><td>{displayValue(balance.leave_type)}</td><td>{displayValue(balance.allocated_days)}</td>
+                    <td>{displayValue(balance.carry_over_days)}</td><td>{displayValue(balance.emergency_days)}</td><td>{displayValue(balance.used_days)}</td>
+                    <td>{displayValue(balance.pending_days)}</td><td><strong>{displayValue(balance.remaining_days)}</strong></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state compact"><h3>No leave days set</h3><p>Use Set leave days to allocate a yearly balance to one employee or everybody.</p></div>
+          )}
+        </article>
+      )}
 
       <article className="card data-panel">
         <div className="filter-toolbar">
@@ -1059,6 +1152,11 @@ export function AdminSectionPage({
                               {actionLabel}
                             </button>
                           ))
+                        )}
+                        {label === "Leave Management" && String(row.status) === "pending" && (
+                          <button type="button" disabled={busy} onClick={() => void approveEmergencyLeave(row)}>
+                            Emergency approve
+                          </button>
                         )}
                         {label !== "Audit Logs" &&
                           label !== "Notifications" && (
@@ -1207,6 +1305,16 @@ function ActionDialog({
           ...payload,
           status: "assigned",
         });
+      } else if (config.mode === "leave_entitlement") {
+        await callRpc<number>(accessToken, "set_leave_entitlement", {
+          p_employee_id: payload.employee_id === "all" ? null : payload.employee_id,
+          p_leave_type: payload.leave_type,
+          p_leave_year: payload.leave_year,
+          p_allocated_days: payload.allocated_days,
+          p_carry_over_days: payload.carry_over_days ?? 0,
+          p_emergency_days: payload.emergency_days ?? 0,
+          p_notes: payload.notes ?? null,
+        });
       } else {
         if (action === "Open case")
           payload.case_number = `CASE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -1278,6 +1386,7 @@ function ActionDialog({
                     }
                   >
                     <option value="">Select employee</option>
+                    {field.allowAllEmployees && <option value="all">Everybody</option>}
                     {employees.map((person) => (
                       <option key={String(person.id)} value={String(person.id)}>
                         {String(person.first_name)} {String(person.last_name)} (

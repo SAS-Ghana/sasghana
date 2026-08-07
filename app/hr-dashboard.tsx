@@ -8,6 +8,7 @@ import { AvatarPhoto } from "./avatar-photo";
 import { StatCard, ListCard, QuickActionsGrid } from "./dashboard-cards";
 import { AreaChart, DonutChart, BarChart } from "./dashboard-charts";
 import { monthDelta, monthlyBuckets, monthlyCumulative, groupCounts } from "./lib/dashboard-metrics";
+import { realtimeClient } from "./lib/supabase-realtime";
 
 type HRData = {
   employees: DataRow[]; attendance: DataRow[]; leave: DataRow[]; jobs: DataRow[]; candidates: DataRow[];
@@ -23,6 +24,7 @@ const quickActionColor: Record<string, "blue" | "orange" | "purple" | "slate" | 
 export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
   const [data, setData] = useState<HRData>(empty);
   const [error, setError] = useState("");
+  const [dashboardNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     setError("");
@@ -42,11 +44,20 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
     if (issues.length) setError(`Some HR data could not be refreshed. ${issues.slice(0, 3).join(" · ")}${issues.length > 3 ? ` · ${issues.length - 3} more` : ""}`);
   }, [accessToken]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("sas-data-changed", refresh); return () => window.removeEventListener("sas-data-changed", refresh); }, [load]);
+  useEffect(() => {
+    const client = realtimeClient(accessToken);
+    let channel = client.channel(`hr-dashboard-${profile.organisation_id}-${profile.id}`);
+    for (const table of ["employees", "attendance_records", "leave_requests", "leave_entitlements", "job_openings", "candidates", "employee_onboarding", "employee_offboarding", "employee_documents", "performance_reviews", "employee_training", "payroll_records", "support_tickets", "expense_claims", "asset_requests", "employee_benefits"]) {
+      channel = channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` }, () => void load());
+    }
+    channel.subscribe();
+    const timer = window.setInterval(() => void load(), 30000);
+    return () => { window.clearInterval(timer); void client.removeChannel(channel); };
+  }, [accessToken, load, profile.id, profile.organisation_id]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const now = new Date();
   const active = data.employees.filter((row) => ["active", "probation", "leave"].includes(String(row.employment_status))).length;
   const present = data.attendance.filter((row) => String(row.attendance_date) === today && ["present", "late", "remote"].includes(String(row.status))).length;
   const onLeave = data.leave.filter((row) => String(row.status) === "approved" && String(row.start_date) <= today && String(row.end_date) >= today).length;
@@ -68,12 +79,12 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
     ["Onboarding", data.onboarding.filter((row) => !["completed", "closed"].includes(String(row.status))).length, "Onboarding"],
     ["Offboarding", data.offboarding.filter((row) => !["completed", "closed"].includes(String(row.status))).length, "Offboarding"],
     ["Missing Documents", data.documents.filter((row) => ["pending", "missing"].includes(String(row.status))).length, "Documents & Templates"],
-    ["Expiring Documents", data.documents.filter((row) => { const date = new Date(String(row.expiry_date)); return !Number.isNaN(date.getTime()) && date >= now && date.getTime() - now.getTime() < 31 * 86400000; }).length, "Documents & Templates"],
+    ["Expiring Documents", data.documents.filter((row) => { const time = new Date(String(row.expiry_date)).getTime(); return !Number.isNaN(time) && time >= dashboardNow && time - dashboardNow < 31 * 86400000; }).length, "Documents & Templates"],
     ["Reviews Due", data.reviews.filter((row) => String(row.status) !== "completed").length, "Performance Management"],
     ["Training Due", data.training.filter((row) => !["completed", "cancelled"].includes(String(row.status))).length, "Learning & Development"],
     ["HR Tickets", data.tickets.filter((row) => !["resolved", "closed"].includes(String(row.status))).length, "HR Help Desk"],
     ["Payroll Drafts", data.payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll Administration"],
-  ], [data, active, present, onLeave, today, now]);
+  ], [data, active, present, onLeave, today, dashboardNow]);
 
   const quickActions: [string, string][] = [["Add employee", "Employee Management"], ["Live attendance", "Live Attendance"], ["Start onboarding", "Onboarding"], ["Start offboarding", "Offboarding"], ["Review leave", "Leave Management"], ["Review expenses", "Expense Management"], ["Review assets", "Asset Management"], ["Create vacancy", "Recruitment"], ["Generate HR letter", "Documents & Templates"], ["Open HR tickets", "HR Help Desk"]];
   if (profile.dashboard_access.includes("Book Library")) quickActions.push(["Open Book Library", "Book Library"]);
