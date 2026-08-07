@@ -499,7 +499,32 @@ function useAccessSelection(
     }
   }
   return {
- ×om¢G§²ÚîÆ­yÜdset className="permission-group">
+    accountType,
+    applyPreset,
+    roleIds,
+    setRoleIds,
+    permissionIds,
+    setPermissionIds,
+    dashboards,
+    setDashboards,
+    grouped,
+    toggle,
+    toggleRole,
+  };
+}
+
+function SelectionFields({
+  roles,
+  permissions,
+  selection,
+}: {
+  roles: Option[];
+  permissions: Option[];
+  selection: ReturnType<typeof useAccessSelection>;
+}) {
+  return (
+    <>
+      <fieldset className="permission-group">
         <legend>Roles</legend>
         <div className="tier-heading">
           <span>Role assignments</span>
