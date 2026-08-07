@@ -452,7 +452,11 @@ const actionConfigs: Record<string, ActionConfig> = {
     title: "Register asset",
     defaults: { status: "available", condition: "good" },
     fields: [
-      { key: "asset_code", label: "Asset code", required: true },
+      {
+        key: "asset_code",
+        label: "Asset code",
+        placeholder: "Generated automatically from category",
+      },
       { key: "category", label: "Category", required: true },
       { key: "description", label: "Description", required: true },
       { key: "brand", label: "Brand" },
@@ -1058,9 +1062,20 @@ export function AdminSectionPage({
                                       ["content_url", "Learning material URL"],
                                       ["status", "Status"],
                                     ]
-                                  : config.columns.filter(
-                                      ([key]) => key !== "record_type",
-                                    )
+                                  : config.columns
+                                      .filter(([key]) => key !== "record_type")
+                                      .map(([key, fieldLabel]) =>
+                                        label === "Asset Management" &&
+                                        key === "employee_name"
+                                          ? ([
+                                              "assigned_employee_id",
+                                              fieldLabel,
+                                            ] as [string, string])
+                                          : ([key, fieldLabel] as [
+                                              string,
+                                              string,
+                                            ]),
+                                      )
                               }
                               label={
                                 row._source_table === "learning_courses"
@@ -1339,7 +1354,14 @@ function ActionDialog({
                   <input
                     id={id}
                     name={field.key}
-                    required={field.required}
+                    required={
+                      field.required ||
+                      (field.key === "asset_code" &&
+                        action !== "Register asset")
+                    }
+                    readOnly={
+                      action === "Register asset" && field.key === "asset_code"
+                    }
                     type={field.type ?? "text"}
                     value={selected}
                     onChange={(event) =>

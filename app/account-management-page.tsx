@@ -159,13 +159,23 @@ export function AccountManagementPage({
         listNamedRows(
           accessToken,
           "employees",
-          "id,first_name,last_name,employee_number",
+          "id,first_name,last_name,employee_number,work_email",
           "first_name",
         ),
         listRowsUnordered(accessToken, "user_roles"),
         listRowsUnordered(accessToken, "user_permissions"),
       ]);
-      setAccounts(profileRows);
+      setAccounts(
+        profileRows.map((profile) => {
+          const employee = employeeRows.find(
+            (row) => String(row.id) === String(profile.employee_id ?? ""),
+          );
+          return {
+            ...profile,
+            email: employee?.work_email ?? profile.email,
+          };
+        }),
+      );
       setRoles(
         roleRows.map((r) => ({ id: String(r.id), label: String(r.name) })),
       );
