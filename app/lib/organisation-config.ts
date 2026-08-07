@@ -1,4 +1,10 @@
-import { callRpc, createRow, DataRow, listRowsWhere, updateRowsWhere } from "./supabase-data";
+import {
+  callRpc,
+  createRow,
+  DataRow,
+  listRowsWhere,
+  updateRowsWhere,
+} from "./supabase-data";
 import { publishableKey, serviceUrl } from "./supabase-config";
 
 export type OrganisationConfig = {
@@ -40,7 +46,8 @@ export const defaultOrganisationConfig: OrganisationConfig = {
   dashboardDescription: "Private & confidential",
   loginEyebrow: "Private employee portal",
   loginTitle: "People operations, made effortless.",
-  loginWelcome: "Secure employee management and onboarding for SAS Finance Group Ghana.",
+  loginWelcome:
+    "Secure employee management and onboarding for SAS Finance Group Ghana.",
   logoUrl: "",
   loginLogoUrl: "",
   dashboardLogoUrl: "",
@@ -100,41 +107,84 @@ const keys: Record<keyof OrganisationConfig, string> = {
 function fromPublicBranding(row: DataRow): OrganisationConfig {
   return {
     ...defaultOrganisationConfig,
-    companyName: String(row.company_name ?? defaultOrganisationConfig.companyName),
+    companyName: String(
+      row.company_name ?? defaultOrganisationConfig.companyName,
+    ),
     shortName: String(row.short_name ?? defaultOrganisationConfig.shortName),
-    description: String(row.description ?? defaultOrganisationConfig.description),
-    dashboardDescription: String(row.dashboard_description ?? defaultOrganisationConfig.dashboardDescription),
-    loginEyebrow: String(row.login_eyebrow ?? defaultOrganisationConfig.loginEyebrow),
+    description: String(
+      row.description ?? defaultOrganisationConfig.description,
+    ),
+    dashboardDescription: String(
+      row.dashboard_description ??
+        defaultOrganisationConfig.dashboardDescription,
+    ),
+    loginEyebrow: String(
+      row.login_eyebrow ?? defaultOrganisationConfig.loginEyebrow,
+    ),
     loginTitle: String(row.login_title ?? defaultOrganisationConfig.loginTitle),
-    loginWelcome: String(row.login_welcome ?? defaultOrganisationConfig.loginWelcome),
+    loginWelcome: String(
+      row.login_welcome ?? defaultOrganisationConfig.loginWelcome,
+    ),
     logoUrl: String(row.logo_url ?? ""),
     loginLogoUrl: String(row.login_logo_url ?? row.logo_url ?? ""),
     dashboardLogoUrl: String(row.dashboard_logo_url ?? row.logo_url ?? ""),
     primary: String(row.primary_colour ?? defaultOrganisationConfig.primary),
-    secondary: String(row.secondary_colour ?? defaultOrganisationConfig.secondary),
+    secondary: String(
+      row.secondary_colour ?? defaultOrganisationConfig.secondary,
+    ),
     accent: String(row.accent_colour ?? defaultOrganisationConfig.accent),
-    background: String(row.background_colour ?? defaultOrganisationConfig.background),
+    background: String(
+      row.background_colour ?? defaultOrganisationConfig.background,
+    ),
     surface: String(row.surface_colour ?? defaultOrganisationConfig.surface),
     sidebar: String(row.sidebar_colour ?? defaultOrganisationConfig.sidebar),
   };
 }
 
 export async function loadPublicBranding() {
-  const response = await fetch(`${serviceUrl}/rest/v1/public_branding?select=*&is_default=eq.true&limit=1`, {
-    headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}` },
-  });
+  const response = await fetch(
+    `${serviceUrl}/rest/v1/public_branding?select=*&is_default=eq.true&limit=1`,
+    {
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+      },
+    },
+  );
   if (!response.ok) return defaultOrganisationConfig;
-  const rows = await response.json() as DataRow[];
+  const rows = (await response.json()) as DataRow[];
   return rows[0] ? fromPublicBranding(rows[0]) : defaultOrganisationConfig;
 }
 
-export async function loadOrganisationConfig(accessToken: string, organisationId: string) {
+export async function loadOrganisationConfig(
+  accessToken: string,
+  organisationId: string,
+) {
   const [rows, brandingRows] = await Promise.all([
-    listRowsWhere(accessToken, "system_settings", { organisation_id: organisationId }, "setting_key,setting_value,category", 500),
-    listRowsWhere(accessToken, "public_branding", { organisation_id: organisationId }, "*", 1),
+    listRowsWhere(
+      accessToken,
+      "system_settings",
+      { organisation_id: organisationId },
+      "setting_key,setting_value,category",
+      500,
+    ),
+    listRowsWhere(
+      accessToken,
+      "public_branding",
+      { organisation_id: organisationId },
+      "*",
+      1,
+    ),
   ]);
-  const config = brandingRows[0] ? fromPublicBranding(brandingRows[0]) : { ...defaultOrganisationConfig };
-  const values = new Map(rows.map((row) => [String(row.setting_key), String(row.setting_value ?? "")]));
+  const config = brandingRows[0]
+    ? fromPublicBranding(brandingRows[0])
+    : { ...defaultOrganisationConfig };
+  const values = new Map(
+    rows.map((row) => [
+      String(row.setting_key),
+      String(row.setting_value ?? ""),
+    ]),
+  );
   (Object.keys(keys) as (keyof OrganisationConfig)[]).forEach((property) => {
     const value = values.get(keys[property]);
     if (value !== undefined) config[property] = value;
@@ -142,20 +192,41 @@ export async function loadOrganisationConfig(accessToken: string, organisationId
   return config;
 }
 
-export async function saveOrganisationConfig(accessToken: string, organisationId: string, config: OrganisationConfig) {
-  await Promise.all((Object.keys(keys) as (keyof OrganisationConfig)[]).map(async (property) => {
-    const settingKey = keys[property];
-    const existing = await listRowsWhere(accessToken, "system_settings", { organisation_id: organisationId, setting_key: settingKey }, "id", 1);
-    const payload: DataRow = {
-      organisation_id: organisationId,
-      setting_key: settingKey,
-      setting_value: config[property],
-      category: settingKey.split(".")[0],
-      updated_at: new Date().toISOString(),
-    };
-    if (existing.length) await updateRowsWhere(accessToken, "system_settings", "id", String(existing[0].id), payload);
-    else await createRow(accessToken, "system_settings", payload);
-  }));
+export async function saveOrganisationConfig(
+  accessToken: string,
+  organisationId: string,
+  config: OrganisationConfig,
+) {
+  await Promise.all(
+    (Object.keys(keys) as (keyof OrganisationConfig)[]).map(
+      async (property) => {
+        const settingKey = keys[property];
+        const existing = await listRowsWhere(
+          accessToken,
+          "system_settings",
+          { organisation_id: organisationId, setting_key: settingKey },
+          "id",
+          1,
+        );
+        const payload: DataRow = {
+          organisation_id: organisationId,
+          setting_key: settingKey,
+          setting_value: config[property],
+          category: settingKey.split(".")[0],
+          updated_at: new Date().toISOString(),
+        };
+        if (existing.length)
+          await updateRowsWhere(
+            accessToken,
+            "system_settings",
+            "id",
+            String(existing[0].id),
+            payload,
+          );
+        else await createRow(accessToken, "system_settings", payload);
+      },
+    ),
+  );
 
   const branding: DataRow = {
     organisation_id: organisationId,
@@ -199,6 +270,13 @@ export function applyOrganisationTheme(config: OrganisationConfig) {
   root.style.removeProperty("--text");
   root.style.removeProperty("--muted");
   root.style.removeProperty("--line");
+  root.dataset.companyName = config.companyName;
+  root.dataset.companyAddress = config.address;
+  root.dataset.companyLogo =
+    config.dashboardLogoUrl ||
+    config.logoUrl ||
+    config.loginLogoUrl ||
+    "/logo.png";
   document.title = `${config.shortName} · ${config.companyName}`;
   if (config.faviconUrl) {
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');

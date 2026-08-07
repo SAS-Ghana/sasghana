@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("build emits the SAS People Vite application", async () => {
+test("build emits the branded SAS Finance Group Vite application", async () => {
   await access(new URL("../dist/index.html", import.meta.url));
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
-  assert.match(html, /SAS People/);
+  assert.match(html, /SAS Finance Group/);
   assert.match(html, /Employee Management and Onboarding Portal/);
   assert.match(html, /src="\/assets\/index-[^"]+\.js"/);
 });

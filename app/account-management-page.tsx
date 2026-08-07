@@ -1,73 +1,1019 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { callFunction, callRpc, DataRow, listNamedRows, listRows, listRowsUnordered, updateRow } from "./lib/supabase-data";
+import {
+  callFunction,
+  callRpc,
+  createRow,
+  DataRow,
+  listNamedRows,
+  listRows,
+  listRowsUnordered,
+  updateRow,
+} from "./lib/supabase-data";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
-type Option={id:string;label:string};
-const dashboardOptions=["Dashboard","Directory","Employees","Hiring","Onboarding","Documents","Book Library","Attendance","Live Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Community","Meetings","Policies","Reports","My Profile","Self-Service Hub","Profile Requests","Backup & Restore","Settings"];
-const dashboardPresets:Record<string,string[]>={
-  employee:["Dashboard","My Profile","Self-Service Hub","Attendance","Leave","Documents","Tasks","Payroll","Benefits","Announcements","Meetings"],
-  manager:["Dashboard","My Profile","Directory","Employees","Attendance","Leave","Performance","Assets","Tasks","Hiring","Onboarding","Documents","HR Requests","Announcements","Meetings","Reports"],
-  hr:["Dashboard","My Profile","Directory","Employees","Hiring","Onboarding","Documents","Attendance","Leave","Performance","Assets","Tasks","Payroll","Benefits","Compensation","HR Requests","Announcements","Meetings","Policies","Reports","Profile Requests","Settings"],
-  administrator:[...dashboardOptions],
-  auditor:["Dashboard","Directory","Attendance","Leave","Documents","Reports","Policies"]
+type Option = { id: string; label: string };
+const dashboardOptions = [
+  "Dashboard",
+  "Directory",
+  "Employees",
+  "Hiring",
+  "Onboarding",
+  "Documents",
+  "Book Library",
+  "Attendance",
+  "Live Attendance",
+  "Leave",
+  "Performance",
+  "Assets",
+  "Tasks",
+  "Payroll",
+  "Benefits",
+  "Compensation",
+  "HR Requests",
+  "Announcements",
+  "Community",
+  "Meetings",
+  "Policies",
+  "Reports",
+  "My Profile",
+  "Self-Service Hub",
+  "Profile Requests",
+  "Backup & Restore",
+  "Settings",
+];
+const dashboardPresets: Record<string, string[]> = {
+  employee: [
+    "Dashboard",
+    "My Profile",
+    "Self-Service Hub",
+    "Attendance",
+    "Leave",
+    "Documents",
+    "Tasks",
+    "Payroll",
+    "Benefits",
+    "Announcements",
+    "Meetings",
+  ],
+  manager: [
+    "Dashboard",
+    "My Profile",
+    "Directory",
+    "Employees",
+    "Attendance",
+    "Leave",
+    "Performance",
+    "Assets",
+    "Tasks",
+    "Hiring",
+    "Onboarding",
+    "Documents",
+    "HR Requests",
+    "Announcements",
+    "Meetings",
+    "Reports",
+  ],
+  hr: [
+    "Dashboard",
+    "My Profile",
+    "Directory",
+    "Employees",
+    "Hiring",
+    "Onboarding",
+    "Documents",
+    "Attendance",
+    "Leave",
+    "Performance",
+    "Assets",
+    "Tasks",
+    "Payroll",
+    "Benefits",
+    "Compensation",
+    "HR Requests",
+    "Announcements",
+    "Meetings",
+    "Policies",
+    "Reports",
+    "Profile Requests",
+    "Settings",
+  ],
+  administrator: [...dashboardOptions],
+  auditor: [
+    "Dashboard",
+    "Directory",
+    "Attendance",
+    "Leave",
+    "Documents",
+    "Reports",
+    "Policies",
+  ],
 };
-const permissionPrefixes:Record<string,string[]>={employee:["self."],manager:["self.","team."],hr:["self.","team.","hr."],administrator:["self.","team.","hr.","admin."],auditor:["audit.","reports."]};
-const roleMatchers:Record<string,RegExp>={employee:/employee/i,manager:/manager|supervisor|team lead/i,hr:/human resources|\bhr\b/i,administrator:/administrator|system admin|ultimate/i,auditor:/auditor|read only/i};
+const permissionPrefixes: Record<string, string[]> = {
+  employee: ["self."],
+  manager: ["self.", "team."],
+  hr: ["self.", "team.", "hr."],
+  administrator: ["self.", "team.", "hr.", "admin."],
+  auditor: ["audit.", "reports."],
+};
+const roleMatchers: Record<string, RegExp> = {
+  employee: /employee/i,
+  manager: /manager|supervisor|team lead/i,
+  hr: /human resources|\bhr\b/i,
+  administrator: /administrator|system admin|ultimate/i,
+  auditor: /auditor|read only/i,
+};
 
-export function AccountManagementPage({accessToken}:{accessToken:string}){
-  const [accounts,setAccounts]=useState<DataRow[]>([]),[roles,setRoles]=useState<Option[]>([]),[permissions,setPermissions]=useState<Option[]>([]),[employees,setEmployees]=useState<Option[]>([]),[userRoles,setUserRoles]=useState<DataRow[]>([]),[userPermissions,setUserPermissions]=useState<DataRow[]>([]);
-  const [open,setOpen]=useState(false),[editing,setEditing]=useState<DataRow|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState("");
-  const load=useCallback(async()=>{try{const [profileRows,roleRows,permissionRows,employeeRows,assignedRoles,assignedPermissions]=await Promise.all([
-    listRows(accessToken,"profiles","id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,invitation_status,last_login_at,created_at,preferred_dashboard,self_service_enabled"),
-    listNamedRows(accessToken,"roles","id,name"),listNamedRows(accessToken,"permissions","id,key,description","key"),listNamedRows(accessToken,"employees","id,first_name,last_name,employee_number","first_name"),listRowsUnordered(accessToken,"user_roles"),listRowsUnordered(accessToken,"user_permissions")]);
-    setAccounts(profileRows);setRoles(roleRows.map(r=>({id:String(r.id),label:String(r.name)})));setPermissions(permissionRows.map(r=>({id:String(r.id),label:String(r.key)})));setEmployees(employeeRows.map(r=>({id:String(r.id),label:`${r.first_name} ${r.last_name} (${r.employee_number})`})));setUserRoles(assignedRoles);setUserPermissions(assignedPermissions);
-  }catch(cause){setError(cause instanceof Error?cause.message:"Accounts could not be loaded.");}},[accessToken]);
-  useEffect(()=>{void load();},[load]);
-  async function setStatus(row:DataRow,status:string){setError("");setNotice("");try{await callFunction(accessToken,"manage-user",{action:"status",user_id:row.id,status});setNotice(`${row.display_name} is now ${status.replaceAll("_"," ")}.`);await load();}catch(cause){setError(cause instanceof Error?cause.message:"Account update failed.");}}
-  async function deleteAccount(row:DataRow){if(!confirm(`Permanently delete the login for ${row.display_name}?`))return;try{await callFunction(accessToken,"manage-user",{action:"delete",user_id:row.id});setNotice("Login deleted.");await load();}catch(cause){setError(cause instanceof Error?cause.message:"Account deletion failed.");}}
-  async function resetPassword(row:DataRow){const password=`Sas@${crypto.randomUUID().replaceAll("-","").slice(0,12)}9`;if(!confirm(`Create a temporary password for ${row.display_name}?`))return;try{await callFunction(accessToken,"manage-user",{action:"reset_password",user_id:row.id,password});await navigator.clipboard.writeText(password).catch(()=>undefined);setNotice(`Temporary password created and copied for ${row.display_name}.`);}catch(cause){setError(cause instanceof Error?cause.message:"Password reset failed.");}}
-  return <section><header className="page-header"><div><span className="eyebrow">Administration</span><h1><MenuIcon name={moduleIcon("User & Account Management")} />User accounts</h1><p className="muted">Create logins and edit roles, permissions, dashboards, employee links and self-service access.</p></div><button className="primary" onClick={()=>setOpen(true)}>Create account</button></header>
-    <div className="summary-strip"><div><strong>{accounts.length}</strong><span>Total accounts</span></div><div><strong>{accounts.filter(x=>x.status==="active").length}</strong><span>Active</span></div><div><strong>{accounts.filter(x=>x.self_service_enabled!==false).length}</strong><span>Self-service enabled</span></div></div>
-    {error&&<p className="form-error">{error}</p>}{notice&&<p className="form-message">{notice}</p>}
-    <article className="card data-panel"><div className="panel-head"><div><h2>Account directory</h2><p className="muted">Roles and access are stored in Supabase</p></div><button onClick={()=>void load()}>Refresh</button></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Username</th><th>Type</th><th>Roles</th><th>Self-service</th><th>Status</th><th>Actions</th></tr></thead><tbody>{accounts.map(row=>{const assigned=userRoles.filter(x=>x.profile_id===row.id).map(x=>roles.find(r=>r.id===x.role_id)?.label).filter(Boolean);return <tr key={String(row.id)}><td><strong>{String(row.display_name)}</strong><small className="table-subline">{String(row.job_title??"")}</small></td><td>{String(row.username)}<small className="table-subline">{String(row.email??"")}</small></td><td>{String(row.account_type)}</td><td>{assigned.join(", ")||"No role"}</td><td>{row.self_service_enabled===false?"Disabled":"Enabled"}</td><td><span className={`status-pill ${row.status}`}>{String(row.status).replaceAll("_"," ")}</span></td><td><div className="row-actions"><button onClick={()=>setEditing(row)}>Edit access</button><button onClick={()=>void resetPassword(row)}>Reset password</button>{row.status==="active"?<button onClick={()=>void setStatus(row,"suspended")}>Suspend</button>:<button onClick={()=>void setStatus(row,"active")}>Activate</button>}<button className="danger" onClick={()=>void deleteAccount(row)}>Delete</button></div></td></tr>})}</tbody></table></div></article>
-    {open&&<CreateAccountDialog accessToken={accessToken} roles={roles} permissions={permissions} employees={employees} onClose={()=>setOpen(false)} onCreated={async()=>{setOpen(false);await load();}}/>}
-    {editing&&<AccessDialog accessToken={accessToken} row={editing} roles={roles} permissions={permissions} employees={employees} initialRoleIds={userRoles.filter(x=>x.profile_id===editing.id).map(x=>String(x.role_id))} initialPermissionIds={userPermissions.filter(x=>x.profile_id===editing.id).map(x=>String(x.permission_id))} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);setNotice("Account access updated.");await load();}}/>}
-  </section>;
+export function AccountManagementPage({
+  accessToken,
+}: {
+  accessToken: string;
+}) {
+  const [accounts, setAccounts] = useState<DataRow[]>([]),
+    [roles, setRoles] = useState<Option[]>([]),
+    [permissions, setPermissions] = useState<Option[]>([]),
+    [employees, setEmployees] = useState<Option[]>([]),
+    [userRoles, setUserRoles] = useState<DataRow[]>([]),
+    [userPermissions, setUserPermissions] = useState<DataRow[]>([]);
+  const [open, setOpen] = useState(false),
+    [editing, setEditing] = useState<DataRow | null>(null),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const [
+        profileRows,
+        roleRows,
+        permissionRows,
+        employeeRows,
+        assignedRoles,
+        assignedPermissions,
+      ] = await Promise.all([
+        listRows(
+          accessToken,
+          "profiles",
+          "id,organisation_id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,invitation_status,last_login_at,created_at,preferred_dashboard,self_service_enabled",
+        ),
+        listNamedRows(accessToken, "roles", "id,name"),
+        listNamedRows(accessToken, "permissions", "id,key,description", "key"),
+        listNamedRows(
+          accessToken,
+          "employees",
+          "id,first_name,last_name,employee_number",
+          "first_name",
+        ),
+        listRowsUnordered(accessToken, "user_roles"),
+        listRowsUnordered(accessToken, "user_permissions"),
+      ]);
+      setAccounts(profileRows);
+      setRoles(
+        roleRows.map((r) => ({ id: String(r.id), label: String(r.name) })),
+      );
+      setPermissions(
+        permissionRows.map((r) => ({ id: String(r.id), label: String(r.key) })),
+      );
+      setEmployees(
+        employeeRows.map((r) => ({
+          id: String(r.id),
+          label: `${r.first_name} ${r.last_name} (${r.employee_number})`,
+        })),
+      );
+      setUserRoles(assignedRoles);
+      setUserPermissions(assignedPermissions);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Accounts could not be loaded.",
+      );
+    }
+  }, [accessToken]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  async function setStatus(row: DataRow, status: string) {
+    setError("");
+    setNotice("");
+    try {
+      await callFunction(accessToken, "manage-user", {
+        action: "status",
+        user_id: row.id,
+        status,
+      });
+      setNotice(`${row.display_name} is now ${status.replaceAll("_", " ")}.`);
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Account update failed.",
+      );
+    }
+  }
+  async function archiveAccount(row: DataRow) {
+    const reason = window.prompt(
+      `Reason for offboarding ${String(row.display_name)}:`,
+    );
+    if (!reason?.trim()) return;
+    try {
+      await updateRow(accessToken, "profiles", String(row.id), {
+        status: "suspended",
+        self_service_enabled: false,
+      });
+      if (row.employee_id) {
+        await updateRow(accessToken, "employees", String(row.employee_id), {
+          employment_status: "offboarded",
+          archived_at: new Date().toISOString(),
+        });
+        await createRow(accessToken, "employee_offboarding", {
+          organisation_id: row.organisation_id,
+          employee_id: row.employee_id,
+          reason: reason.trim(),
+          separation_type: "administrative",
+          status: "in_progress",
+          access_revoked_at: new Date().toISOString(),
+          assigned_to: row.id,
+          notes:
+            "Account archived from User Account Management. Historical payroll, attendance, documents and activity remain retained.",
+        });
+      }
+      setNotice(
+        "User archived and moved into offboarding. Historical records were retained.",
+      );
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Account could not be archived for offboarding.",
+      );
+    }
+  }
+  async function resetPassword(row: DataRow) {
+    const password = `Sas@${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}9`;
+    if (!confirm(`Create a temporary password for ${row.display_name}?`))
+      return;
+    try {
+      await callFunction(accessToken, "manage-user", {
+        action: "reset_password",
+        user_id: row.id,
+        password,
+      });
+      await navigator.clipboard.writeText(password).catch(() => undefined);
+      setNotice(
+        `Temporary password created and copied for ${row.display_name}.`,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Password reset failed.",
+      );
+    }
+  }
+  return (
+    <section>
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Administration</span>
+          <h1>
+            <MenuIcon name={moduleIcon("User & Account Management")} />
+            User accounts
+          </h1>
+          <p className="muted">
+            Create logins and edit roles, permissions, dashboards, employee
+            links and self-service access.
+          </p>
+        </div>
+        <button className="primary" onClick={() => setOpen(true)}>
+          Create account
+        </button>
+      </header>
+      <div className="summary-strip">
+        <div>
+          <strong>{accounts.length}</strong>
+          <span>Total accounts</span>
+        </div>
+        <div>
+          <strong>
+            {accounts.filter((x) => x.status === "active").length}
+          </strong>
+          <span>Active</span>
+        </div>
+        <div>
+          <strong>
+            {accounts.filter((x) => x.self_service_enabled !== false).length}
+          </strong>
+          <span>Self-service enabled</span>
+        </div>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      {notice && <p className="form-message">{notice}</p>}
+      <article className="card data-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Account directory</h2>
+            <p className="muted">Roles and access are stored in Supabase</p>
+          </div>
+          <button onClick={() => void load()}>Refresh</button>
+        </div>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <th>Username</th>
+                <th>Type</th>
+                <th>Roles</th>
+                <th>Self-service</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((row) => {
+                const assigned = userRoles
+                  .filter((x) => x.profile_id === row.id)
+                  .map((x) => roles.find((r) => r.id === x.role_id)?.label)
+                  .filter(Boolean);
+                return (
+                  <tr key={String(row.id)}>
+                    <td>
+                      <strong>{String(row.display_name)}</strong>
+                      <small className="table-subline">
+                        {String(row.job_title ?? "")}
+                      </small>
+                    </td>
+                    <td>
+                      {String(row.username)}
+                      <small className="table-subline">
+                        {String(row.email ?? "")}
+                      </small>
+                    </td>
+                    <td>{String(row.account_type)}</td>
+                    <td>{assigned.join(", ") || "No role"}</td>
+                    <td>
+                      {row.self_service_enabled === false
+                        ? "Disabled"
+                        : "Enabled"}
+                    </td>
+                    <td>
+                      <span className={`status-pill ${row.status}`}>
+                        {String(row.status).replaceAll("_", " ")}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        <button onClick={() => setEditing(row)}>
+                          Edit access
+                        </button>
+                        <button onClick={() => void resetPassword(row)}>
+                          Reset password
+                        </button>
+                        {row.status === "active" ? (
+                          <button
+                            onClick={() => void setStatus(row, "suspended")}
+                          >
+                            Suspend
+                          </button>
+                        ) : (
+                          <button onClick={() => void setStatus(row, "active")}>
+                            Activate
+                          </button>
+                        )}
+                        <button
+                          className="danger"
+                          onClick={() => void archiveAccount(row)}
+                        >
+                          Offboard / archive
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </article>
+      {open && (
+        <CreateAccountDialog
+          accessToken={accessToken}
+          roles={roles}
+          permissions={permissions}
+          employees={employees}
+          onClose={() => setOpen(false)}
+          onCreated={async () => {
+            setOpen(false);
+            await load();
+          }}
+        />
+      )}
+      {editing && (
+        <AccessDialog
+          accessToken={accessToken}
+          row={editing}
+          roles={roles}
+          permissions={permissions}
+          employees={employees}
+          initialRoleIds={userRoles
+            .filter((x) => x.profile_id === editing.id)
+            .map((x) => String(x.role_id))}
+          initialPermissionIds={userPermissions
+            .filter((x) => x.profile_id === editing.id)
+            .map((x) => String(x.permission_id))}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            setNotice("Account access updated.");
+            await load();
+          }}
+        />
+      )}
+    </section>
+  );
 }
 
-function useAccessSelection(roles:Option[],permissions:Option[],initialType:string,initialRoleIds:string[],initialPermissionIds:string[],initialDashboards:string[]){
-  const [accountType,setAccountTypeState]=useState(initialType),[roleIds,setRoleIds]=useState(initialRoleIds),[permissionIds,setPermissionIds]=useState(initialPermissionIds),[dashboards,setDashboards]=useState(initialDashboards);
-  const grouped=useMemo(()=>permissions.reduce<Record<string,Option[]>>((all,p)=>{const group=p.label.split(".")[0];(all[group]??=[]).push(p);return all;},{}),[permissions]);
-  const toggle=(list:string[],value:string,setter:(next:string[])=>void)=>setter(list.includes(value)?list.filter(x=>x!==value):[...list,value]);
-  function applyPreset(type:string){setAccountTypeState(type);const matcher=roleMatchers[type];setRoleIds(matcher?roles.filter(r=>matcher.test(r.label)).map(r=>r.id):[]);const prefixes=permissionPrefixes[type]??[];setPermissionIds(permissions.filter(p=>prefixes.some(prefix=>p.label.startsWith(prefix))).map(p=>p.id));setDashboards(dashboardPresets[type]??["Dashboard"]);}
-  function toggleRole(id:string){const next=roleIds.includes(id)?roleIds.filter(x=>x!==id):[...roleIds,id];setRoleIds(next);const role=roles.find(r=>r.id===id);if(role&&!roleIds.includes(id)){const type=Object.keys(roleMatchers).find(key=>roleMatchers[key].test(role.label));if(type)applyPreset(type);}}
-  return {accountType,applyPreset,roleIds,setRoleIds,permissionIds,setPermissionIds,dashboards,setDashboards,grouped,toggle,toggleRole};
+function useAccessSelection(
+  roles: Option[],
+  permissions: Option[],
+  initialType: string,
+  initialRoleIds: string[],
+  initialPermissionIds: string[],
+  initialDashboards: string[],
+) {
+  const [accountType, setAccountTypeState] = useState(initialType),
+    [roleIds, setRoleIds] = useState(initialRoleIds),
+    [permissionIds, setPermissionIds] = useState(initialPermissionIds),
+    [dashboards, setDashboards] = useState(initialDashboards);
+  const grouped = useMemo(
+    () =>
+      permissions.reduce<Record<string, Option[]>>((all, p) => {
+        const group = p.label.split(".")[0];
+        (all[group] ??= []).push(p);
+        return all;
+      }, {}),
+    [permissions],
+  );
+  const toggle = (
+    list: string[],
+    value: string,
+    setter: (next: string[]) => void,
+  ) =>
+    setter(
+      list.includes(value) ? list.filter((x) => x !== value) : [...list, value],
+    );
+  function applyPreset(type: string) {
+    setAccountTypeState(type);
+    const matcher = roleMatchers[type];
+    setRoleIds(
+      matcher
+        ? roles.filter((r) => matcher.test(r.label)).map((r) => r.id)
+        : [],
+    );
+    const prefixes = permissionPrefixes[type] ?? [];
+    setPermissionIds(
+      permissions
+        .filter((p) => prefixes.some((prefix) => p.label.startsWith(prefix)))
+        .map((p) => p.id),
+    );
+    setDashboards(dashboardPresets[type] ?? ["Dashboard"]);
+  }
+  function toggleRole(id: string) {
+    const next = roleIds.includes(id)
+      ? roleIds.filter((x) => x !== id)
+      : [...roleIds, id];
+    setRoleIds(next);
+    const role = roles.find((r) => r.id === id);
+    if (role && !roleIds.includes(id)) {
+      const type = Object.keys(roleMatchers).find((key) =>
+        roleMatchers[key].test(role.label),
+      );
+      if (type) applyPreset(type);
+    }
+  }
+  return {
+    accountType,
+    applyPreset,
+    roleIds,
+    setRoleIds,
+    permissionIds,
+    setPermissionIds,
+    dashboards,
+    setDashboards,
+    grouped,
+    toggle,
+    toggleRole,
+  };
 }
 
-function SelectionFields({roles,permissions,selection}:{roles:Option[];permissions:Option[];selection:ReturnType<typeof useAccessSelection>}){
-  return <>
-    <fieldset className="permission-group"><legend>Roles</legend><div className="tier-heading"><span>Role assignments</span><div><button type="button" onClick={()=>selection.setRoleIds(roles.map(x=>x.id))}>Select all</button><button type="button" onClick={()=>selection.setRoleIds([])}>Clear</button></div></div>{roles.map(x=><label className="check" key={x.id}><input type="checkbox" checked={selection.roleIds.includes(x.id)} onChange={()=>selection.toggleRole(x.id)}/>{x.label}</label>)}</fieldset>
-    <fieldset className="permission-group"><legend>Dashboard access</legend><div className="tier-heading"><span>Visible modules</span><div><button type="button" onClick={()=>selection.setDashboards([...dashboardOptions])}>Select all</button><button type="button" onClick={()=>selection.setDashboards([])}>Clear</button></div></div><div className="checkbox-grid">{dashboardOptions.map(x=><label className="check" key={x}><input type="checkbox" checked={selection.dashboards.includes(x)} onChange={()=>selection.toggle(selection.dashboards,x,selection.setDashboards)}/>{x}</label>)}</div></fieldset>
-    <fieldset className="permission-group wide"><legend>Custom permissions</legend><div className="tier-heading"><span>Permission sections</span><div><button type="button" onClick={()=>selection.setPermissionIds(permissions.map(x=>x.id))}>Select all permissions</button><button type="button" onClick={()=>selection.setPermissionIds([])}>Clear all</button></div></div>{Object.entries(selection.grouped).map(([group,items])=>{const ids=items.map(x=>x.id),all=ids.every(id=>selection.permissionIds.includes(id));return <div className="permission-tier" key={group}><div className="tier-heading"><strong>{group}</strong><button type="button" onClick={()=>selection.setPermissionIds(all?selection.permissionIds.filter(id=>!ids.includes(id)):Array.from(new Set([...selection.permissionIds,...ids])))}>{all?"Clear section":"Select section"}</button></div><div className="checkbox-grid">{items.map(x=><label className="check" key={x.id}><input type="checkbox" checked={selection.permissionIds.includes(x.id)} onChange={()=>selection.toggle(selection.permissionIds,x.id,selection.setPermissionIds)}/>{x.label}</label>)}</div></div>})}</fieldset>
-  </>;
+function SelectionFields({
+  roles,
+  permissions,
+  selection,
+}: {
+  roles: Option[];
+  permissions: Option[];
+  selection: ReturnType<typeof useAccessSelection>;
+}) {
+  return (
+    <>
+      <fieldset className="permission-group">
+        <legend>Roles</legend>
+        <div className="tier-heading">
+          <span>Role assignments</span>
+          <div>
+            <button
+              type="button"
+              onClick={() => selection.setRoleIds(roles.map((x) => x.id))}
+            >
+              Select all
+            </button>
+            <button type="button" onClick={() => selection.setRoleIds([])}>
+              Clear
+            </button>
+          </div>
+        </div>
+        {roles.map((x) => (
+          <label className="check" key={x.id}>
+            <input
+              type="checkbox"
+              checked={selection.roleIds.includes(x.id)}
+              onChange={() => selection.toggleRole(x.id)}
+            />
+            {x.label}
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="permission-group">
+        <legend>Dashboard access</legend>
+        <div className="tier-heading">
+          <span>Visible modules</span>
+          <div>
+            <button
+              type="button"
+              onClick={() => selection.setDashboards([...dashboardOptions])}
+            >
+              Select all
+            </button>
+            <button type="button" onClick={() => selection.setDashboards([])}>
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="checkbox-grid">
+          {dashboardOptions.map((x) => (
+            <label className="check" key={x}>
+              <input
+                type="checkbox"
+                checked={selection.dashboards.includes(x)}
+                onChange={() =>
+                  selection.toggle(
+                    selection.dashboards,
+                    x,
+                    selection.setDashboards,
+                  )
+                }
+              />
+              {x}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="permission-group wide">
+        <legend>Custom permissions</legend>
+        <div className="tier-heading">
+          <span>Permission sections</span>
+          <div>
+            <button
+              type="button"
+              onClick={() =>
+                selection.setPermissionIds(permissions.map((x) => x.id))
+              }
+            >
+              Select all permissions
+            </button>
+            <button
+              type="button"
+              onClick={() => selection.setPermissionIds([])}
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+        {Object.entries(selection.grouped).map(([group, items]) => {
+          const ids = items.map((x) => x.id),
+            all = ids.every((id) => selection.permissionIds.includes(id));
+          return (
+            <div className="permission-tier" key={group}>
+              <div className="tier-heading">
+                <strong>{group}</strong>
+                <button
+                  type="button"
+                  onClick={() =>
+                    selection.setPermissionIds(
+                      all
+                        ? selection.permissionIds.filter(
+                            (id) => !ids.includes(id),
+                          )
+                        : Array.from(
+                            new Set([...selection.permissionIds, ...ids]),
+                          ),
+                    )
+                  }
+                >
+                  {all ? "Clear section" : "Select section"}
+                </button>
+              </div>
+              <div className="checkbox-grid">
+                {items.map((x) => (
+                  <label className="check" key={x.id}>
+                    <input
+                      type="checkbox"
+                      checked={selection.permissionIds.includes(x.id)}
+                      onChange={() =>
+                        selection.toggle(
+                          selection.permissionIds,
+                          x.id,
+                          selection.setPermissionIds,
+                        )
+                      }
+                    />
+                    {x.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </fieldset>
+    </>
+  );
 }
 
-function AccessDialog({accessToken,row,roles,permissions,employees,initialRoleIds,initialPermissionIds,onClose,onSaved}:{accessToken:string;row:DataRow;roles:Option[];permissions:Option[];employees:Option[];initialRoleIds:string[];initialPermissionIds:string[];onClose:()=>void;onSaved:()=>Promise<void>}){
-  const [values,setValues]=useState({display_name:String(row.display_name??""),username:String(row.username??""),job_title:String(row.job_title??""),status:String(row.status??"active"),employee_id:String(row.employee_id??""),preferred_dashboard:String(row.preferred_dashboard??"Dashboard"),self_service_enabled:row.self_service_enabled!==false});
-  const selection=useAccessSelection(roles,permissions,String(row.account_type??"employee"),initialRoleIds,initialPermissionIds,Array.isArray(row.dashboard_access)?row.dashboard_access as string[]:["Dashboard"]);
-  const [busy,setBusy]=useState(false),[error,setError]=useState("");
-  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{await updateRow(accessToken,"profiles",String(row.id),{display_name:values.display_name,username:values.username,status:values.status});await callRpc(accessToken,"set_user_access",{p_profile_id:row.id,p_role_ids:selection.roleIds,p_permission_ids:selection.permissionIds,p_dashboard_access:selection.dashboards,p_employee_id:values.employee_id||null,p_account_type:selection.accountType,p_job_title:values.job_title,p_preferred_dashboard:values.preferred_dashboard,p_self_service_enabled:values.self_service_enabled});await onSaved();}catch(cause){setError(cause instanceof Error?cause.message:"Access update failed.");}finally{setBusy(false);}}
-  return <div className="modal-backdrop"><section className="modal account-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Account access</span><h2>Edit roles, views and services</h2><form className="record-form account-form" onSubmit={submit}>
-    <label>Full name<input value={values.display_name} onChange={e=>setValues({...values,display_name:e.target.value})}/></label><label>Username<input value={values.username} onChange={e=>setValues({...values,username:e.target.value})}/></label><label>Employee record<select value={values.employee_id} onChange={e=>setValues({...values,employee_id:e.target.value})}><option value="">Not linked</option>{employees.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label>Job title<input value={values.job_title} onChange={e=>setValues({...values,job_title:e.target.value})}/></label><label>Account type<select value={selection.accountType} onChange={e=>selection.applyPreset(e.target.value)}>{["employee","hr","manager","auditor","administrator"].map(x=><option key={x}>{x}</option>)}</select></label><label>Status<select value={values.status} onChange={e=>setValues({...values,status:e.target.value})}>{["active","password_change_required","suspended","disabled"].map(x=><option key={x}>{x}</option>)}</select></label><label>Preferred dashboard<select value={values.preferred_dashboard} onChange={e=>setValues({...values,preferred_dashboard:e.target.value})}>{dashboardOptions.map(x=><option key={x}>{x}</option>)}</select></label><label className="check"><input type="checkbox" checked={values.self_service_enabled} onChange={e=>setValues({...values,self_service_enabled:e.target.checked})}/> Personal self-service profile, leave, attendance, documents and tasks</label>
-    <SelectionFields roles={roles} permissions={permissions} selection={selection}/>{error&&<p className="form-error wide">{error}</p>}<div className="form-actions wide"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Saving…":"Save roles and access"}</button></div>
-  </form></section></div>;
+function AccessDialog({
+  accessToken,
+  row,
+  roles,
+  permissions,
+  employees,
+  initialRoleIds,
+  initialPermissionIds,
+  onClose,
+  onSaved,
+}: {
+  accessToken: string;
+  row: DataRow;
+  roles: Option[];
+  permissions: Option[];
+  employees: Option[];
+  initialRoleIds: string[];
+  initialPermissionIds: string[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [values, setValues] = useState({
+    display_name: String(row.display_name ?? ""),
+    username: String(row.username ?? ""),
+    job_title: String(row.job_title ?? ""),
+    status: String(row.status ?? "active"),
+    employee_id: String(row.employee_id ?? ""),
+    preferred_dashboard: String(row.preferred_dashboard ?? "Dashboard"),
+    self_service_enabled: row.self_service_enabled !== false,
+  });
+  const selection = useAccessSelection(
+    roles,
+    permissions,
+    String(row.account_type ?? "employee"),
+    initialRoleIds,
+    initialPermissionIds,
+    Array.isArray(row.dashboard_access)
+      ? (row.dashboard_access as string[])
+      : ["Dashboard"],
+  );
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await updateRow(accessToken, "profiles", String(row.id), {
+        display_name: values.display_name,
+        username: values.username,
+        status: values.status,
+      });
+      await callRpc(accessToken, "set_user_access", {
+        p_profile_id: row.id,
+        p_role_ids: selection.roleIds,
+        p_permission_ids: selection.permissionIds,
+        p_dashboard_access: selection.dashboards,
+        p_employee_id: values.employee_id || null,
+        p_account_type: selection.accountType,
+        p_job_title: values.job_title,
+        p_preferred_dashboard: values.preferred_dashboard,
+        p_self_service_enabled: values.self_service_enabled,
+      });
+      await onSaved();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Access update failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <section className="modal account-modal">
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+        <span className="eyebrow">Account access</span>
+        <h2>Edit roles, views and services</h2>
+        <form className="record-form account-form" onSubmit={submit}>
+          <label>
+            Full name
+            <input
+              value={values.display_name}
+              onChange={(e) =>
+                setValues({ ...values, display_name: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Username
+            <input
+              value={values.username}
+              onChange={(e) =>
+                setValues({ ...values, username: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Employee record
+            <select
+              value={values.employee_id}
+              onChange={(e) =>
+                setValues({ ...values, employee_id: e.target.value })
+              }
+            >
+              <option value="">Not linked</option>
+              {employees.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Job title
+            <input
+              value={values.job_title}
+              onChange={(e) =>
+                setValues({ ...values, job_title: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Account type
+            <select
+              value={selection.accountType}
+              onChange={(e) => selection.applyPreset(e.target.value)}
+            >
+              {["employee", "hr", "manager", "auditor", "administrator"].map(
+                (x) => (
+                  <option key={x}>{x}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            Status
+            <select
+              value={values.status}
+              onChange={(e) => setValues({ ...values, status: e.target.value })}
+            >
+              {[
+                "active",
+                "password_change_required",
+                "suspended",
+                "disabled",
+              ].map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Preferred dashboard
+            <select
+              value={values.preferred_dashboard}
+              onChange={(e) =>
+                setValues({ ...values, preferred_dashboard: e.target.value })
+              }
+            >
+              {dashboardOptions.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={values.self_service_enabled}
+              onChange={(e) =>
+                setValues({ ...values, self_service_enabled: e.target.checked })
+              }
+            />{" "}
+            Personal self-service profile, leave, attendance, documents and
+            tasks
+          </label>
+          <SelectionFields
+            roles={roles}
+            permissions={permissions}
+            selection={selection}
+          />
+          {error && <p className="form-error wide">{error}</p>}
+          <div className="form-actions wide">
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="primary" disabled={busy}>
+              {busy ? "Saving…" : "Save roles and access"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
 
-function CreateAccountDialog({accessToken,roles,permissions,employees,onClose,onCreated}:{accessToken:string;roles:Option[];permissions:Option[];employees:Option[];onClose:()=>void;onCreated:()=>Promise<void>}){
-  const [values,setValues]=useState({display_name:"",username:"",email:"",password:"",job_title:"",employee_id:""}),[invite,setInvite]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
-  const selection=useAccessSelection(roles,permissions,"employee",[],[],dashboardPresets.employee);
-  useEffect(()=>{selection.applyPreset("employee");},[]);
-  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{await callFunction(accessToken,"manage-user",{action:"create",...values,account_type:selection.accountType,send_invite:invite,role_ids:selection.roleIds,permission_ids:selection.permissionIds,dashboard_access:selection.dashboards,self_service_enabled:true});await onCreated();}catch(cause){setError(cause instanceof Error?cause.message:"Account creation failed.");}finally{setBusy(false);}}
-  return <div className="modal-backdrop"><section className="modal account-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">Private account</span><h2>Create employee login</h2><form className="record-form account-form" onSubmit={submit}><label>Full name *<input required value={values.display_name} onChange={e=>setValues({...values,display_name:e.target.value})}/></label><label>Username *<input required value={values.username} onChange={e=>setValues({...values,username:e.target.value})}/></label><label>Email<input type="email" value={values.email} onChange={e=>setValues({...values,email:e.target.value})}/></label><label>Temporary password<input type="password" value={values.password} onChange={e=>setValues({...values,password:e.target.value})}/></label><label>Account type<select value={selection.accountType} onChange={e=>selection.applyPreset(e.target.value)}>{["employee","hr","manager","auditor","administrator"].map(x=><option key={x}>{x}</option>)}</select></label><label>Employee record<select value={values.employee_id} onChange={e=>setValues({...values,employee_id:e.target.value})}><option value="">Not linked</option>{employees.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label>Job title<input value={values.job_title} onChange={e=>setValues({...values,job_title:e.target.value})}/></label><label className="check"><input type="checkbox" checked={invite} onChange={e=>setInvite(e.target.checked)}/> Send secure invitation</label><SelectionFields roles={roles} permissions={permissions} selection={selection}/>{error&&<p className="form-error wide">{error}</p>}<div className="form-actions wide"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?"Creating…":"Create account"}</button></div></form></section></div>;
+function CreateAccountDialog({
+  accessToken,
+  roles,
+  permissions,
+  employees,
+  onClose,
+  onCreated,
+}: {
+  accessToken: string;
+  roles: Option[];
+  permissions: Option[];
+  employees: Option[];
+  onClose: () => void;
+  onCreated: () => Promise<void>;
+}) {
+  const [values, setValues] = useState({
+      display_name: "",
+      username: "",
+      email: "",
+      password: "",
+      job_title: "",
+      employee_id: "",
+    }),
+    [invite, setInvite] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const selection = useAccessSelection(
+    roles,
+    permissions,
+    "employee",
+    [],
+    [],
+    dashboardPresets.employee,
+  );
+  useEffect(() => {
+    selection.applyPreset("employee");
+  }, []);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await callFunction(accessToken, "manage-user", {
+        action: "create",
+        ...values,
+        account_type: selection.accountType,
+        send_invite: invite,
+        role_ids: selection.roleIds,
+        permission_ids: selection.permissionIds,
+        dashboard_access: selection.dashboards,
+        self_service_enabled: true,
+      });
+      await onCreated();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Account creation failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <section className="modal account-modal">
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+        <span className="eyebrow">Private account</span>
+        <h2>Create employee login</h2>
+        <form className="record-form account-form" onSubmit={submit}>
+          <label>
+            Full name *
+            <input
+              required
+              value={values.display_name}
+              onChange={(e) =>
+                setValues({ ...values, display_name: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Username *
+            <input
+              required
+              value={values.username}
+              onChange={(e) =>
+                setValues({ ...values, username: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={values.email}
+              onChange={(e) => setValues({ ...values, email: e.target.value })}
+            />
+          </label>
+          <label>
+            Temporary password
+            <input
+              type="password"
+              value={values.password}
+              onChange={(e) =>
+                setValues({ ...values, password: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Account type
+            <select
+              value={selection.accountType}
+              onChange={(e) => selection.applyPreset(e.target.value)}
+            >
+              {["employee", "hr", "manager", "auditor", "administrator"].map(
+                (x) => (
+                  <option key={x}>{x}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            Employee record
+            <select
+              value={values.employee_id}
+              onChange={(e) =>
+                setValues({ ...values, employee_id: e.target.value })
+              }
+            >
+              <option value="">Not linked</option>
+              {employees.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Job title
+            <input
+              value={values.job_title}
+              onChange={(e) =>
+                setValues({ ...values, job_title: e.target.value })
+              }
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={invite}
+              onChange={(e) => setInvite(e.target.checked)}
+            />{" "}
+            Send secure invitation
+          </label>
+          <SelectionFields
+            roles={roles}
+            permissions={permissions}
+            selection={selection}
+          />
+          {error && <p className="form-error wide">{error}</p>}
+          <div className="form-actions wide">
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="primary" disabled={busy}>
+              {busy ? "Creating…" : "Create account"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
