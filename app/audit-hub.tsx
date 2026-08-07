@@ -28,6 +28,31 @@ function locationLabel(row: DataRow) {
   return "Location not available";
 }
 
+function deviceLabel(value: unknown) {
+  const agent = String(value ?? "");
+  if (!agent) return "Device not supplied";
+  const platform = /Windows/i.test(agent) ? "Windows" : /Android/i.test(agent) ? "Android" : /iPhone|iPad/i.test(agent) ? "iPhone / iPad" : /Mac OS/i.test(agent) ? "Mac" : /Linux/i.test(agent) ? "Linux" : "Device";
+  const browser = /Edg\//i.test(agent) ? "Edge" : /Chrome\//i.test(agent) ? "Chrome" : /Firefox\//i.test(agent) ? "Firefox" : /Safari\//i.test(agent) ? "Safari" : "Browser";
+  return `${platform} · ${browser}`;
+}
+
+function readableAction(value: unknown) {
+  return String(value ?? "Activity").replaceAll("_", " ").replaceAll(".", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function readableResource(value: unknown) {
+  return String(value ?? "System").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function detailText(row: DataRow) {
+  const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+  const changed = Array.isArray(metadata.changed_fields) ? metadata.changed_fields.join(", ") : "";
+  if (changed) return `Updated: ${changed}`;
+  if (metadata.record_label) return String(metadata.record_label);
+  if (metadata.username) return `Account: ${String(metadata.username)}`;
+  return `${readableAction(row.action)} on ${readableResource(row.resource)}`;
+}
+
 function sortRows(rows: DataRow[], sort: SortState) {
   const factor = sort.dir === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
@@ -128,7 +153,7 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
             <td>{formatDate(row.created_at)}</td>
             <td><strong>{String(row.actor_name ?? row.actor_username ?? "Account")}</strong><small className="table-subline">{String(row.actor_username ?? "—")} · {String(row.actor_email ?? "—")}</small></td>
             <td><span className={`status-pill ${row.outcome}`}>{String(row.outcome ?? "recorded")}</span></td>
-            <td><span className="audit-agent">{String(row.user_agent ?? "Device not supplied")}</span></td>
+            <td><span className="audit-agent audit-ellipsis" title={String(row.user_agent ?? "Device not supplied")}>{deviceLabel(row.user_agent)}</span></td>
             <td>{locationLabel(row)}<small className="table-subline">{row.ip_address ? `IP: ${String(row.ip_address)}` : "IP not supplied by browser"}</small></td>
           </tr>)}</tbody>
         </table> : <table className="data-table">
@@ -136,10 +161,10 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
           <tbody>{visible.map((row) => <tr key={String(row.id)}>
             <td>{formatDate(row.created_at)}</td>
             <td><strong>{accountName(row)}</strong><small className="table-subline">{String(row.actor_username ?? "—")} · {String(row.account_type ?? "—")}</small></td>
-            <td>{String(row.action ?? "Activity").replaceAll("_", " ")}</td>
-            <td>{String(row.resource ?? "—")}<small className="table-subline">{String(row.resource_id ?? "")}</small></td>
+            <td>{readableAction(row.action)}</td>
+            <td>{readableResource(row.resource)}<small className="table-subline audit-id" title={String(row.resource_id ?? "")}>{row.resource_id ? `${String(row.resource_id).slice(0, 8)}…` : ""}</small></td>
             <td><span className={`status-pill ${row.outcome}`}>{String(row.outcome ?? "recorded")}</span></td>
-            <td><span className="audit-agent">{String(row.user_agent ?? JSON.stringify(row.metadata ?? {}))}</span></td>
+            <td><span className="audit-agent audit-ellipsis" title={JSON.stringify(row.metadata ?? {}, null, 2)}>{row.user_agent ? deviceLabel(row.user_agent) : detailText(row)}</span></td>
             <td>{locationLabel(row)}</td>
           </tr>)}</tbody>
         </table>}

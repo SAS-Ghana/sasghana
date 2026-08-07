@@ -33,7 +33,7 @@ export function DepartmentHub({
           "id,first_name,last_name,department_id,employment_status",
           "first_name",
         ),
-        listRows(accessToken, "profiles", "id,display_name,job_title", 500),
+        listRows(accessToken, "profiles", "id,display_name,job_title,profile_code", 500),
       ]);
       setDepartments(d);
       setEmployees(e);
@@ -104,6 +104,7 @@ export function DepartmentHub({
                 {String(d.status || "active")}
               </span>
               <h2>{String(d.name)}</h2>
+              <small className="table-subline">{String(d.department_code ?? "Department code pending")}</small>
               <p>{String(d.description || "No department description yet.")}</p>
               <dl>
                 <div>

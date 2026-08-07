@@ -130,6 +130,8 @@ export function DocumentStudio({
         )[0] ?? null,
     [payroll, selectedEmployeeId],
   );
+  const allEmployeesSelected = selectedEmployeeId === "__all__";
+  const payrollFor = useCallback((employeeId: unknown) => payroll.filter((row) => String(row.employee_id) === String(employeeId)).sort((a, b) => String(b.pay_period ?? b.created_at ?? "").localeCompare(String(a.pay_period ?? a.created_at ?? "")))[0] ?? null, [payroll]);
 
   function edit(template: DataRow) {
     setSelected(template);
@@ -198,15 +200,15 @@ export function DocumentStudio({
     }
   }
 
-  function renderContent(template: DataRow) {
-    if (!selectedEmployee)
+  function renderContent(template: DataRow, employee = selectedEmployee) {
+    if (!employee)
       throw new Error(
         "Select an employee before previewing or generating a document.",
       );
     return renderTemplateContent(
       String(template.content ?? ""),
-      selectedEmployee,
-      selectedPayroll,
+      employee,
+      payrollFor(employee.id),
     );
   }
 
@@ -252,34 +254,24 @@ export function DocumentStudio({
   }
 
   async function generate(template: DataRow) {
-    if (!selectedEmployee?.id)
+    const targets = allEmployeesSelected ? employees : selectedEmployee ? [selectedEmployee] : [];
+    if (!targets.length)
       return setError("Select an employee before generating a document.");
     setBusy(String(template.id));
     setError("");
     setMessage("");
     try {
-      const content = renderContent(template);
-      await createRow(accessToken, "employee_documents", {
-        organisation_id: organisationId,
-        employee_id: selectedEmployee.id,
-        document_name: String(template.name),
-        category: String(template.template_type ?? "generated_document"),
-        status: "issued",
-        confidentiality: [
-          "payslip",
-          "employment_contract",
-          "appointment_letter",
-        ].includes(String(template.template_type))
-          ? "confidential"
-          : "internal",
-        issued_date: new Date().toISOString().slice(0, 10),
-        signature_status: template.signature_path ? "signed" : "not_required",
-        template_id: template.id,
-        generated_content: content,
-      });
-      setMessage(
-        `${String(template.name)} generated for ${String(selectedEmployee.first_name)} ${String(selectedEmployee.last_name)} and added to the employee document record.`,
-      );
+      for (const employee of targets) {
+        const content = renderContent(template, employee);
+        await createRow(accessToken, "employee_documents", {
+          organisation_id: organisationId, employee_id: employee.id, document_name: String(template.name),
+          category: String(template.template_type ?? "generated_document"), status: "issued",
+          confidentiality: ["payslip", "employment_contract", "appointment_letter"].includes(String(template.template_type)) ? "confidential" : "internal",
+          issued_date: new Date().toISOString().slice(0, 10), signature_status: template.signature_path ? "signed" : "not_required",
+          template_id: template.id, generated_content: content,
+        });
+      }
+      setMessage(`${String(template.name)} generated for ${targets.length === 1 ? `${String(targets[0].first_name)} ${String(targets[0].last_name)}` : `all ${targets.length} employees`} using each employee's authorised salary and latest payroll record.`);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -334,6 +326,7 @@ export function DocumentStudio({
             onChange={(event) => setSelectedEmployeeId(event.target.value)}
           >
             <option value="">Select employee</option>
+            <option value="__all__">All employees</option>
             {employees.map((employee) => (
               <option key={String(employee.id)} value={String(employee.id)}>
                 {String(employee.first_name)} {String(employee.last_name)} ·{" "}

@@ -3,6 +3,7 @@ import { callRpc, DataRow, listRows } from "./lib/supabase-data";
 import { AttendancePolicySettings } from "./attendance-policy-settings";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { realtimeClient } from "./lib/supabase-realtime";
 type AttendanceRow = DataRow & { employee?: DataRow };
 function elapsed(start: unknown, end: unknown, now: number) {
   if (!start) return "—";
@@ -55,6 +56,22 @@ export function AttendanceHub({ accessToken }: { accessToken: string }) {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [load]);
+  useEffect(() => {
+    const refresh = () => void load();
+    const client = realtimeClient(accessToken);
+    const channel = client
+      .channel("attendance-control-centre")
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance_records" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance_overtime_requests" }, refresh)
+      .subscribe();
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("sas-data-changed", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("sas-data-changed", refresh);
+      void client.removeChannel(channel);
+    };
+  }, [accessToken, load]);
   const rows = useMemo<AttendanceRow[]>(
     () =>
       records

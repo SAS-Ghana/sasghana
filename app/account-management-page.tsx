@@ -152,7 +152,7 @@ export function AccountManagementPage({
         listRows(
           accessToken,
           "profiles",
-          "id,organisation_id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,invitation_status,last_login_at,created_at,preferred_dashboard,self_service_enabled",
+          "id,organisation_id,username,email,display_name,status,account_type,job_title,employee_id,profile_code,dashboard_access,invitation_status,last_login_at,created_at,preferred_dashboard,self_service_enabled",
         ),
         listNamedRows(accessToken, "roles", "id,name"),
         listNamedRows(accessToken, "permissions", "id,key,description", "key"),
@@ -199,7 +199,7 @@ export function AccountManagementPage({
     }
   }, [accessToken]);
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
   async function setStatus(row: DataRow, status: string) {
     setError("");
@@ -347,7 +347,7 @@ export function AccountManagementPage({
                     <td>
                       <strong>{String(row.display_name)}</strong>
                       <small className="table-subline">
-                        {String(row.job_title ?? "")}
+                        {String(row.job_title ?? "")}{row.profile_code ? ` Â· ${String(row.profile_code)}` : ""}
                       </small>
                     </td>
                     <td>
@@ -499,32 +499,7 @@ function useAccessSelection(
     }
   }
   return {
-    accountType,
-    applyPreset,
-    roleIds,
-    setRoleIds,
-    permissionIds,
-    setPermissionIds,
-    dashboards,
-    setDashboards,
-    grouped,
-    toggle,
-    toggleRole,
-  };
-}
-
-function SelectionFields({
-  roles,
-  permissions,
-  selection,
-}: {
-  roles: Option[];
-  permissions: Option[];
-  selection: ReturnType<typeof useAccessSelection>;
-}) {
-  return (
-    <>
-      <fieldset className="permission-group">
+ ×om¢G§²ÚîÆ­yÜdset className="permission-group">
         <legend>Roles</legend>
         <div className="tier-heading">
           <span>Role assignments</span>

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { callRpc, DataRow, createRow, deleteRow, listNamedRows, listRows, listRowsWhere, updateRow } from "./lib/supabase-data";
+import { callRpc, DataRow, createRow, deleteRow, listNamedRows, listRows, listRowsWhere, updateRow, uploadStorageFile } from "./lib/supabase-data";
 import {
   applyOrganisationTheme,
   defaultOrganisationConfig,
@@ -11,6 +11,8 @@ import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 import type { UserProfile } from "./lib/supabase-auth";
 import { BackupCenter } from "./backup-center";
+import { AttendancePolicySettings } from "./attendance-policy-settings";
+import { serviceUrl } from "./lib/supabase-config";
 
 const sections = [
   ["organisation", "Organisation", "Company profile, logo and descriptions"],
@@ -22,6 +24,7 @@ const sections = [
   ["working", "Working hours", "Company working days and times"],
   ["security", "Security", "Login history, sessions, roles and account access"],
   ["backup", "Backup & restore", "Data protection and recovery tools"],
+  ["reset", "Reset organisation", "Erase operational data and retain only this administrator"],
 ] as const;
 
 type SectionId = typeof sections[number][0];
@@ -49,6 +52,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
   const [employees, setEmployees] = useState<DataRow[]>([]);
   const [limitForm, setLimitForm] = useState({ employee_id: "", bucket_id: "employee-media", max_mb: "5" });
   const [uploadsBusy, setUploadsBusy] = useState(false);
+  const [brandBusy, setBrandBusy] = useState("");
 
   const reloadUploads = useCallback(async () => {
     setError("");
@@ -154,6 +158,25 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
     }
   }
 
+  async function uploadBrandImage(property: "logoUrl" | "loginLogoUrl" | "dashboardLogoUrl", file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setError("Choose a JPG, PNG, WebP or SVG image.");
+    if (file.size > 1048576) return setError("Brand images must be 1MB or smaller.");
+    setBrandBusy(property); setError(""); setNotice("");
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `${organisationId}/${property}.${extension}`;
+      await uploadStorageFile(accessToken, "brand-assets", path, file);
+      const url = `${serviceUrl}/storage/v1/object/public/brand-assets/${path}`;
+      const next = { ...config, [property]: url };
+      setConfig(next);
+      await saveOrganisationConfig(accessToken, organisationId, next);
+      applyOrganisationTheme(next);
+      setNotice("Brand image uploaded and applied across the application.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Brand image could not be uploaded."); }
+    finally { setBrandBusy(""); }
+  }
+
   async function addMasterValue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) return;
@@ -214,9 +237,9 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
             <label htmlFor="settings-company-name">Company name<input id="settings-company-name" name="company_name" value={config.companyName} onChange={(event) => setConfig({ ...config, companyName: event.target.value })} /></label>
             <label htmlFor="settings-application-name">Application name<input id="settings-application-name" name="application_name" value={config.shortName} onChange={(event) => setConfig({ ...config, shortName: event.target.value })} /></label>
             <label htmlFor="settings-description">Description<textarea id="settings-description" name="description" value={config.description} onChange={(event) => setConfig({ ...config, description: event.target.value })} /></label>
-            <label htmlFor="settings-logo-url">Default logo URL<input id="settings-logo-url" name="logo_url" value={config.logoUrl} onChange={(event) => setConfig({ ...config, logoUrl: event.target.value })} /></label>
-            <label htmlFor="settings-login-logo-url">Login page logo URL<input id="settings-login-logo-url" name="login_logo_url" value={config.loginLogoUrl} onChange={(event) => setConfig({ ...config, loginLogoUrl: event.target.value })} /></label>
-            <label htmlFor="settings-dashboard-logo-url">Dashboard logo URL<input id="settings-dashboard-logo-url" name="dashboard_logo_url" value={config.dashboardLogoUrl} onChange={(event) => setConfig({ ...config, dashboardLogoUrl: event.target.value })} /></label>
+            <BrandImageField id="settings-logo-upload" label="Default logo" value={config.logoUrl} busy={brandBusy === "logoUrl"} onChange={(file) => void uploadBrandImage("logoUrl", file)} />
+            <BrandImageField id="settings-login-logo-upload" label="Login page logo" value={config.loginLogoUrl} busy={brandBusy === "loginLogoUrl"} onChange={(file) => void uploadBrandImage("loginLogoUrl", file)} />
+            <BrandImageField id="settings-dashboard-logo-upload" label="Dashboard logo" value={config.dashboardLogoUrl} busy={brandBusy === "dashboardLogoUrl"} onChange={(file) => void uploadBrandImage("dashboardLogoUrl", file)} />
             <label htmlFor="settings-login-eyebrow">Login page label<input id="settings-login-eyebrow" name="login_eyebrow" value={config.loginEyebrow} onChange={(event) => setConfig({ ...config, loginEyebrow: event.target.value })} /></label>
             <label htmlFor="settings-login-title">Login page headline<textarea id="settings-login-title" name="login_title" value={config.loginTitle} onChange={(event) => setConfig({ ...config, loginTitle: event.target.value })} /></label>
             <label htmlFor="settings-login-welcome">Login page description<textarea id="settings-login-welcome" name="login_welcome" value={config.loginWelcome} onChange={(event) => setConfig({ ...config, loginWelcome: event.target.value })} /></label>
@@ -224,11 +247,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
             <label htmlFor="settings-website">Website<input id="settings-website" name="website" value={config.website} onChange={(event) => setConfig({ ...config, website: event.target.value })} /></label>
             <label htmlFor="settings-email">Email<input id="settings-email" name="email" type="email" value={config.email} onChange={(event) => setConfig({ ...config, email: event.target.value })} /></label>
             <label htmlFor="settings-phone">Phone<input id="settings-phone" name="phone" value={config.phone} onChange={(event) => setConfig({ ...config, phone: event.target.value })} /></label>
-            <label htmlFor="settings-address">Address<textarea id="settings-address" name="address" value={config.address} onChange={(event) => setConfig({ ...config, address: event.target.value })} /></label>
-          </>}
-
-          {section === "appearance" && <><h2>Appearance</h2><div className="colour-grid">
-            {([['primary', 'Primary'], ['secondary', 'Secondary'], ['accent', 'Accent'], ['sidebar', 'Sidebar'], ['background', 'Background'], ['surface', 'Cards and forms']] as const).map(([key, label]) => <label key={key} htmlFor={`colour-${key}`}>{label}<input id={`colour-${key}`} name={`${key}_colour_picker`} type="color" value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /><input name={`${key}_colour`} value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /></label>)}
+            <label ht×]m¢G§²ÚîÆ­yÑry'], ['secondary', 'Secondary'], ['accent', 'Accent'], ['sidebar', 'Sidebar'], ['background', 'Background'], ['surface', 'Cards and forms']] as const).map(([key, label]) => <label key={key} htmlFor={`colour-${key}`}>{label}<input id={`colour-${key}`} name={`${key}_colour_picker`} type="color" value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /><input name={`${key}_colour`} value={String(config[key])} onChange={(event) => setConfig({ ...config, [key]: event.target.value })} /></label>)}
           </div><div className="theme-preview" style={{ background: config.background }}><aside style={{ background: config.sidebar, color: '#fff' }}>SAS Finance Group</aside><main style={{ background: config.surface }}><strong style={{ color: config.primary }}>{config.companyName}</strong><button type="button" style={{ background: config.primary }}>Primary action</button></main></div></>}
 
           {section === "regional" && <><h2>Currency and regional formats</h2>
@@ -268,7 +287,7 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
           {!uploadLimits.length && <div className="empty-state compact"><h3>No overrides set</h3><p>Every user currently follows the global limits above.</p></div>}
         </div>}
 
-        {section === "working" && <Empty title="Working hours" text="Configure working days, start and end times, grace periods and attendance rules from Attendance Management." />}
+        {section === "working" && <AttendancePolicySettings accessToken={accessToken} />}
 
         {section === "security" && <div className="security-settings-panel">
           <div className="panel-head"><div><h2>Security and login history</h2><p className="muted">Review successful and failed logins, active browser sessions and recently used devices.</p></div><button type="button" className="secondary" disabled={securityBusy} onClick={() => void reloadSecurity()}>{securityBusy ? "Refreshingâ€¦" : "Refresh security"}</button></div>
@@ -284,12 +303,35 @@ export function SettingsConfigurationPage({ accessToken, organisationId, profile
         </div>}
 
         {section === "backup" && <BackupCenter accessToken={accessToken} profile={profile} embedded />}
+        {section === "reset" && <OrganisationResetPanel accessToken={accessToken} profile={profile} />}
       </article>
     </div>
   </section>;
 }
 
-function Empty({ title, text }: { title: string; text: string }) { return <div className="empty-state"><h2>{title}</h2><p>{text}</p></div>; }
+function BrandImageField({ id, label, value, busy, onChange }: { id: string; label: string; value: string; busy: boolean; onChange: (file: File | null) => void }) {
+  return <label htmlFor={id} className="brand-image-field">{label}{value && <img src={value} alt={`${label} preview`} />}<input id={id} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" disabled={busy} onChange={(event) => onChange(event.target.files?.[0] ?? null)} /><small>JPG, PNG, WebP or SVG Â· maximum 1MB{busy ? " Â· Uploadingâ€¦" : ""}</small></label>;
+}
+
+function OrganisationResetPanel({ accessToken, profile }: { accessToken: string; profile: UserProfile }) {
+  const [preview, setPreview] = useState<DataRow | null>(null);
+  const [confirmation, setConfirmation] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { void callRpc<DataRow>(accessToken, "preview_organisation_reset", {}).then(setPreview).catch((cause) => setError(cause instanceof Error ? cause.message : "Reset summary could not be loaded.")); }, [accessToken]);
+  const phrase = String(preview?.confirmation ?? `RESET ${profile.username}`);
+  async function reset() {
+    if (!acknowledged || confirmation !== phrase) return setError(`Enter ${phrase} exactly and confirm the warning.`);
+    if (!window.confirm("Final warning: erase all organisation data and user accounts except this administrator?")) return;
+    setBusy(true); setError("");
+    try {
+      await callRpc(accessToken, "reset_organisation_to_admin", { p_confirmation: confirmation });
+      window.location.reload();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Organisation reset failed safely; no further action was taken."); setBusy(false); }
+  }
+  return <div className="organisation-reset-panel"><span className="eyebrow">Danger zone</span><h2>Reset organisation to a clean dashboard</h2><p>This creates a secure recovery point, removes all operational records and deletes every user account except <strong>{profile.display_name}</strong>. The administrator role and core permissions remain.</p><div className="summary-strip"><div><strong>{String(preview?.employees ?? "â€”")}</strong><span>Employees removed</span></div><div><strong>{String(preview?.other_accounts ?? "â€”")}</strong><span>Other accounts removed</span></div><div><strong>{String(preview?.departments ?? "â€”")}</strong><span>Departments removed</span></div></div><label className="check"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /> I understand this signs out and deletes every other account.</label><label>Confirmation phrase<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder={phrase} autoComplete="off" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button type="button" className="danger" disabled={busy || !acknowledged || confirmation !== phrase} onClick={() => void reset()}>{busy ? "Resettingâ€¦" : "Reset all data and accounts"}</button></div>;
+}
 
 function BucketLimitRow({ bucket, busy, onSave }: { bucket: DataRow; busy: boolean; onSave: (bucketId: string, maxMb: number) => Promise<void> }) {
   const [value, setValue] = useState(String((Number(bucket.file_size_limit ?? 0) / 1048576).toFixed(1)));

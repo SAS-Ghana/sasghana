@@ -123,7 +123,7 @@ export function PeopleDirectory({
   }, [accessToken, canManage]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const departments = useMemo(
@@ -306,6 +306,8 @@ function EmployeeDialog({
     employment_status: row?.employment_status ?? "active",
     salary_frequency: row?.salary_frequency ?? "monthly",
     salary_currency: row?.salary_currency ?? "GHS",
+    department_id: row?.department_id ?? "",
+    manager_id: row?.manager_id ?? "",
   };
   for (const [key] of fields)
     initial[key] = row?.[key] ?? (key === "basic_salary" ? 0 : "");
@@ -314,6 +316,15 @@ function EmployeeDialog({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState<DataRow[]>([]);
+  const [managers, setManagers] = useState<DataRow[]>([]);
+
+  useEffect(() => {
+    void Promise.all([
+      listNamedRows(accessToken, "departments", "id,name,department_code,manager_profile_id", "name"),
+      listNamedRows(accessToken, "employees", "id,first_name,last_name,employee_number,department_id", "first_name"),
+    ]).then(([departmentRows, employeeRows]) => { setDepartments(departmentRows); setManagers(employeeRows.filter((employee) => String(employee.id) !== String(row?.id ?? ""))); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Departments and managers could not be loaded."));
+  }, [accessToken, row?.id]);
 
   const enteredSalary = Number(values.basic_salary ?? 0);
   const frequency = String(values.salary_frequency ?? "monthly");
@@ -488,6 +499,21 @@ function EmployeeDialog({
               appointment letters and tax calculations.
             </small>
           </div>
+
+          <label>
+            Department
+            <select value={String(values.department_id ?? "")} onChange={(event) => setValues({ ...values, department_id: event.target.value || null })}>
+              <option value="">Unassigned</option>
+              {departments.map((department) => <option key={String(department.id)} value={String(department.id)}>{String(department.name)} · {String(department.department_code ?? "Department")}</option>)}
+            </select>
+          </label>
+          <label>
+            Direct manager
+            <select value={String(values.manager_id ?? "")} onChange={(event) => setValues({ ...values, manager_id: event.target.value || null })}>
+              <option value="">No manager assigned</option>
+              {managers.map((manager) => <option key={String(manager.id)} value={String(manager.id)}>{String(manager.first_name)} {String(manager.last_name)} · {String(manager.employee_number)}</option>)}
+            </select>
+          </label>
 
           <label>
             Employment type
