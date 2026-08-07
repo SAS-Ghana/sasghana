@@ -23,14 +23,14 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
   const load = useCallback(async () => {
     setError("");
     const issues: string[] = [];
-    const read = async (table: string, limit = 1000) => {
-      try { return await listRows(accessToken, table, "*", limit); }
+    const read = async (table: string, limit = 1000, orderColumn = "created_at") => {
+      try { return await listRows(accessToken, table, "*", limit, orderColumn); }
       catch (cause) { issues.push(`${table}: ${cause instanceof Error ? cause.message : "query failed"}`); return []; }
     };
     const [employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll, deletedRecords, backups] = await Promise.all([
       read("employees"), read("profiles"), read("attendance_records"), read("leave_requests"), read("job_openings"), read("internal_job_applications"),
       read("employee_onboarding"), read("employee_offboarding"), read("performance_reviews"), read("employee_documents"), read("support_tickets"),
-      read("audit_logs", 100), read("announcements", 50), read("expense_claims"), read("asset_requests"), read("employee_benefits"), read("payroll_records"), read("deleted_records", 250), read("backup_records", 100),
+      read("audit_logs", 100), read("announcements", 50), read("expense_claims"), read("asset_requests"), read("employee_benefits"), read("payroll_records"), read("deleted_records", 250, "deleted_at"), read("backup_records", 100),
     ]);
     setData({ employees, profiles, attendance, leave, jobs, applications, onboarding, offboarding, reviews, documents, tickets, audit, announcements, expenses, assetRequests, benefits, payroll, deletedRecords, backups });
     if (issues.length) setError(`Some administrator data could not be refreshed. ${issues.slice(0, 3).join(" · ")}${issues.length > 3 ? ` · ${issues.length - 3} more` : ""}`);
