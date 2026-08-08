@@ -124,6 +124,7 @@ const empty: Dataset = {
   learning: [],
   onboarding: [],
   tasks: [],
+  shifts: [],
   expenses: [],
   assets: [],
   assetRequests: [],
@@ -229,6 +230,7 @@ export function EmployeeHome({
       learning,
       onboarding,
       tasks,
+      shifts,
       expenses,
       assets,
       assetRequests,
@@ -266,6 +268,7 @@ export function EmployeeHome({
       own("employee_training"),
       own("employee_onboarding"),
       own("tasks", "assigned_to_employee_id"),
+      own("shift_assignments"),
       own("expense_claims"),
       own("assets", "assigned_employee_id"),
       own("asset_requests"),
@@ -320,6 +323,7 @@ export function EmployeeHome({
       learning,
       onboarding,
       tasks,
+      shifts,
       expenses,
       assets,
       assetRequests,
@@ -359,7 +363,7 @@ export function EmployeeHome({
   useEffect(() => {
     const client = realtimeClient(accessToken);
     let channel = client.channel(`employee-summary-${profile.organisation_id}-${profile.id}`);
-    for (const table of ["leave_requests", "leave_entitlements", "attendance_records", "tasks", "notifications", "performance_reviews"]) {
+    for (const table of ["leave_requests", "leave_entitlements", "attendance_records", "tasks", "shift_assignments", "job_openings", "internal_job_applications", "notifications", "performance_reviews"]) {
       channel = channel.on(
         "postgres_changes",
         { event: "*", schema: "public", table, filter: `organisation_id=eq.${profile.organisation_id}` },
@@ -678,6 +682,8 @@ export function EmployeeHome({
           onTab={setTab}
           onProfile={() => onNavigate("My Info")}
           onAskAi={() => setTab("ai")}
+          accessToken={accessToken}
+          onReload={load}
         />
       )}
       {tab === "people" && (
@@ -886,6 +892,9 @@ export function EmployeeHome({
           holidays={data.holidays}
           leave={data.leave}
           learning={data.learning}
+          shifts={data.shifts}
+          accessToken={accessToken}
+          onReload={load}
         />
       )}
       {tab === "help" && (
@@ -971,6 +980,8 @@ function DashboardOverview({
   onTab,
   onProfile,
   onAskAi,
+  accessToken,
+  onReload,
 }: {
   employee: DataRow | null;
   data: Dataset;
@@ -987,7 +998,12 @@ function DashboardOverview({
   onTab: (tab: Tab) => void;
   onProfile: () => void;
   onAskAi: () => void;
+  accessToken: string;
+  onReload: () => Promise<void>;
 }) {
+  const activeShifts = data.shifts.filter((row) =>
+    ["published", "acknowledged"].includes(String(row.status)),
+  );
   const cards = [
     ["Present today", clockedIn ? "Clocked in" : "Not clocked in"],
     ["Leave balance", `${metrics.leaveBalance} days`],
@@ -997,6 +1013,7 @@ function DashboardOverview({
     ["Overtime hours", metrics.overtime.toFixed(1)],
     ["Assigned tasks", metrics.openTasks],
     ["Unread notifications", metrics.unread],
+    ["Assigned shifts", activeShifts.length],
   ];
   const summaryBars = cards
     .slice(0, 6)
@@ -1124,6 +1141,12 @@ function DashboardOverview({
             }))}
           />
         </article>
+        <ShiftAssignmentsPanel
+          rows={data.shifts}
+          accessToken={accessToken}
+          onReload={onReload}
+          compact
+        />
         <ListCard
           title="Company Announcements"
           action={{ label: "View All", onClick: () => onTab("communication") }}
@@ -2279,6 +2302,14 @@ function RecruitmentPage({
       closingDate.getTime() >= startOfToday.getTime()
     );
   });
+  const recentlyClosedJobs = jobs
+    .filter((job) => {
+      if (!['open', 'published', 'closed'].includes(String(job.status))) return false;
+      if (openJobs.some((openJob) => String(openJob.id) === String(job.id))) return false;
+      return Boolean(job.closing_date);
+    })
+    .sort((a, b) => String(b.closing_date ?? '').localeCompare(String(a.closing_date ?? '')))
+    .slice(0, 12);
   const trackedApplications = applications.map((application) => ({
     ...application,
     job_title:
@@ -2356,6 +2387,26 @@ function RecruitmentPage({
           </div>
         )}
       </div>
+      {recentlyClosedJobs.length > 0 && (
+        <section className="recently-closed-jobs">
+          <div className="panel-head">
+            <div>
+              <h2>Recently closed vacancies</h2>
+              <p className="muted">Previously published roles remain visible for reference and application tracking.</p>
+            </div>
+          </div>
+          <div className="job-cards compact-job-cards">
+            {recentlyClosedJobs.map((job) => (
+              <article className="card job-card closed" key={String(job.id)}>
+                <span className="eyebrow">Closed vacancy</span>
+                <h3>{String(job.title)}</h3>
+                <p>{String(job.location ?? "")}{job.closing_date ? ` · closed ${value(job.closing_date)}` : ""}</p>
+                <button type="button" className="secondary" onClick={() => setViewing(job)}>View details</button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <RecordPage
         title="Application tracking"
         subtitle="Your internal applications and status"
@@ -2427,16 +2478,18 @@ function RecruitmentPage({
               >
                 Close
               </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  setApplying(viewing);
-                  setViewing(null);
-                }}
-              >
-                Apply internally
-              </button>
+              {openJobs.some((job) => String(job.id) === String(viewing.id)) && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    setApplying(viewing);
+                    setViewing(null);
+                  }}
+                >
+                  Apply internally
+                </button>
+              )}
             </div>
           </section>
         </div>
@@ -2617,16 +2670,106 @@ function CommunicationPage({
     </>
   );
 }
+function ShiftAssignmentsPanel({
+  rows,
+  accessToken,
+  onReload,
+  compact = false,
+}: {
+  rows: DataRow[];
+  accessToken: string;
+  onReload: () => Promise<void>;
+  compact?: boolean;
+}) {
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const sorted = [...rows].sort((a, b) =>
+    String(b.starts_at ?? b.shift_date ?? "").localeCompare(
+      String(a.starts_at ?? a.shift_date ?? ""),
+    ),
+  );
+  const visible = compact ? sorted.slice(0, 3) : sorted;
+
+  async function updateStatus(row: DataRow, status: "acknowledged" | "completed") {
+    const id = String(row.id);
+    setBusy(id);
+    setError("");
+    setNotice("");
+    try {
+      await callRpc(accessToken, "update_my_shift_status", {
+        p_shift_id: id,
+        p_status: status,
+      });
+      setNotice(status === "completed" ? "Shift marked complete." : "Shift acknowledged.");
+      await onReload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Shift could not be updated.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <article className={`card shift-assignment-panel ${compact ? "compact span-two" : ""}`}>
+      <div className="panel-head">
+        <div>
+          <h2>{compact ? "My shifts" : "Assigned shifts"}</h2>
+          <p className="muted">Your published work schedule and completion status.</p>
+        </div>
+      </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p className="form-message" aria-live="polite">{notice}</p>}
+      <div className="shift-assignment-list">
+        {visible.map((row) => {
+          const status = String(row.status ?? "published");
+          const startsAt = new Date(String(row.starts_at));
+          const endsAt = new Date(String(row.ends_at));
+          const hasEnded = !Number.isNaN(endsAt.getTime()) && endsAt.getTime() <= Date.now();
+          return (
+            <div className="shift-assignment-row" key={String(row.id)}>
+              <div>
+                <strong>{Number.isNaN(startsAt.getTime()) ? value(row.shift_date) : startsAt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</strong>
+                <span>
+                  {Number.isNaN(startsAt.getTime()) ? "Time pending" : startsAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  {Number.isNaN(endsAt.getTime()) ? "" : ` – ${endsAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`}
+                  {row.location ? ` · ${String(row.location)}` : ""}
+                </span>
+              </div>
+              <span className={`status-pill ${status}`}>{status.replaceAll("_", " ")}</span>
+              <div className="row-actions">
+                {status === "published" && !hasEnded && (
+                  <button disabled={busy === String(row.id)} onClick={() => void updateStatus(row, "acknowledged")}>Acknowledge</button>
+                )}
+                {["published", "acknowledged"].includes(status) && hasEnded && (
+                  <button className="primary" disabled={busy === String(row.id)} onClick={() => void updateStatus(row, "completed")}>Mark complete</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {!visible.length && <div className="empty-state compact">No shifts have been assigned yet.</div>}
+      </div>
+    </article>
+  );
+}
+
 function CalendarPage({
   meetings,
   holidays,
   leave,
   learning,
+  shifts,
+  accessToken,
+  onReload,
 }: {
   meetings: DataRow[];
   holidays: DataRow[];
   leave: DataRow[];
   learning: DataRow[];
+  shifts: DataRow[];
+  accessToken: string;
+  onReload: () => Promise<void>;
 }) {
   const combined: DataRow[] = [
     ...meetings.map((row) => ({
@@ -2652,20 +2795,29 @@ function CalendarPage({
       event_type: "Training",
       event_date: row.due_date,
     })),
+    ...shifts.map((row) => ({
+      ...row,
+      title: row.location ? `Work shift · ${String(row.location)}` : "Work shift",
+      event_type: "Shift",
+      event_date: row.starts_at ?? row.shift_date,
+    })),
   ];
   return (
-    <RecordPage
-      title="Calendar"
-      subtitle="Meetings, training, leave, company events and public holidays"
-      rows={combined}
-      columns={[
-        ["event_date", "Date"],
-        ["event_type", "Type"],
-        ["title", "Event"],
-        ["status", "Status"],
-      ]}
-      downloadable
-    />
+    <>
+      <ShiftAssignmentsPanel rows={shifts} accessToken={accessToken} onReload={onReload} />
+      <RecordPage
+        title="Calendar"
+        subtitle="Shifts, meetings, training, leave, company events and public holidays"
+        rows={combined}
+        columns={[
+          ["event_date", "Date"],
+          ["event_type", "Type"],
+          ["title", "Event"],
+          ["status", "Status"],
+        ]}
+        downloadable
+      />
+    </>
   );
 }
 function HelpPage({

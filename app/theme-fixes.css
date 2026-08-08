@@ -816,11 +816,36 @@ button:disabled {
 }
 .procurement-card {
   display: grid !important;
-  gap: 12px !important;
-  padding: 18px !important;
+  gap: 9px !important;
+  padding: 14px !important;
   border: 1px solid var(--line) !important;
   border-radius: 15px !important;
   background: var(--surface) !important;
+}
+.procurement-card h3,
+.procurement-card p,
+.procurement-card dl {
+  margin: 0 !important;
+}
+.procurement-card dl {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+.procurement-card dl > div {
+  min-width: 0 !important;
+  padding: 8px 9px !important;
+  border-radius: 9px !important;
+  background: var(--surface-2) !important;
+}
+.procurement-card dt {
+  font-size: 0.72rem !important;
+  color: var(--muted) !important;
+}
+.procurement-card dd {
+  margin: 2px 0 0 !important;
+  font-weight: 700 !important;
+  overflow-wrap: anywhere !important;
 }
 .procurement-card header,
 .procurement-card footer {
@@ -831,10 +856,57 @@ button:disabled {
   flex-wrap: wrap !important;
 }
 .procurement-note {
-  padding: 11px 12px !important;
+  display: grid !important;
+  grid-template-columns: minmax(130px, max-content) minmax(0, 1fr) !important;
+  gap: 8px !important;
+  padding: 8px 10px !important;
   border-radius: 10px !important;
   background: var(--surface-2) !important;
   border-left: 3px solid var(--brand) !important;
+}
+.procurement-note span,
+.procurement-note em {
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+}
+.shift-assignment-panel {
+  display: grid !important;
+  gap: 12px !important;
+}
+.shift-assignment-list {
+  display: grid !important;
+  gap: 8px !important;
+}
+.shift-assignment-row {
+  display: grid !important;
+  grid-template-columns: minmax(210px, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 11px 12px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 11px !important;
+  background: var(--surface-2) !important;
+}
+.shift-assignment-row > div:first-child {
+  display: grid !important;
+  gap: 3px !important;
+}
+.shift-assignment-row span {
+  overflow-wrap: anywhere !important;
+}
+.recently-closed-jobs {
+  margin-top: 18px !important;
+}
+.compact-job-cards {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+}
+.job-card.closed {
+  padding: 16px !important;
+  opacity: 0.9;
+}
+.job-card.closed h3,
+.job-card.closed p {
+  margin: 4px 0 !important;
 }
 .procurement-note.question {
   border-left-color: var(--viz-orange, #f59e0b) !important;
@@ -852,6 +924,15 @@ button:disabled {
   min-height: 44px !important;
 }
 @media (max-width: 900px) {
+  .procurement-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .shift-assignment-row {
+    grid-template-columns: 1fr auto !important;
+  }
+  .shift-assignment-row .row-actions {
+    grid-column: 1 / -1 !important;
+  }
   .home-hero-row {
     grid-template-columns: 1fr !important;
   }
