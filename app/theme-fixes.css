@@ -784,7 +784,13 @@ button:disabled {
 }
 .notification-detail-modal {
   max-width: 640px !important;
+  max-height: min(760px, calc(100vh - 32px)) !important;
+  overflow: auto !important;
   padding: 28px !important;
+}
+.notification-detail-backdrop {
+  z-index: 1000 !important;
+  isolation: isolate;
 }
 .notification-full-body {
   white-space: pre-wrap !important;

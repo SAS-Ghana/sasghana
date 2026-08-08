@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { UserProfile } from "./lib/supabase-auth";
 import { callRpc, DataRow, listRows, updateRow } from "./lib/supabase-data";
 import { realtimeClient } from "./lib/supabase-realtime";
@@ -93,7 +94,14 @@ export function NotificationDetail({ item, onClose, onNavigate }: {
   onNavigate: (target: string) => void;
 }) {
   const target = String(item.action_url ?? "").trim();
-  return <div className="modal-backdrop notification-detail-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+  return createPortal(<div className="modal-backdrop notification-detail-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="modal notification-detail-modal" role="dialog" aria-modal="true" aria-labelledby="notification-detail-title">
       <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>×</button>
       <span className="eyebrow">{String(item.category ?? "Notification")}</span>
@@ -102,5 +110,5 @@ export function NotificationDetail({ item, onClose, onNavigate }: {
       <time>{new Date(String(item.created_at)).toLocaleString()}</time>
       <div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Close</button>{target && <button type="button" className="primary" onClick={() => onNavigate(target)}>Open related page</button>}</div>
     </section>
-  </div>;
+  </div>, document.body);
 }
