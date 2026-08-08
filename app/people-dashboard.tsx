@@ -237,6 +237,7 @@ const adminGroups = [
       ["Reports & Analytics", "▥"],
       ["Approval Workflows", "⇄"],
       ["Notifications", "●"],
+      ["AI Admin Assistant", "✦"],
     ],
   ],
   [
@@ -532,8 +533,9 @@ export function PeopleDashboard({
     if (active === "Meetings & Calendar")
       return <CalendarHub accessToken={accessToken} profile={profile} />;
     if (active === "AI Manager Assistant")
-      return <AiAssistantPage role="manager" />;
-    if (active === "AI HR Assistant") return <AiAssistantPage role="hr" />;
+      return <AiAssistantPage role="manager" accessToken={accessToken} profile={profile} onNavigate={navigate} />;
+    if (active === "AI HR Assistant") return <AiAssistantPage role="hr" accessToken={accessToken} profile={profile} onNavigate={navigate} />;
+    if (active === "AI Admin Assistant") return <AiAssistantPage role="admin" accessToken={accessToken} profile={profile} onNavigate={navigate} />;
     if (active === "Book Library")
       return (
         <BookLibraryPage
@@ -701,6 +703,7 @@ export function PeopleDashboard({
         );
       return (
         <AdminSectionPage
+          key={active}
           label={active}
           accessToken={accessToken}
           organisationId={profile.organisation_id}
