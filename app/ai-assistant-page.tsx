@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
 import { fetchProfile, getValidAccessToken, readSession } from "./lib/supabase-auth";
-import { callRpc, createRow, DataRow, listRowsWhere } from "./lib/supabase-data";
+import { createRow, DataRow, listRowsWhere, readRpc } from "./lib/supabase-data";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
 
@@ -61,7 +61,7 @@ export function AiAssistantPage({ role, accessToken: providedToken, profile: pro
     setError("");
     try {
       const [context, activity] = await Promise.all([
-        callRpc<AssistantSummary>(accessToken, "get_ai_assistant_context", {}),
+        readRpc<AssistantSummary>(accessToken, "get_ai_assistant_context", {}),
         listRowsWhere(accessToken, "ai_assistant_logs", { profile_id: profile.id }, "*", 20),
       ]);
       setSummary(context);
@@ -94,7 +94,7 @@ export function AiAssistantPage({ role, accessToken: providedToken, profile: pro
       await createRow(accessToken, "ai_assistant_logs", {
         organisation_id: profile.organisation_id,
         profile_id: profile.id,
-        assistant_role: role,
+        assistant_role: role === "admin" ? "administrator" : role,
         question: clean,
         response,
         data_summary: JSON.stringify(metrics),
