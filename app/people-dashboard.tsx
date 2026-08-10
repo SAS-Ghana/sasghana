@@ -452,7 +452,9 @@ export function PeopleDashboard({
 
   function navigate(label: string) {
     const target =
-      label === "One to One Meetings"
+      label === "Help" && mode === "employee"
+        ? "Support"
+        : label === "One to One Meetings"
         ? "Meetings & Calendar"
         : label === "Purchase Approvals" && mode === "admin"
         ? "Procurement Control"
@@ -930,7 +932,7 @@ export function PeopleDashboard({
               <button
                 type="button"
                 className="topbar-icon-btn"
-                onClick={() => navigate("Help")}
+                onClick={() => navigate("Support")}
                 aria-label="Help centre"
               >
                 <MenuIcon name="help" />
