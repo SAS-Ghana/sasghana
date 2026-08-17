@@ -683,10 +683,12 @@ export function AdminSectionPage({
   label,
   accessToken,
   organisationId,
+  readOnly = false,
 }: {
   label: string;
   accessToken: string;
   organisationId: string;
+  readOnly?: boolean;
 }) {
   const config = configs[label];
   const [rows, setRows] = useState<DataRow[]>([]);
@@ -1004,17 +1006,18 @@ export function AdminSectionPage({
           <p className="muted">{config.description}</p>
         </div>
         <div className="row-actions">
-          {config.actions.map((name, index) => (
-            <button
-              type="button"
-              key={name}
-              className={index === 0 ? "primary" : "secondary"}
-              disabled={busy}
-              onClick={() => void action(name)}
-            >
-              {name}
-            </button>
-          ))}
+          {!readOnly &&
+            config.actions.map((name, index) => (
+              <button
+                type="button"
+                key={name}
+                className={index === 0 ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => void action(name)}
+              >
+                {name}
+              </button>
+            ))}
         </div>
       </header>
 
@@ -1126,77 +1129,81 @@ export function AdminSectionPage({
                     ))}
                     <td>
                       <div className="row-actions">
-                        {label === "Notifications" ? (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void setNotificationRead(row)}
-                          >
-                            {row.is_read ? "Mark unread" : "Mark read"}
-                          </button>
-                        ) : (
-                          (label === "Learning & Development" &&
-                          row._source_table === "learning_courses"
-                            ? ([
-                                ["Activate", "active"],
-                                ["Archive", "archived"],
-                              ] as [string, string][])
-                            : (statusActions[label] ?? [])
-                          ).map(([actionLabel, next]) => (
-                            <button
-                              type="button"
-                              key={next}
-                              disabled={busy || String(row.status) === next}
-                              onClick={() => void setState(row, next)}
-                            >
-                              {actionLabel}
-                            </button>
-                          ))
+                        {!readOnly && (
+                          <>
+                            {label === "Notifications" ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setNotificationRead(row)}
+                              >
+                                {row.is_read ? "Mark unread" : "Mark read"}
+                              </button>
+                            ) : (
+                              (label === "Learning & Development" &&
+                              row._source_table === "learning_courses"
+                                ? ([
+                                    ["Activate", "active"],
+                                    ["Archive", "archived"],
+                                  ] as [string, string][])
+                                : (statusActions[label] ?? [])
+                              ).map(([actionLabel, next]) => (
+                                <button
+                                  type="button"
+                                  key={next}
+                                  disabled={busy || String(row.status) === next}
+                                  onClick={() => void setState(row, next)}
+                                >
+                                  {actionLabel}
+                                </button>
+                              ))
+                            )}
+                            {label === "Leave Management" && String(row.status) === "pending" && (
+                              <button type="button" disabled={busy} onClick={() => void approveEmergencyLeave(row)}>
+                                Emergency approve
+                              </button>
+                            )}
+                            {label !== "Audit Logs" &&
+                              label !== "Notifications" && (
+                                <RecordActions
+                                  accessToken={accessToken}
+                                  table={String(row._source_table ?? config.table)}
+                                  row={row}
+                                  columns={
+                                    row._source_table === "learning_courses"
+                                      ? [
+                                          ["title", "Program title"],
+                                          ["category", "Category"],
+                                          ["delivery_type", "Delivery type"],
+                                          ["description", "Description"],
+                                          ["content_url", "Learning material URL"],
+                                          ["status", "Status"],
+                                        ]
+                                      : config.columns
+                                          .filter(([key]) => key !== "record_type")
+                                          .map(([key, fieldLabel]) =>
+                                            label === "Asset Management" &&
+                                            key === "employee_name"
+                                              ? ([
+                                                  "assigned_employee_id",
+                                                  fieldLabel,
+                                                ] as [string, string])
+                                              : ([key, fieldLabel] as [
+                                                  string,
+                                                  string,
+                                                ]),
+                                          )
+                                  }
+                                  label={
+                                    row._source_table === "learning_courses"
+                                      ? "Learning program"
+                                      : label
+                                  }
+                                  onReload={load}
+                                />
+                              )}
+                          </>
                         )}
-                        {label === "Leave Management" && String(row.status) === "pending" && (
-                          <button type="button" disabled={busy} onClick={() => void approveEmergencyLeave(row)}>
-                            Emergency approve
-                          </button>
-                        )}
-                        {label !== "Audit Logs" &&
-                          label !== "Notifications" && (
-                            <RecordActions
-                              accessToken={accessToken}
-                              table={String(row._source_table ?? config.table)}
-                              row={row}
-                              columns={
-                                row._source_table === "learning_courses"
-                                  ? [
-                                      ["title", "Program title"],
-                                      ["category", "Category"],
-                                      ["delivery_type", "Delivery type"],
-                                      ["description", "Description"],
-                                      ["content_url", "Learning material URL"],
-                                      ["status", "Status"],
-                                    ]
-                                  : config.columns
-                                      .filter(([key]) => key !== "record_type")
-                                      .map(([key, fieldLabel]) =>
-                                        label === "Asset Management" &&
-                                        key === "employee_name"
-                                          ? ([
-                                              "assigned_employee_id",
-                                              fieldLabel,
-                                            ] as [string, string])
-                                          : ([key, fieldLabel] as [
-                                              string,
-                                              string,
-                                            ]),
-                                      )
-                              }
-                              label={
-                                row._source_table === "learning_courses"
-                                  ? "Learning program"
-                                  : label
-                              }
-                              onReload={load}
-                            />
-                          )}
                         <button type="button" onClick={() => window.print()}>
                           Print
                         </button>

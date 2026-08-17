@@ -844,6 +844,7 @@ export function PeopleDashboard({
           label={active}
           accessToken={accessToken}
           organisationId={profile.organisation_id}
+          readOnly
         />
       );
     }
