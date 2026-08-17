@@ -277,6 +277,20 @@ const employeeGroups = [
 ] as const;
 const employeeQuickLabels = ["Ask"] as const;
 
+const auditorGroups = [
+  ["OVERVIEW", [["Audit Dashboard", "▤"]]],
+  [
+    "COMPLIANCE",
+    [
+      ["Employee Directory", "◎"],
+      ["Attendance Management", "◷"],
+      ["Leave Management", "◴"],
+      ["Documents & Templates", "◫"],
+      ["Reports & Analytics", "▥"],
+    ],
+  ],
+] as const;
+
 // Maps HR/Manager sidebar labels to the "Dashboard access" checkbox values an admin actually grants
 // per user in account-management-page.tsx's AccessDialog. A label with no entry here has no matching
 // dashboard-access concept yet and stays visible (fail open) rather than being silently hidden.
@@ -328,7 +342,8 @@ type GroupSet =
   | typeof managerGroups
   | typeof hrGroups
   | typeof adminGroups
-  | typeof employeeGroups;
+  | typeof employeeGroups
+  | typeof auditorGroups;
 
 export function PeopleDashboard({
   accessToken,
@@ -364,8 +379,11 @@ export function PeopleDashboard({
   const isManager =
     accountType === "manager" ||
     profile.roles.some((role) => /manager|supervisor|team lead/i.test(role));
+  const isAuditor =
+    accountType === "auditor" ||
+    profile.roles.some((role) => /auditor|read only/i.test(role));
   const isEmployeeOnly =
-    !isAdmin && !isHr && !isManager && accountType !== "auditor";
+    !isAdmin && !isHr && !isManager && !isAuditor;
   const canProcurement =
     profile.roles.includes("Procurement Officer") ||
     profile.permissions.some((permission) =>
@@ -379,11 +397,13 @@ export function PeopleDashboard({
         ? "hr"
         : isManager
           ? "manager"
-          : "admin";
+          : isAuditor
+            ? "auditor"
+            : "admin";
   const { counts, markModuleSeen } = useDashboardModuleCounts(
     accessToken,
     profile,
-    mode === "employee" ? "hr" : mode,
+    mode === "employee" || mode === "auditor" ? "hr" : mode,
   );
   const baseGroups: GroupSet =
     mode === "admin"
@@ -392,7 +412,9 @@ export function PeopleDashboard({
         ? hrGroups
         : mode === "employee"
           ? employeeGroups
-          : managerGroups;
+          : mode === "auditor"
+            ? auditorGroups
+            : managerGroups;
   const labels = new Set<string>([
     ...baseGroups.flatMap(([, items]) => items.map(([label]) => label)),
     ...(mode === "employee" ? employeeQuickLabels : []),
@@ -439,7 +461,9 @@ export function PeopleDashboard({
         ? "HR Dashboard"
         : mode === "manager"
           ? "Manager Dashboard"
-          : "Home";
+          : mode === "auditor"
+            ? "Audit Dashboard"
+            : "Home";
   const granted = profile.dashboard_access ?? [];
   const canAccess = (label: string) =>
     !forbidden.test(label) &&
@@ -801,6 +825,29 @@ export function PeopleDashboard({
       );
     }
 
+    if (mode === "auditor") {
+      if (active === "Audit Dashboard")
+        return <AuditHub accessToken={accessToken} />;
+      if (active === "Employee Directory")
+        return <PeopleDirectory accessToken={accessToken} />;
+      if (active === "Attendance Management")
+        return <AttendanceHub accessToken={accessToken} />;
+      if (active === "Documents & Templates")
+        return (
+          <DocumentStudio
+            accessToken={accessToken}
+            organisationId={profile.organisation_id}
+          />
+        );
+      return (
+        <AdminSectionPage
+          label={active}
+          accessToken={accessToken}
+          organisationId={profile.organisation_id}
+        />
+      );
+    }
+
     if (active === "Manager Dashboard")
       return (
         <ManagerDashboard
@@ -859,7 +906,9 @@ export function PeopleDashboard({
                 ? "HR administration"
                 : mode === "employee"
                   ? "Employee workspace"
-                  : "Manager workspace"}
+                  : mode === "auditor"
+                    ? "Audit workspace"
+                    : "Manager workspace"}
           </small>
         </div>
         {groups.map(([group, items]) => (
@@ -923,7 +972,9 @@ export function PeopleDashboard({
                     ? "Search HR workspace..."
                     : mode === "employee"
                       ? "Search..."
-                      : "Search your team workspace..."
+                      : mode === "auditor"
+                        ? "Search audit workspace..."
+                        : "Search your team workspace..."
               }
             />
           </div>
