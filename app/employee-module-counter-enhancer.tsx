@@ -110,7 +110,7 @@ export function EmployeeModuleCounterEnhancer() {
         ]);
 
         const upcomingMeetings = meetings.filter((row) => new Date(String(row.starts_at ?? "")).getTime() >= Date.now()).length;
-        const unread = notifications.filter((row) => !Boolean(row.is_read) && !row.archived_at).length;
+        const unread = notifications.filter((row) => !row.is_read && !row.archived_at).length;
         const pendingLeave = count(leave, ["pending", "draft", "manager_review", "hr_review"]);
         const pendingExpenses = count(expenses, ["submitted", "manager_approved", "hr_approved", "finance_review", "returned", "draft"]);
         const pendingAssets = count(assetRequests, ["pending", "manager_review", "hr_review", "approved"]);

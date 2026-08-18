@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   callRpc,
   createRow,
@@ -702,20 +702,22 @@ function SalaryDialog({
             <option value="annual">Annual</option>
           </select>
         </label>
-        {[
-          ["allowance_rate", "Allowance %"],
-          ["bonus_rate", "Bonus %"],
-          ["overtime_rate", "Overtime %"],
-          ["tier_three_rate", "Tier 3 %"],
-          ["health_insurance_rate", "Health insurance %"],
-        ].map(([k, l]) => (
+        {(
+          [
+            ["allowance_rate", "Allowance %"],
+            ["bonus_rate", "Bonus %"],
+            ["overtime_rate", "Overtime %"],
+            ["tier_three_rate", "Tier 3 %"],
+            ["health_insurance_rate", "Health insurance %"],
+          ] as [keyof typeof v, string][]
+        ).map(([k, l]) => (
           <label key={k}>
             {l}
             <input
               type="number"
               min="0"
               step="0.01"
-              value={(v as any)[k]}
+              value={v[k]}
               onChange={(e) => setV({ ...v, [k]: e.target.value })}
             />
           </label>
@@ -940,7 +942,7 @@ function Modal({
 }: {
   title: string;
   onClose: () => void;
-  children: any;
+  children: ReactNode;
 }) {
   return (
     <div className="modal-backdrop">

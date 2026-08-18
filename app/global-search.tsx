@@ -43,6 +43,9 @@ export function GlobalSearch({accessToken,query,onNavigate,onClear}:{accessToken
   const normalized=query.trim().toLowerCase();
   const suggestions=moduleIntents.filter(intent=>intent.page.toLowerCase().includes(normalized)||intent.terms.some(term=>term.includes(normalized)||normalized.includes(term))).slice(0,5);
   useEffect(()=>{
+    // Debounced fetch keyed on the query prop -- setLoading(true) here (before the debounce
+    // timer fires) is what drives the "Searching Supabase..." state, not derived-props state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const timer=window.setTimeout(()=>{void Promise.all(sources.map(async source=>{
       try{const rows=await listRows(accessToken,source.table,"*",150);const needle=query.trim().toLowerCase();return{page:source.page,label:source.label,rows:rows.filter(row=>Object.values(row).some(value=>String(value??"").toLowerCase().includes(needle))).slice(0,8).map(row=>({title:source.title(row),meta:source.meta(row)}))};}

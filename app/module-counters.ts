@@ -46,8 +46,11 @@ function unseenCount(rows: DataRow[], label: string, seen: ModuleSeenMap, predic
 export function useDashboardModuleCounts(accessToken: string, profile: UserProfile, mode: DashboardMode) {
   const [counts, setCounts] = useState<ModuleCountMap>({});
   const [seenAt, setSeenAt] = useState<ModuleSeenMap>(() => readSeen(profile.id));
-
-  useEffect(() => { setSeenAt(readSeen(profile.id)); }, [profile.id]);
+  const [seenAtProfileId, setSeenAtProfileId] = useState(profile.id);
+  if (profile.id !== seenAtProfileId) {
+    setSeenAtProfileId(profile.id);
+    setSeenAt(readSeen(profile.id));
+  }
 
   const markModuleSeen = useCallback((label: string) => {
     const seen = Date.now();
@@ -93,7 +96,7 @@ export function useDashboardModuleCounts(accessToken: string, profile: UserProfi
     const reportCount = (label: string) => unseenCount(reports, label, seenAt, (row) => ["queued", "processing", "draft"].includes(statusOf(row)));
 
     const next: ModuleCountMap = {
-      Notifications: unseenCount(notifications, "Notifications", seenAt, (row) => !Boolean(row.is_read) && !row.archived_at),
+      Notifications: unseenCount(notifications, "Notifications", seenAt, (row) => !row.is_read && !row.archived_at),
       "Leave Management": leaveCount("Leave Management"), "Leave Approvals": leaveCount("Leave Approvals"),
       "Expense Management": expenseCount("Expense Management"), Expenses: expenseCount("Expenses"), "Expense Approvals": expenseCount("Expense Approvals"),
       "Asset Management": assetCount("Asset Management"), Assets: assetCount("Assets"),
@@ -120,6 +123,9 @@ export function useDashboardModuleCounts(accessToken: string, profile: UserProfi
   }, [accessToken, mode, profile.id, seenAt]);
 
   useEffect(() => {
+    // Synchronising with the external Supabase data + a poll/event refresh loop, not deriving
+    // state from props -- this is the "fetch on mount and subscribe" case the rule doesn't cover.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     const interval = window.setInterval(() => void load(), 30000);
     const refresh = () => void load();
