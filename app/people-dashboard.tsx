@@ -3,6 +3,7 @@
 import "./theme-fixes.css";
 import { useEffect, useRef, useState } from "react";
 import type { UserProfile } from "./lib/supabase-auth";
+import { resolveDashboardMode } from "./lib/dashboard-mode";
 import { ChatPopup } from "./realtime-chat";
 import { NotificationSettings } from "./notification-settings";
 import { NotificationCenter } from "./notification-center";
@@ -369,37 +370,12 @@ export function PeopleDashboard({
   const mainRef = useRef<HTMLElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
-  const accountType = (profile.account_type || "employee").toLowerCase();
-  const isAdmin =
-    profile.roles.includes("SAS System Administrator") ||
-    accountType === "administrator";
-  const isHr =
-    accountType === "hr" ||
-    profile.roles.some((role) => /human resources|\bhr\b/i.test(role));
-  const isManager =
-    accountType === "manager" ||
-    profile.roles.some((role) => /manager|supervisor|team lead/i.test(role));
-  const isAuditor =
-    accountType === "auditor" ||
-    profile.roles.some((role) => /auditor|read only/i.test(role));
-  const isEmployeeOnly =
-    !isAdmin && !isHr && !isManager && !isAuditor;
   const canProcurement =
     profile.roles.includes("Procurement Officer") ||
     profile.permissions.some((permission) =>
       permission.startsWith("procurement."),
     );
-  const mode = isEmployeeOnly
-    ? "employee"
-    : isAdmin
-      ? "admin"
-      : isHr
-        ? "hr"
-        : isManager
-          ? "manager"
-          : isAuditor
-            ? "auditor"
-            : "admin";
+  const mode = resolveDashboardMode(profile);
   const { counts, markModuleSeen } = useDashboardModuleCounts(
     accessToken,
     profile,
