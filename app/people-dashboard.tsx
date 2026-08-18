@@ -818,6 +818,7 @@ export function PeopleDashboard({
         );
       return (
         <HRSectionPage
+          key={active}
           label={active}
           accessToken={accessToken}
           organisationId={profile.organisation_id}
@@ -841,6 +842,7 @@ export function PeopleDashboard({
         );
       return (
         <AdminSectionPage
+          key={active}
           label={active}
           accessToken={accessToken}
           organisationId={profile.organisation_id}
@@ -876,6 +878,7 @@ export function PeopleDashboard({
       return <PerformanceHub accessToken={accessToken} profile={profile} />;
     return (
       <ManagerSectionPage
+        key={active}
         label={active}
         accessToken={accessToken}
         profile={profile}
