@@ -15,7 +15,7 @@ import { AccountantDashboard } from "./accountant-dashboard";
 type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[]; purchases: DataRow[]; meetings: DataRow[]; holidays: DataRow[] };
 const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [], purchases: [], meetings: [], holidays: [] };
 const vizPalette = ["var(--brand)", "var(--viz-purple)", "var(--viz-red)", "var(--viz-orange)", "var(--viz-blue)", "var(--viz-slate)"];
-const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Start performance review": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Review purchase requests": "asset", "Assign training": "training", "Send team message": "message", "Request employee document": "audit", "Review employee requests": "help" };
+const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Review team performance": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Review purchase requests": "asset", "Assign training": "training", "Send team message": "message", "Request employee document": "audit", "Review employee requests": "help" };
 
 export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
   const isAccountant = profile.roles.some((role) => /accountant|finance officer|payroll officer/i.test(role)) || profile.permissions.some((permission) => permission.startsWith("accounts."));
@@ -69,7 +69,7 @@ function ManagerTeamDashboard({ accessToken, profile, onNavigate }: { accessToke
       pendingLeave: data.leave.filter((row) => String(row.status) === "pending").length,
       pendingExpenses: data.expenses.filter((row) => ["submitted", "pending", "manager_review"].includes(String(row.status))).length,
       overdueTasks: data.tasks.filter((row) => String(row.status) !== "completed" && row.due_date && String(row.due_date) < today).length,
-      purchaseRequests: data.purchases.filter((row) => ["pending_manager", "pending_procurement", "clarification_requested"].includes(String(row.status))).length,
+      purchaseRequests: data.purchases.filter((row) => ["pending_manager", "accounts_review", "pending_procurement", "clarification_requested"].includes(String(row.status))).length,
     };
   }, [data, today]);
 
@@ -77,7 +77,7 @@ function ManagerTeamDashboard({ accessToken, profile, onNavigate }: { accessToke
     ["Team Members", data.team.length, "My Team"], ["Present Today", metrics.present, "Team Attendance"], ["On Leave", metrics.onLeave, "Leave Approvals"], ["Late Today", metrics.late, "Team Attendance"],
     ["Leave Approvals", metrics.pendingLeave, "Leave Approvals"], ["Expense Claims", metrics.pendingExpenses, "Expense Approvals"], ["Purchase Requests", metrics.purchaseRequests, "Purchase Approvals"], ["Overdue Tasks", metrics.overdueTasks, "Tasks"],
   ];
-  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Team Performance", "Start performance review"], ["Meetings & Calendar", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Purchase Approvals", "Review purchase requests"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"]];
+  const quickActions: [string, string][] = [["Leave Approvals", "Approve leave"], ["Team Attendance", "Review attendance"], ["Tasks", "Assign task"], ["Reports & Analytics", "Review team performance"], ["Meetings & Calendar", "Schedule one to one"], ["Recruitment & Onboarding", "Submit recruitment request"], ["Expense Approvals", "Approve expense"], ["Purchase Approvals", "Review purchase requests"], ["Learning & Development", "Assign training"], ["Team Communication", "Send team message"]];
   const leaveTypes = useMemo(() => groupCounts(data.leave, "leave_type", 4), [data.leave]);
   const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(data.leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [data.leave, leaveTypes]);
   const leaveMonthLabels = useMemo(() => monthlyBuckets(data.leave, "start_date", 9).labels, [data.leave]);
