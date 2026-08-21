@@ -12,7 +12,8 @@ function money(value: unknown, currency = "GHS") {
 
 function nameOf(row: DataRow | undefined) {
   if (!row) return "—";
-  return String(row.display_name ?? row.full_name ?? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—");
+  const fallback = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim();
+  return String(row.display_name ?? row.full_name ?? fallback || "—");
 }
 
 function monthIndex(row: DataRow) {
