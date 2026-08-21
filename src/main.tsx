@@ -19,6 +19,7 @@ import "../app/runtime-ui-fixes.css";
 import "../app/dashboard-layout-fixes.css";
 import "../app/dashboard-home-v2.css";
 import "../app/sas-reference-dashboard.css";
+import "../app/enterprise-home-widgets.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
