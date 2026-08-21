@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import type { DataRow } from "./lib/supabase-data";
+import { fetchProfile, readSession, type UserProfile } from "./lib/supabase-auth";
+import { DashboardTodoWidget } from "./dashboard-todo-widget";
 
 type Navigate = (page: string) => void;
 
@@ -52,8 +55,22 @@ export function EmployeesListWidget({ employees, onNavigate }: { employees: Data
 }
 
 export function TasksWidget({ tasks, onNavigate }: { tasks: DataRow[]; onNavigate?: Navigate }) {
+  const [sessionToken, setSessionToken] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const session = readSession();
+    if (!session) return;
+    setSessionToken(session.access_token);
+    void fetchProfile(session.access_token, session.user.id).then((next) => {
+      if (next) setProfile(next);
+    }).catch(() => undefined);
+  }, []);
+
+  if (sessionToken && profile) return <DashboardTodoWidget accessToken={sessionToken} profile={profile} assignedTasks={tasks} />;
+
   const open = tasks.filter((row) => !["completed", "closed", "cancelled"].includes(String(row.status))).slice(0, 6);
-  return <article className="card enterprise-widget tasks-widget"><header><div><h2>Todo</h2><p>Open HR and team tasks</p></div><button type="button" onClick={() => onNavigate?.("Tasks")}>Today</button></header><div className="enterprise-task-list">{open.map((row, index) => <button type="button" onClick={() => onNavigate?.("Tasks")} key={String(row.id)}><i style={{ background: ["var(--brand)", "var(--viz-purple)", "var(--viz-orange-strong)", "var(--viz-red)"][index % 4] }} /><span>{String(row.title ?? "Task")}</span><small>{String(row.due_date ?? row.status ?? "Open")}</small></button>)}{!open.length && <p className="empty-widget">No open tasks.</p>}</div></article>;
+  return <article className="card enterprise-widget tasks-widget"><header><div><h2>Todo</h2><p>Loading your Todo workspace…</p></div><button type="button" onClick={() => onNavigate?.("Tasks")}>Assigned Tasks</button></header><div className="enterprise-task-list">{open.map((row, index) => <button type="button" onClick={() => onNavigate?.("Tasks")} key={String(row.id)}><i style={{ background: ["var(--brand)", "var(--viz-purple)", "var(--viz-orange-strong)", "var(--viz-red)"][index % 4] }} /><span>{String(row.title ?? "Task")}</span><small>{String(row.due_date ?? row.status ?? "Open")}</small></button>)}{!open.length && <p className="empty-widget">No open assigned tasks.</p>}</div></article>;
 }
 
 export function ScheduleWidget({ meetings, holidays, onNavigate }: { meetings: DataRow[]; holidays?: DataRow[]; onNavigate?: Navigate }) {
