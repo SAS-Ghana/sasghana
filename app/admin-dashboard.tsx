@@ -57,7 +57,7 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
   const cards: [string, string | number, string][] = [
     ["Attendance Overview", `${present}/${employees.length}`, "Live Attendance"], ["Total Employees", employees.length, "Employee Management"], ["Active Users", profiles.filter((row) => String(row.status || "active") === "active").length, "User & Account Management"],
     ["Pending Approvals", pendingApprovals, "Approval Workflows"], ["Open Vacancies", jobs.filter((row) => ["open", "published"].includes(String(row.status))).length, "Recruitment"], ["Applicants", applications.length, "Recruitment"],
-    ["Payroll Drafts", payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll & Payslips"], ["Open Tasks", tasks.filter((row) => !["completed", "closed", "cancelled"].includes(String(row.status))).length, "Tasks"],
+    ["Payroll Drafts", payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll & Payslips"], ["Open Tasks", tasks.filter((row) => !["completed", "closed", "cancelled"].includes(String(row.status))).length, "Reports & Analytics"],
   ];
   const leaveTypes = useMemo(() => groupCounts(leave, "leave_type", 4), [leave]);
   const leaveSeries = useMemo(() => leaveTypes.map(([type], index) => ({ name: type, color: vizPalette[index], values: monthlyBuckets(leave.filter((row) => String(row.leave_type ?? "").trim() === type), "start_date", 9).values })), [leave, leaveTypes]);
@@ -79,7 +79,7 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
       <DepartmentBarsWidget employees={employees} onNavigate={onNavigate} />
       <RecruitmentWidget jobs={jobs} applications={applications} onNavigate={onNavigate} />
       <EmployeesListWidget employees={employees} onNavigate={onNavigate} />
-      <TasksWidget tasks={tasks} onNavigate={onNavigate} />
+      <TasksWidget tasks={tasks} onNavigate={() => onNavigate("Reports & Analytics")} />
       <ScheduleWidget meetings={data.meetings ?? []} holidays={data.holidays ?? []} onNavigate={onNavigate} />
       <RecentActivityWidget rows={audit} onNavigate={onNavigate} />
       <BirthdaysWidget employees={employees} onNavigate={onNavigate} />
