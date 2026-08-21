@@ -71,8 +71,8 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
     ["Total Employees", data.employees.length, "Employee Management"],
     ["Open Vacancies", data.jobs.filter((row) => ["open", "published"].includes(String(row.status))).length, "Recruitment"],
     ["Applicants", data.candidates.length + data.applications.length, "Recruitment"],
-    ["Pending Approvals", pendingLeave + data.expenses.filter((row) => ["submitted", "manager_approved"].includes(String(row.status))).length, "Approval Workflows"],
-    ["Tasks", openTasks, "Tasks"],
+    ["Pending Approvals", pendingLeave + data.expenses.filter((row) => ["submitted", "manager_approved"].includes(String(row.status))).length, "Workflows & Approvals"],
+    ["Tasks", openTasks, "Reports & Analytics"],
     ["New Hires", data.employees.filter((row) => String(row.start_date).slice(0, 7) === today.slice(0, 7)).length, "Employee Management"],
     ["Payroll Drafts", data.payroll.filter((row) => ["draft", "calculated", "approved"].includes(String(row.status))).length, "Payroll Administration"],
   ], [data, active, present, pendingLeave, openTasks, today]);
@@ -86,13 +86,14 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
   const leaveMonthLabels = useMemo(() => monthlyBuckets(data.leave, "start_date", 9).labels, [data.leave]);
   const headcount = useMemo(() => monthlyCumulative(data.employees, "start_date", 7), [data.employees]);
   const expiringDocuments = data.documents.filter((row) => { const time = new Date(String(row.expiry_date)).getTime(); return !Number.isNaN(time) && time >= dashboardNow && time - dashboardNow < 31 * 86400000; }).length;
+  const safeHrNavigate = (page: string) => onNavigate(page === "Tasks" || page === "Audit Logs" ? "Reports & Analytics" : page);
 
   return <section className="hr-dashboard dashboard-workspace enterprise-dashboard-home">
     <div className="breadcrumb-trail"><span>SAS Finance Group</span><span aria-hidden="true">›</span><span>HR Dashboard</span></div>
     <div className="home-hero-row">
       <header className="page-header">
         <div className="page-header-with-photo"><AvatarPhoto accessToken={accessToken} path={profile.avatar_path} name={profile.display_name} size={52} /><div><span className="eyebrow">HR workspace</span><h1>Welcome back, {profile.display_name.split(" ")[0]}</h1><p className="muted">You have {pendingLeave} pending leave request{pendingLeave === 1 ? "" : "s"}, {openTasks} open task{openTasks === 1 ? "" : "s"} and {expiringDocuments} document{expiringDocuments === 1 ? "" : "s"} expiring soon.</p></div></div>
-        <div className="page-header-actions"><button className="secondary" onClick={() => onNavigate("Meetings & Calendar")}><MenuIcon name="calendar" />Add Schedule</button><button className="primary" onClick={() => onNavigate("HR Requests")}><MenuIcon name="user-plus" />Add Request</button></div>
+        <div className="page-header-actions"><button className="secondary" onClick={() => onNavigate("Meetings & Calendar")}><MenuIcon name="calendar" />Add Schedule</button><button className="primary" onClick={() => onNavigate("Employee Management")}><MenuIcon name="user-plus" />Add Employee</button></div>
       </header>
       <QuickAttendance accessToken={accessToken} profile={profile} compact />
     </div>
@@ -102,16 +103,16 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
 
     <div className="enterprise-home-section-title"><div><h2>People & attendance</h2><p>Live workforce, attendance and department insights from Supabase.</p></div></div>
     <div className="enterprise-home-grid">
-      <EmployeeStatusWidget employees={data.employees} onNavigate={onNavigate} />
-      <AttendanceOverviewWidget attendance={data.attendance} employees={data.employees} onNavigate={onNavigate} />
-      <ClockInOutWidget attendance={data.attendance} employees={data.employees} onNavigate={onNavigate} />
-      <DepartmentBarsWidget employees={data.employees} onNavigate={onNavigate} />
-      <RecruitmentWidget jobs={data.jobs} candidates={data.candidates} applications={data.applications} onNavigate={onNavigate} />
-      <EmployeesListWidget employees={data.employees} onNavigate={onNavigate} />
-      <TasksWidget tasks={data.tasks} onNavigate={onNavigate} />
-      <ScheduleWidget meetings={data.meetings} holidays={data.holidays} onNavigate={onNavigate} />
-      <RecentActivityWidget rows={data.audit} onNavigate={onNavigate} />
-      <BirthdaysWidget employees={data.employees} onNavigate={onNavigate} />
+      <EmployeeStatusWidget employees={data.employees} onNavigate={safeHrNavigate} />
+      <AttendanceOverviewWidget attendance={data.attendance} employees={data.employees} onNavigate={safeHrNavigate} />
+      <ClockInOutWidget attendance={data.attendance} employees={data.employees} onNavigate={safeHrNavigate} />
+      <DepartmentBarsWidget employees={data.employees} onNavigate={safeHrNavigate} />
+      <RecruitmentWidget jobs={data.jobs} candidates={data.candidates} applications={data.applications} onNavigate={safeHrNavigate} />
+      <EmployeesListWidget employees={data.employees} onNavigate={safeHrNavigate} />
+      <TasksWidget tasks={data.tasks} onNavigate={safeHrNavigate} />
+      <ScheduleWidget meetings={data.meetings} holidays={data.holidays} onNavigate={safeHrNavigate} />
+      <RecentActivityWidget rows={data.audit} onNavigate={safeHrNavigate} />
+      <BirthdaysWidget employees={data.employees} onNavigate={safeHrNavigate} />
     </div>
 
     <div className="enterprise-home-section-title"><div><h2>Workforce trends & actions</h2><p>Graphical trends, approvals, announcements and shortcuts.</p></div></div>
