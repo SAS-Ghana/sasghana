@@ -10,6 +10,7 @@ import { AreaChart, BarChart } from "./dashboard-charts";
 import { monthlyBuckets, groupCounts } from "./lib/dashboard-metrics";
 import { realtimeClient } from "./lib/supabase-realtime";
 import { AttendanceOverviewWidget, BirthdaysWidget, ClockInOutWidget, DepartmentBarsWidget, EmployeeStatusWidget, EmployeesListWidget, ScheduleWidget, TasksWidget } from "./enterprise-home-widgets";
+import { AccountantDashboard } from "./accountant-dashboard";
 
 type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[]; purchases: DataRow[]; meetings: DataRow[]; holidays: DataRow[] };
 const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [], purchases: [], meetings: [], holidays: [] };
@@ -17,6 +18,12 @@ const vizPalette = ["var(--brand)", "var(--viz-purple)", "var(--viz-red)", "var(
 const quickActionIcon: Record<string, IconName> = { "Approve leave": "leave", "Review attendance": "attendance", "Assign task": "task", "Start performance review": "performance", "Schedule one to one": "meeting", "Submit recruitment request": "recruitment", "Approve expense": "expense", "Review purchase requests": "asset", "Assign training": "training", "Send team message": "message", "Request employee document": "audit", "Review employee requests": "help" };
 
 export function ManagerDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
+  const isAccountant = profile.roles.some((role) => /accountant|finance officer|payroll officer/i.test(role)) || profile.permissions.some((permission) => permission.startsWith("accounts."));
+  if (isAccountant) return <AccountantDashboard accessToken={accessToken} profile={profile} onNavigate={onNavigate} />;
+  return <ManagerTeamDashboard accessToken={accessToken} profile={profile} onNavigate={onNavigate} />;
+}
+
+function ManagerTeamDashboard({ accessToken, profile, onNavigate }: { accessToken: string; profile: UserProfile; onNavigate: (page: string) => void }) {
   const [data, setData] = useState<ManagerData>(empty);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
