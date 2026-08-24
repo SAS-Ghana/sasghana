@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { fetchProfile, readSession } from "./lib/supabase-auth";
+import { updateRow } from "./lib/supabase-data";
 import { resolveDashboardMode } from "./lib/dashboard-mode";
 
 const elevatedRolePattern = /administrator|human resources|\bhr\b|manager|supervisor|team lead|department head|procurement|accountant|finance officer|payroll officer|auditor|asset officer|compliance|recruiter|it support|branch manager/i;
@@ -10,12 +11,24 @@ function applyVisibility(hidden: boolean) {
   document.body.classList.toggle("sas-employee-sidebar-hidden", hidden);
 }
 
+function applyBooting(active: boolean) {
+  document.documentElement.classList.toggle("sas-employee-profile-booting", active);
+  document.body.classList.toggle("sas-employee-profile-booting", active);
+}
+
+function findMyInfoButton() {
+  return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+    (button) => button.textContent?.trim() === "My Info",
+  );
+}
+
 function openEmployeeProfile() {
   const findAndOpen = () => {
-    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
-    const target = buttons.find((button) => button.textContent?.trim() === "My Info");
+    const employeeApp = document.querySelector(".app.employee-app");
+    if (!employeeApp) return false;
+    const target = findMyInfoButton();
     if (!target) return false;
-    target.click();
+    if (!target.classList.contains("active")) target.click();
     return true;
   };
 
@@ -32,6 +45,34 @@ function openEmployeeProfile() {
 }
 
 export function EmployeeSidebarVisibility() {
+  // Run before the browser paints. If this is the employee shell, open My Info immediately so
+  // the legacy Home dashboard never flashes during refresh while profile data is being resolved.
+  useLayoutEffect(() => {
+    const employeeApp = document.querySelector(".app.employee-app");
+    if (!employeeApp) return;
+    applyBooting(true);
+    const stop = openEmployeeProfile();
+    const release = () => applyBooting(false);
+    const observer = new MutationObserver(() => {
+      const target = findMyInfoButton();
+      if (target?.classList.contains("active") || document.querySelector(".profile-banner")) {
+        observer.disconnect();
+        release();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    const timer = window.setTimeout(() => {
+      observer.disconnect();
+      release();
+    }, 2500);
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+      stop();
+      release();
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let defaultedForUser = "";
@@ -41,6 +82,7 @@ export function EmployeeSidebarVisibility() {
       const session = readSession();
       if (!session) {
         applyVisibility(false);
+        applyBooting(false);
         defaultedForUser = "";
         stopProfileOpen?.();
         stopProfileOpen = undefined;
@@ -56,22 +98,31 @@ export function EmployeeSidebarVisibility() {
         const hasElevatedPermission = profile.permissions.some((permission) => elevatedPermissionPattern.test(permission));
         const specialAccountType = !["", "employee", "staff", "user"].includes(String(profile.account_type || "employee").toLowerCase());
 
-        // A plain employee gets the clean content-only workspace. As soon as Admin grants
-        // Manager/HR/Procurement/Accounts/Auditor/etc. access, the normal left navigation returns.
         const employeeOnly = resolvedMode === "employee" && !hasElevatedRole && !hasElevatedPermission && !specialAccountType;
         applyVisibility(employeeOnly);
 
-        // For employee-only accounts, My Profile/My Info is the main landing page. The hidden
-        // navigation remains in the DOM so we can use the application's existing navigation logic
-        // instead of duplicating profile state or bypassing access checks.
-        if (employeeOnly && defaultedForUser !== profile.id) {
-          defaultedForUser = profile.id;
-          stopProfileOpen?.();
-          stopProfileOpen = openEmployeeProfile();
+        if (employeeOnly) {
+          if (defaultedForUser !== profile.id) {
+            defaultedForUser = profile.id;
+            stopProfileOpen?.();
+            stopProfileOpen = openEmployeeProfile();
+          }
+
+          // Persist the employee landing page so subsequent reloads initialise directly on My Info
+          // instead of briefly rendering the legacy Home dashboard first.
+          if (profile.preferred_dashboard !== "My Info") {
+            await updateRow(session.access_token, "profiles", profile.id, {
+              preferred_dashboard: "My Info",
+            }).catch(() => undefined);
+          }
+        } else {
+          applyBooting(false);
         }
       } catch {
-        // Do not hide navigation when effective access cannot be confirmed.
-        if (!cancelled) applyVisibility(false);
+        if (!cancelled) {
+          applyVisibility(false);
+          applyBooting(false);
+        }
       }
     };
 
@@ -83,6 +134,7 @@ export function EmployeeSidebarVisibility() {
       events.forEach((event) => window.removeEventListener(event, refresh));
       stopProfileOpen?.();
       applyVisibility(false);
+      applyBooting(false);
     };
   }, []);
 
