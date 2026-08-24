@@ -23,6 +23,17 @@ body.sas-employee-sidebar-hidden .content{
   max-width:1680px!important;
   padding-inline:clamp(18px,4vw,56px)!important;
 }
+
+/* Employee-only accounts initialise on My Info. Hide the content surface for the tiny hydration
+   window so the legacy Home dashboard never flashes before the profile section is active. */
+html.sas-employee-profile-booting .app.employee-app .content,
+body.sas-employee-profile-booting .app.employee-app .content{
+  visibility:hidden!important;
+}
+html.sas-employee-profile-booting .app.employee-app .main{
+  background:var(--bg);
+}
+
 @media(max-width:760px){
   html.sas-employee-sidebar-hidden .app,
   body.sas-employee-sidebar-hidden .app{display:block!important}
