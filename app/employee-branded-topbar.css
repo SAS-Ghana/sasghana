@@ -1,0 +1,85 @@
+.employee-topbar-brand{display:none}
+html.sas-employee-sidebar-hidden .topbar,
+body.sas-employee-sidebar-hidden .topbar{
+  min-height:82px;
+  padding-inline:28px;
+  position:sticky;
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand,
+body.sas-employee-sidebar-hidden .employee-topbar-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:260px;
+  max-width:330px;
+  margin-right:auto;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand img,
+body.sas-employee-sidebar-hidden .employee-topbar-brand img{
+  width:112px;
+  height:48px;
+  object-fit:contain;
+  object-position:left center;
+  border-radius:0;
+  background:transparent;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand-copy,
+body.sas-employee-sidebar-hidden .employee-topbar-brand-copy{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand-copy strong,
+body.sas-employee-sidebar-hidden .employee-topbar-brand-copy strong{
+  font-size:13px;
+  line-height:1.1;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand-copy small,
+body.sas-employee-sidebar-hidden .employee-topbar-brand-copy small{
+  color:var(--muted);
+  font-size:10px;
+  white-space:nowrap;
+}
+html.sas-employee-sidebar-hidden .topbar .search-wrap,
+body.sas-employee-sidebar-hidden .topbar .search-wrap{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(520px,40vw);
+  margin:0;
+}
+html.sas-employee-sidebar-hidden .topbar .search,
+body.sas-employee-sidebar-hidden .topbar .search{
+  width:100%;
+  max-width:none;
+}
+html.sas-employee-sidebar-hidden .topbar-quick-actions,
+body.sas-employee-sidebar-hidden .topbar-quick-actions{
+  margin-left:auto;
+}
+@media(max-width:1100px){
+  html.sas-employee-sidebar-hidden .employee-topbar-brand-copy,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand-copy{display:none}
+  html.sas-employee-sidebar-hidden .employee-topbar-brand,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:125px;max-width:125px}
+  html.sas-employee-sidebar-hidden .topbar .search-wrap,
+  body.sas-employee-sidebar-hidden .topbar .search-wrap{width:min(430px,42vw)}
+}
+@media(max-width:760px){
+  html.sas-employee-sidebar-hidden .topbar,
+  body.sas-employee-sidebar-hidden .topbar{min-height:72px;padding-inline:14px;gap:10px}
+  html.sas-employee-sidebar-hidden .employee-topbar-brand,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:82px;max-width:82px}
+  html.sas-employee-sidebar-hidden .employee-topbar-brand img,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:78px;height:38px}
+  html.sas-employee-sidebar-hidden .topbar .search-wrap,
+  body.sas-employee-sidebar-hidden .topbar .search-wrap{position:static;transform:none;width:auto;flex:1}
+  html.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button,
+  body.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button{display:none}
+}
