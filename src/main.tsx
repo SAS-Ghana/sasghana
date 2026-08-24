@@ -9,6 +9,7 @@ import { NavigationScrollEnhancer } from "../app/navigation-scroll-enhancer";
 import { EmployeeHeaderActionsEnhancer } from "../app/employee-header-actions-enhancer";
 import { EmployeeCalendarEnhancer } from "../app/employee-calendar-enhancer";
 import { EmployeeModuleCounterEnhancer } from "../app/employee-module-counter-enhancer";
+import { EmployeeSidebarVisibility } from "../app/employee-sidebar-visibility";
 import "../app/globals.css";
 import "../app/design-system.css";
 import "../app/employee-shell.css";
@@ -22,6 +23,7 @@ import "../app/sas-reference-dashboard.css";
 import "../app/enterprise-home-widgets.css";
 import "../app/accountant-dashboard.css";
 import "../app/dashboard-todo.css";
+import "../app/employee-sidebar-visibility.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -32,6 +34,7 @@ createRoot(document.getElementById("root")!).render(
     <EmployeeHeaderActionsEnhancer />
     <EmployeeCalendarEnhancer />
     <EmployeeModuleCounterEnhancer />
+    <EmployeeSidebarVisibility />
     <SasPeopleApp />
   </StrictMode>,
 );
