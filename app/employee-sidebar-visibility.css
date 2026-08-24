@@ -1,0 +1,31 @@
+html.sas-employee-sidebar-hidden .app,
+body.sas-employee-sidebar-hidden .app{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+html.sas-employee-sidebar-hidden .sidebar,
+body.sas-employee-sidebar-hidden .sidebar{
+  display:none!important;
+}
+html.sas-employee-sidebar-hidden .main,
+body.sas-employee-sidebar-hidden .main{
+  grid-column:1!important;
+  width:100%!important;
+  max-width:none!important;
+}
+html.sas-employee-sidebar-hidden .mobile-menu,
+body.sas-employee-sidebar-hidden .mobile-menu,
+html.sas-employee-sidebar-hidden .drawer-backdrop,
+body.sas-employee-sidebar-hidden .drawer-backdrop{
+  display:none!important;
+}
+html.sas-employee-sidebar-hidden .content,
+body.sas-employee-sidebar-hidden .content{
+  max-width:1680px!important;
+  padding-inline:clamp(18px,4vw,56px)!important;
+}
+@media(max-width:760px){
+  html.sas-employee-sidebar-hidden .app,
+  body.sas-employee-sidebar-hidden .app{display:block!important}
+  html.sas-employee-sidebar-hidden .content,
+  body.sas-employee-sidebar-hidden .content{padding-inline:14px!important}
+}
