@@ -10,6 +10,7 @@ import { EmployeeHeaderActionsEnhancer } from "../app/employee-header-actions-en
 import { EmployeeCalendarEnhancer } from "../app/employee-calendar-enhancer";
 import { EmployeeModuleCounterEnhancer } from "../app/employee-module-counter-enhancer";
 import { EmployeeSidebarVisibility } from "../app/employee-sidebar-visibility";
+import { EmployeeBrandedTopbar } from "../app/employee-branded-topbar";
 import "../app/globals.css";
 import "../app/design-system.css";
 import "../app/employee-shell.css";
@@ -24,6 +25,7 @@ import "../app/enterprise-home-widgets.css";
 import "../app/accountant-dashboard.css";
 import "../app/dashboard-todo.css";
 import "../app/employee-sidebar-visibility.css";
+import "../app/employee-branded-topbar.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -35,6 +37,7 @@ createRoot(document.getElementById("root")!).render(
     <EmployeeCalendarEnhancer />
     <EmployeeModuleCounterEnhancer />
     <EmployeeSidebarVisibility />
+    <EmployeeBrandedTopbar />
     <SasPeopleApp />
   </StrictMode>,
 );
