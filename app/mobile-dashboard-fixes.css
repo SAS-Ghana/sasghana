@@ -1,0 +1,269 @@
+/* Mobile and tablet layout safeguards shared by SAS dashboards. */
+@media (max-width: 900px) {
+  .content,
+  .employee-portal-v2,
+  .dashboard-page,
+  .section-page {
+    min-width: 0 !important;
+  }
+
+  .home-hero-row,
+  .employee-home-hero,
+  .enterprise-home-grid,
+  .employee-dashboard-grid,
+  .dashboard-grid,
+  .profile-layout,
+  .settings-layout,
+  .employee-profile-body,
+  .employee-profile-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dhv2-stat-grid,
+  .stats-grid,
+  .metric-grid,
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .span-two,
+  .span-three,
+  .span-four,
+  [class*="span-"] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .panel-head,
+  .page-header,
+  .card-header,
+  .section-header,
+  .toolbar,
+  .record-toolbar,
+  .filter-bar,
+  .table-toolbar {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .row-actions,
+  .attendance-quick-actions,
+  .quick-actions,
+  .modal-actions,
+  .form-actions,
+  .top-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .row-actions > *,
+  .attendance-quick-actions > *,
+  .modal-actions > *,
+  .form-actions > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .attendance-quick-actions > button {
+    flex: 1 1 140px !important;
+  }
+
+  .profile-banner {
+    grid-template-columns: 120px minmax(0, 1fr) !important;
+    gap: 18px !important;
+    padding: 24px !important;
+  }
+
+  .profile-banner-avatar {
+    width: 120px !important;
+    height: 140px !important;
+  }
+
+  .profile-banner-action {
+    grid-column: 1 / -1 !important;
+    justify-self: stretch !important;
+    width: 100% !important;
+  }
+
+  .employee-info-tabs-row {
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  .employee-info-tabs,
+  .segmented.employee-info-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding: 5px !important;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .employee-info-tabs button,
+  .segmented.employee-info-tabs button {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    padding-inline: 16px !important;
+  }
+
+  .card,
+  .data-panel,
+  .record-card,
+  .dashboard-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .record-toolbar input,
+  .record-toolbar select,
+  .filter-bar input,
+  .filter-bar select,
+  .table-toolbar input,
+  .table-toolbar select,
+  .toolbar input,
+  .toolbar select {
+    flex: 1 1 220px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .table-wrap,
+  .table-scroll,
+  .record-table-wrap,
+  .data-table-wrap,
+  .card:has(> table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table,
+  .data-table,
+  .record-table {
+    min-width: 720px;
+  }
+
+  .form-grid,
+  .field-grid,
+  .profile-form-grid,
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  h1 {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 600px) {
+  .content {
+    padding-inline: 12px !important;
+  }
+
+  .dhv2-stat-grid,
+  .stats-grid,
+  .metric-grid,
+  .kpi-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .profile-banner {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 18px !important;
+    border-radius: 18px !important;
+  }
+
+  .profile-banner-avatar {
+    width: 112px !important;
+    height: 124px !important;
+    align-self: flex-start !important;
+  }
+
+  .profile-banner-info h1 {
+    font-size: clamp(30px, 10vw, 44px) !important;
+    line-height: 1.04 !important;
+  }
+
+  .profile-banner-action,
+  .wide-button,
+  .primary.wide-button,
+  .secondary.wide-button {
+    width: 100% !important;
+  }
+
+  .panel-head > *,
+  .page-header > *,
+  .card-header > * {
+    max-width: 100% !important;
+  }
+
+  .attendance-summary {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .attendance-quick-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .attendance-quick-actions > button {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  .record-toolbar,
+  .filter-bar,
+  .table-toolbar,
+  .toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .record-toolbar input,
+  .record-toolbar select,
+  .record-toolbar button,
+  .filter-bar input,
+  .filter-bar select,
+  .filter-bar button,
+  .table-toolbar input,
+  .table-toolbar select,
+  .table-toolbar button,
+  .toolbar input,
+  .toolbar select,
+  .toolbar button {
+    width: 100% !important;
+  }
+
+  .row-actions,
+  .modal-actions,
+  .form-actions {
+    width: 100% !important;
+  }
+
+  .modal-actions > button,
+  .form-actions > button {
+    flex: 1 1 100% !important;
+  }
+
+  .account-menu,
+  .employee-info-more-menu {
+    max-width: calc(100vw - 24px) !important;
+    left: 12px !important;
+    right: 12px !important;
+  }
+}
