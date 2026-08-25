@@ -8,6 +8,13 @@ const elevatedPermissionPattern = /^(procurement\.|accounts\.|users\.|roles\.|au
 
 function removeBrand() {
   document.querySelector("[data-sas-employee-topbar-brand]")?.remove();
+  document.querySelector("[data-sas-employee-home-button]")?.remove();
+}
+
+function openMyInfo() {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
+  const target = buttons.find((button) => button.textContent?.trim() === "My Info");
+  target?.click();
 }
 
 export function EmployeeBrandedTopbar() {
@@ -41,11 +48,14 @@ export function EmployeeBrandedTopbar() {
         const branding = await loadOrganisationConfig(session.access_token, profile.organisation_id).catch(() => defaultOrganisationConfig);
         if (cancelled) return;
 
-        let brand = topbar.querySelector<HTMLElement>("[data-sas-employee-topbar-brand]");
+        let brand = topbar.querySelector<HTMLButtonElement>("[data-sas-employee-topbar-brand]");
         if (!brand) {
-          brand = document.createElement("div");
+          brand = document.createElement("button");
+          brand.type = "button";
           brand.dataset.sasEmployeeTopbarBrand = "true";
           brand.className = "employee-topbar-brand";
+          brand.setAttribute("aria-label", "Go to My Info");
+          brand.addEventListener("click", openMyInfo);
           topbar.prepend(brand);
         }
 
@@ -57,6 +67,18 @@ export function EmployeeBrandedTopbar() {
             <small>Strength. Growth. Confidence.</small>
           </div>
         `;
+
+        let home = topbar.querySelector<HTMLButtonElement>("[data-sas-employee-home-button]");
+        if (!home) {
+          home = document.createElement("button");
+          home.type = "button";
+          home.dataset.sasEmployeeHomeButton = "true";
+          home.className = "employee-home-button";
+          home.innerHTML = `<span aria-hidden="true">⌂</span><span>Home</span>`;
+          home.setAttribute("aria-label", "Return to My Info");
+          home.addEventListener("click", openMyInfo);
+          brand.insertAdjacentElement("afterend", home);
+        }
       } catch {
         removeBrand();
       }
