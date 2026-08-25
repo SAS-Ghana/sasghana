@@ -1,4 +1,4 @@
-.employee-topbar-brand{display:none}
+.employee-topbar-brand,.employee-home-button{display:none}
 html.sas-employee-sidebar-hidden .topbar,
 body.sas-employee-sidebar-hidden .topbar{
   min-height:82px;
@@ -6,7 +6,7 @@ body.sas-employee-sidebar-hidden .topbar{
   position:sticky;
   display:flex;
   align-items:center;
-  gap:18px;
+  gap:14px;
 }
 html.sas-employee-sidebar-hidden .employee-topbar-brand,
 body.sas-employee-sidebar-hidden .employee-topbar-brand{
@@ -15,7 +15,19 @@ body.sas-employee-sidebar-hidden .employee-topbar-brand{
   gap:12px;
   min-width:260px;
   max-width:330px;
-  margin-right:auto;
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+html.sas-employee-sidebar-hidden .employee-topbar-brand:focus-visible,
+body.sas-employee-sidebar-hidden .employee-topbar-brand:focus-visible{
+  outline:2px solid var(--primary);
+  outline-offset:5px;
+  border-radius:8px;
 }
 html.sas-employee-sidebar-hidden .employee-topbar-brand img,
 body.sas-employee-sidebar-hidden .employee-topbar-brand img{
@@ -46,12 +58,33 @@ body.sas-employee-sidebar-hidden .employee-topbar-brand-copy small{
   font-size:10px;
   white-space:nowrap;
 }
+html.sas-employee-sidebar-hidden .employee-home-button,
+body.sas-employee-sidebar-hidden .employee-home-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:42px;
+  padding:0 14px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--surface);
+  color:var(--text);
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+}
+html.sas-employee-sidebar-hidden .employee-home-button:hover,
+body.sas-employee-sidebar-hidden .employee-home-button:hover{
+  border-color:var(--primary);
+  color:var(--primary);
+}
 html.sas-employee-sidebar-hidden .topbar .search-wrap,
 body.sas-employee-sidebar-hidden .topbar .search-wrap{
   position:absolute;
   left:50%;
   transform:translateX(-50%);
-  width:min(520px,40vw);
+  width:min(520px,38vw);
   margin:0;
 }
 html.sas-employee-sidebar-hidden .topbar .search,
@@ -63,23 +96,41 @@ html.sas-employee-sidebar-hidden .topbar-quick-actions,
 body.sas-employee-sidebar-hidden .topbar-quick-actions{
   margin-left:auto;
 }
-@media(max-width:1100px){
+@media(max-width:1240px){
   html.sas-employee-sidebar-hidden .employee-topbar-brand-copy,
   body.sas-employee-sidebar-hidden .employee-topbar-brand-copy{display:none}
   html.sas-employee-sidebar-hidden .employee-topbar-brand,
   body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:125px;max-width:125px}
   html.sas-employee-sidebar-hidden .topbar .search-wrap,
-  body.sas-employee-sidebar-hidden .topbar .search-wrap{width:min(430px,42vw)}
+  body.sas-employee-sidebar-hidden .topbar .search-wrap{width:min(410px,34vw)}
 }
-@media(max-width:760px){
+@media(max-width:900px){
   html.sas-employee-sidebar-hidden .topbar,
-  body.sas-employee-sidebar-hidden .topbar{min-height:72px;padding-inline:14px;gap:10px}
+  body.sas-employee-sidebar-hidden .topbar{flex-wrap:wrap;min-height:88px;padding:12px 14px;gap:10px}
   html.sas-employee-sidebar-hidden .employee-topbar-brand,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:82px;max-width:82px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:92px;max-width:92px}
   html.sas-employee-sidebar-hidden .employee-topbar-brand img,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:78px;height:38px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:86px;height:38px}
+  html.sas-employee-sidebar-hidden .employee-home-button,
+  body.sas-employee-sidebar-hidden .employee-home-button{min-height:38px;padding:0 11px}
   html.sas-employee-sidebar-hidden .topbar .search-wrap,
-  body.sas-employee-sidebar-hidden .topbar .search-wrap{position:static;transform:none;width:auto;flex:1}
+  body.sas-employee-sidebar-hidden .topbar .search-wrap{position:static;transform:none;order:10;width:100%;flex:0 0 100%}
+  html.sas-employee-sidebar-hidden .topbar-quick-actions,
+  body.sas-employee-sidebar-hidden .topbar-quick-actions{margin-left:auto}
+}
+@media(max-width:560px){
+  html.sas-employee-sidebar-hidden .topbar,
+  body.sas-employee-sidebar-hidden .topbar{padding:10px;gap:8px}
+  html.sas-employee-sidebar-hidden .employee-topbar-brand,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:74px;max-width:74px}
+  html.sas-employee-sidebar-hidden .employee-topbar-brand img,
+  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:70px;height:34px}
+  html.sas-employee-sidebar-hidden .employee-home-button,
+  body.sas-employee-sidebar-hidden .employee-home-button{font-size:0;width:38px;padding:0}
+  html.sas-employee-sidebar-hidden .employee-home-button span:first-child,
+  body.sas-employee-sidebar-hidden .employee-home-button span:first-child{font-size:20px}
   html.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button,
   body.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button{display:none}
+  html.sas-employee-sidebar-hidden .topbar-quick-actions,
+  body.sas-employee-sidebar-hidden .topbar-quick-actions{gap:6px}
 }
