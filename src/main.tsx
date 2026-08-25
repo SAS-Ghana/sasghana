@@ -28,6 +28,7 @@ import "../app/dashboard-todo.css";
 import "../app/employee-sidebar-visibility.css";
 import "../app/employee-branded-topbar.css";
 import "../app/employee-profile-attendance-enhancer.css";
+import "../app/mobile-dashboard-fixes.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
