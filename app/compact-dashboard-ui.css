@@ -1,0 +1,114 @@
+/* Compact enterprise sizing for all elevated dashboards. */
+:root{
+  --sas-ui-font:14px;
+  --sas-ui-small:12px;
+  --sas-ui-control:40px;
+  --sas-ui-radius:14px;
+}
+
+body{font-size:var(--sas-ui-font)}
+
+.sidebar{width:250px!important}
+.sidebar .brand{padding:18px 18px 12px!important}
+.sidebar .brand img{max-width:138px!important;height:auto!important}
+.sidebar .brand small{font-size:11px!important;line-height:1.35!important}
+
+.sidebar-accordion-group{margin:2px 10px 4px}
+.sidebar-accordion-trigger{
+  display:flex!important;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 10px!important;
+  margin:0!important;
+  border-radius:10px;
+  cursor:pointer;
+  user-select:none;
+  font-size:11px!important;
+  line-height:1.2!important;
+  letter-spacing:.08em!important;
+  transition:background .16s ease,color .16s ease;
+}
+.sidebar-accordion-trigger:hover{background:color-mix(in srgb,var(--sas-cyan,#00AEEF) 10%,transparent)}
+.sidebar-accordion-chevron{font-size:16px;line-height:1;transition:transform .18s ease}
+.sidebar-accordion-group.open .sidebar-accordion-chevron{transform:rotate(180deg)}
+.sidebar-accordion-group>.nav{display:none!important;padding:4px 0 5px!important}
+.sidebar-accordion-group.open>.nav{display:grid!important}
+.sidebar .nav button{
+  min-height:38px!important;
+  padding:8px 10px!important;
+  margin:1px 0!important;
+  border-radius:10px!important;
+  gap:10px!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+}
+.sidebar .nav-icon{width:20px!important;min-width:20px!important}
+.sidebar .nav-icon svg{width:17px!important;height:17px!important}
+.sidebar .module-count{min-width:22px!important;height:22px!important;font-size:11px!important}
+.sidebar-footer{font-size:11px!important;line-height:1.45!important;padding:12px 18px!important}
+
+.topbar{min-height:70px!important;padding-block:10px!important}
+.topbar .search-wrap{min-height:40px!important}
+.topbar .search{font-size:14px!important}
+.topbar-icon-btn,.ask-button,.account-button{min-height:40px!important}
+.profile-copy strong{font-size:13px!important}.profile-copy small{font-size:11px!important}
+
+.content{padding-top:22px!important;padding-bottom:28px!important}
+.page-header{padding:22px!important;border-radius:var(--sas-ui-radius)!important}
+.page-header h1{font-size:clamp(28px,2.5vw,38px)!important;line-height:1.08!important}
+.page-header h2{font-size:20px!important}
+.page-header p,.muted{font-size:13px!important}
+.eyebrow{font-size:11px!important;letter-spacing:.08em!important}
+
+.card,.data-panel,.dashboard-card,.enterprise-card{border-radius:var(--sas-ui-radius)!important}
+.card{padding:18px!important}
+.card h2,.panel-head h2{font-size:18px!important;line-height:1.2!important}
+.card h3{font-size:15px!important}
+.card p,.card li,.card td,.card th{font-size:13px!important}
+
+.dhv2-stat-grid,.enterprise-stat-grid,.dashboard-stat-grid{gap:12px!important}
+.stat-card,.dhv2-stat-grid>.card,.enterprise-stat-grid>.card{min-height:126px!important;padding:16px!important}
+.stat-card strong,.dhv2-stat-grid strong{font-size:28px!important;line-height:1.1!important}
+.stat-card label,.dhv2-stat-grid label{font-size:11px!important}
+
+button,input,select,textarea{font-size:13px!important}
+button,.button,.primary,.secondary{min-height:38px!important;padding:8px 13px!important;border-radius:10px!important}
+input,select{min-height:40px!important;padding:8px 11px!important}
+textarea{padding:10px 11px!important}
+
+.filter-bar,.toolbar,.row-actions,.panel-actions{gap:8px!important}
+.table-wrap{border-radius:12px!important}
+table th{font-size:11px!important;padding:10px 12px!important}
+table td{font-size:13px!important;padding:11px 12px!important}
+
+.employee-info-tabs button{font-size:13px!important;min-height:42px!important;padding:8px 14px!important}
+.profile-banner{padding:28px 32px!important;min-height:250px!important}
+.profile-banner-info h1{font-size:clamp(34px,4vw,52px)!important}
+.profile-banner-info p{font-size:16px!important}
+.profile-banner-avatar{width:205px!important;height:205px!important}
+
+@media(max-width:1100px){
+  .sidebar{width:232px!important}
+  .content{padding-inline:18px!important}
+}
+
+@media(max-width:760px){
+  .sidebar{width:min(82vw,290px)!important}
+  .content{padding:14px!important}
+  .page-header{padding:16px!important}
+  .page-header h1{font-size:27px!important}
+  .card{padding:14px!important}
+  .dhv2-stat-grid,.enterprise-stat-grid,.dashboard-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .stat-card,.dhv2-stat-grid>.card,.enterprise-stat-grid>.card{min-height:105px!important;padding:13px!important}
+  .stat-card strong,.dhv2-stat-grid strong{font-size:23px!important}
+  .profile-banner{padding:18px!important;min-height:auto!important}
+  .profile-banner-avatar{width:128px!important;height:128px!important}
+  .profile-banner-info h1{font-size:30px!important}
+  .employee-info-tabs{gap:4px!important}
+}
+
+@media(max-width:480px){
+  .dhv2-stat-grid,.enterprise-stat-grid,.dashboard-stat-grid{grid-template-columns:1fr!important}
+  .stat-card,.dhv2-stat-grid>.card,.enterprise-stat-grid>.card{min-height:92px!important}
+}
