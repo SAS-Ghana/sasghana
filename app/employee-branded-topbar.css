@@ -106,31 +106,115 @@ body.sas-employee-sidebar-hidden .topbar-quick-actions{
 }
 @media(max-width:900px){
   html.sas-employee-sidebar-hidden .topbar,
-  body.sas-employee-sidebar-hidden .topbar{flex-wrap:wrap;min-height:88px;padding:12px 14px;gap:10px}
+  body.sas-employee-sidebar-hidden .topbar{
+    display:grid !important;
+    grid-template-columns:auto auto minmax(0,1fr) auto auto;
+    grid-template-rows:44px 48px;
+    align-items:center;
+    min-height:110px;
+    padding:10px 12px 8px;
+    gap:8px;
+  }
   html.sas-employee-sidebar-hidden .employee-topbar-brand,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:92px;max-width:92px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{
+    grid-column:1;
+    grid-row:1;
+    min-width:58px;
+    max-width:58px;
+  }
   html.sas-employee-sidebar-hidden .employee-topbar-brand img,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:86px;height:38px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:54px;height:34px}
   html.sas-employee-sidebar-hidden .employee-home-button,
-  body.sas-employee-sidebar-hidden .employee-home-button{min-height:38px;padding:0 11px}
-  html.sas-employee-sidebar-hidden .topbar .search-wrap,
-  body.sas-employee-sidebar-hidden .topbar .search-wrap{position:static;transform:none;order:10;width:100%;flex:0 0 100%}
+  body.sas-employee-sidebar-hidden .employee-home-button{
+    grid-column:2;
+    grid-row:1;
+    min-height:38px;
+    height:38px;
+    padding:0 10px;
+  }
   html.sas-employee-sidebar-hidden .topbar-quick-actions,
-  body.sas-employee-sidebar-hidden .topbar-quick-actions{margin-left:auto}
+  body.sas-employee-sidebar-hidden .topbar-quick-actions{
+    grid-column:4;
+    grid-row:1;
+    display:flex !important;
+    align-items:center;
+    gap:6px;
+    margin:0;
+    min-width:0;
+  }
+  html.sas-employee-sidebar-hidden .topbar .profile,
+  body.sas-employee-sidebar-hidden .topbar .profile{
+    grid-column:5;
+    grid-row:1;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    margin:0;
+  }
+  html.sas-employee-sidebar-hidden .topbar .search-wrap,
+  body.sas-employee-sidebar-hidden .topbar .search-wrap{
+    grid-column:1 / -1;
+    grid-row:2;
+    position:static;
+    transform:none;
+    width:100%;
+    min-width:0;
+    margin:0;
+  }
+  html.sas-employee-sidebar-hidden .topbar .search,
+  body.sas-employee-sidebar-hidden .topbar .search{height:44px}
+  html.sas-employee-sidebar-hidden .topbar-icon-btn,
+  body.sas-employee-sidebar-hidden .topbar-icon-btn,
+  html.sas-employee-sidebar-hidden .ask-button,
+  body.sas-employee-sidebar-hidden .ask-button{
+    flex:0 0 auto;
+    min-width:38px;
+    width:38px;
+    height:38px;
+    min-height:38px;
+    padding:0;
+  }
+  html.sas-employee-sidebar-hidden .ask-button,
+  body.sas-employee-sidebar-hidden .ask-button{font-size:0}
+  html.sas-employee-sidebar-hidden .ask-button svg,
+  body.sas-employee-sidebar-hidden .ask-button svg{margin:0}
 }
 @media(max-width:560px){
   html.sas-employee-sidebar-hidden .topbar,
-  body.sas-employee-sidebar-hidden .topbar{padding:10px;gap:8px}
+  body.sas-employee-sidebar-hidden .topbar{
+    grid-template-columns:48px auto 1fr auto auto;
+    grid-template-rows:42px 46px;
+    min-height:106px;
+    padding:8px 10px;
+    gap:6px;
+  }
   html.sas-employee-sidebar-hidden .employee-topbar-brand,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:74px;max-width:74px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand{min-width:46px;max-width:46px}
   html.sas-employee-sidebar-hidden .employee-topbar-brand img,
-  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:70px;height:34px}
+  body.sas-employee-sidebar-hidden .employee-topbar-brand img{width:44px;height:30px}
   html.sas-employee-sidebar-hidden .employee-home-button,
-  body.sas-employee-sidebar-hidden .employee-home-button{font-size:0;width:38px;padding:0}
-  html.sas-employee-sidebar-hidden .employee-home-button span:first-child,
-  body.sas-employee-sidebar-hidden .employee-home-button span:first-child{font-size:20px}
+  body.sas-employee-sidebar-hidden .employee-home-button{
+    min-height:36px;
+    height:36px;
+    padding:0 8px;
+    font-size:13px;
+  }
   html.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button,
-  body.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button{display:none}
-  html.sas-employee-sidebar-hidden .topbar-quick-actions,
-  body.sas-employee-sidebar-hidden .topbar-quick-actions{gap:6px}
+  body.sas-employee-sidebar-hidden .topbar-quick-actions .ask-button{display:none !important}
+  html.sas-employee-sidebar-hidden .topbar-icon-btn,
+  body.sas-employee-sidebar-hidden .topbar-icon-btn{
+    width:36px;
+    min-width:36px;
+    height:36px;
+    min-height:36px;
+  }
+  html.sas-employee-sidebar-hidden .topbar .profile,
+  body.sas-employee-sidebar-hidden .topbar .profile{gap:4px}
+}
+@media(max-width:390px){
+  html.sas-employee-sidebar-hidden .topbar-quick-actions .topbar-icon-btn:first-child,
+  body.sas-employee-sidebar-hidden .topbar-quick-actions .topbar-icon-btn:first-child{display:none !important}
+  html.sas-employee-sidebar-hidden .employee-home-button,
+  body.sas-employee-sidebar-hidden .employee-home-button{font-size:12px;padding:0 6px}
 }
