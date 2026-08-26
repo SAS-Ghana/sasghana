@@ -12,6 +12,7 @@ import { EmployeeModuleCounterEnhancer } from "../app/employee-module-counter-en
 import { EmployeeSidebarVisibility } from "../app/employee-sidebar-visibility";
 import { EmployeeBrandedTopbar } from "../app/employee-branded-topbar";
 import { EmployeeProfileAttendanceEnhancer } from "../app/employee-profile-attendance-enhancer";
+import { SidebarAccordionEnhancer } from "../app/sidebar-accordion-enhancer";
 import "../app/globals.css";
 import "../app/design-system.css";
 import "../app/employee-shell.css";
@@ -29,6 +30,7 @@ import "../app/employee-sidebar-visibility.css";
 import "../app/employee-branded-topbar.css";
 import "../app/employee-profile-attendance-enhancer.css";
 import "../app/mobile-dashboard-fixes.css";
+import "../app/compact-dashboard-ui.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -42,6 +44,7 @@ createRoot(document.getElementById("root")!).render(
     <EmployeeSidebarVisibility />
     <EmployeeBrandedTopbar />
     <EmployeeProfileAttendanceEnhancer />
+    <SidebarAccordionEnhancer />
     <SasPeopleApp />
   </StrictMode>,
 );
