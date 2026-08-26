@@ -13,7 +13,7 @@ import { EmployeeSidebarVisibility } from "../app/employee-sidebar-visibility";
 import { EmployeeBrandedTopbar } from "../app/employee-branded-topbar";
 import { EmployeeProfileAttendanceEnhancer } from "../app/employee-profile-attendance-enhancer";
 import { SidebarAccordionEnhancer } from "../app/sidebar-accordion-enhancer";
-import { ManagerLandingFix } from "../app/manager-landing-fix";
+import { RoleDashboardLandingFix } from "../app/role-dashboard-landing-fix";
 import "../app/globals.css";
 import "../app/design-system.css";
 import "../app/employee-shell.css";
@@ -46,7 +46,7 @@ createRoot(document.getElementById("root")!).render(
     <EmployeeBrandedTopbar />
     <EmployeeProfileAttendanceEnhancer />
     <SidebarAccordionEnhancer />
-    <ManagerLandingFix />
+    <RoleDashboardLandingFix />
     <SasPeopleApp />
   </StrictMode>,
 );
