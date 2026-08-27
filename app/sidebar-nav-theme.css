@@ -1,0 +1,151 @@
+/* Sidebar palette and navigation button states.
+ *
+ * The sidebar used to be pinned to --navy with hardcoded #fff / #aebbd0 text, so it stayed dark
+ * navy even when the rest of the app was in light mode. These tokens follow the same three sources
+ * the rest of the theme already honours: the OS setting, and an explicit choice from the
+ * preferences panel (data-theme light/dark/system, where "system" defers to the OS).
+ *
+ * Order matters below. Each scheme is declared light-first and then overridden for dark, and the
+ * explicit data-theme="dark" block comes last so a deliberate choice always wins over the OS.
+ */
+
+:root {
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #0b1426;
+  --sidebar-muted: #5b6b82;
+  --sidebar-line: #e3e9f1;
+  --sidebar-raise: 0 6px 16px rgb(11 20 38 / 12%);
+  /* Deeper than --brand so the knocked-out white label clears 4.5:1; plain #00aeef is ~2.4:1. */
+  --nav-active-fill: #0077a8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sidebar-bg: #071426;
+    --sidebar-text: #f5f8fc;
+    --sidebar-muted: #93a5bd;
+    --sidebar-line: #22334c;
+    --sidebar-raise: 0 6px 18px rgb(0 0 0 / 38%);
+    /* On the dark sidebar the brand cyan already gives ~8.9:1 against the knocked-out label. */
+    --nav-active-fill: var(--brand);
+  }
+}
+
+html[data-theme="light"],
+html[data-theme="system"] {
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #0b1426;
+  --sidebar-muted: #5b6b82;
+  --sidebar-line: #e3e9f1;
+  --sidebar-raise: 0 6px 16px rgb(11 20 38 / 12%);
+  /* Deeper than --brand so the knocked-out white label clears 4.5:1; plain #00aeef is ~2.4:1. */
+  --nav-active-fill: #0077a8;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] {
+    --sidebar-bg: #071426;
+    --sidebar-text: #f5f8fc;
+    --sidebar-muted: #93a5bd;
+    --sidebar-line: #22334c;
+    --sidebar-raise: 0 6px 18px rgb(0 0 0 / 38%);
+    /* On the dark sidebar the brand cyan already gives ~8.9:1 against the knocked-out label. */
+    --nav-active-fill: var(--brand);
+  }
+}
+
+html[data-theme="dark"] {
+  --sidebar-bg: #071426;
+  --sidebar-text: #f5f8fc;
+  --sidebar-muted: #93a5bd;
+  --sidebar-line: #22334c;
+  --sidebar-raise: 0 6px 18px rgb(0 0 0 / 38%);
+  /* On the dark sidebar the brand cyan already gives ~8.9:1 against the knocked-out label. */
+  --nav-active-fill: var(--brand);
+}
+
+/* ---- Shell ------------------------------------------------------------- */
+
+.sidebar {
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-line);
+}
+
+.sidebar .brand strong { color: var(--sidebar-text); }
+.sidebar .brand small,
+.sidebar .nav-label,
+.sidebar .sidebar-accordion-trigger { color: var(--sidebar-muted); }
+
+.sidebar-footer {
+  color: var(--sidebar-muted);
+  border-top-color: var(--sidebar-line);
+}
+
+/* The logo tile is only worth a white plate when the sidebar behind it is dark. */
+@media (prefers-color-scheme: light) {
+  .sidebar .brand img { background: transparent; }
+}
+html[data-theme="light"] .sidebar .brand img { background: transparent; }
+
+/* ---- Navigation buttons ------------------------------------------------- */
+
+.nav button {
+  color: var(--sidebar-muted);
+  transition:
+    background .2s ease,
+    color .2s ease,
+    box-shadow .2s ease,
+    transform .2s ease;
+}
+
+/* Hover lifts the whole button instead of sliding a bar in at its left edge. */
+.nav button:hover {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--sidebar-text);
+  transform: translateY(-1px);
+  box-shadow: var(--sidebar-raise);
+}
+
+.nav button:active { transform: translateY(0); box-shadow: none; }
+
+.nav button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Active carries the brand colour across the whole button, with the label knocked out in the
+   sidebar's own background colour. Replaces the inset 3px edge marker. */
+.nav button.active,
+.nav button.active:hover {
+  background: var(--nav-active-fill);
+  color: var(--sidebar-bg);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--nav-active-fill) 38%, transparent);
+  transform: none;
+  font-weight: 700;
+}
+
+.nav button.active .nav-icon,
+.nav button.active small,
+.nav button.active span { color: inherit; }
+
+/* ---- Section chevron ---------------------------------------------------- */
+/* Tied to the sidebar tokens so it stays visible on a light background, where the previous
+   6%-white fill disappeared entirely. */
+
+.sidebar-accordion-chevron {
+  color: var(--sidebar-muted);
+  background: color-mix(in srgb, var(--sidebar-text) 8%, transparent);
+}
+
+.sidebar-accordion-trigger:hover .sidebar-accordion-chevron {
+  background: color-mix(in srgb, var(--brand) 26%, transparent);
+  color: var(--sidebar-text);
+}
+
+.sidebar-accordion-group.open .sidebar-accordion-chevron { color: var(--sidebar-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav button { transition: background .2s ease, color .2s ease; }
+  .nav button:hover { transform: none; box-shadow: none; }
+}

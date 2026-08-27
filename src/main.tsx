@@ -31,6 +31,7 @@ import "../app/employee-branded-topbar.css";
 import "../app/employee-profile-attendance-enhancer.css";
 import "../app/mobile-dashboard-fixes.css";
 import "../app/compact-dashboard-ui.css";
+import "../app/sidebar-nav-theme.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
