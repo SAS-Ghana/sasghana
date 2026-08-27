@@ -25,3 +25,20 @@
 @media(max-width:900px){.employee-dashboard-grid,.settings-grid,.employee-settings-layout{grid-template-columns:1fr}.employee-profile-grid{columns:1}.employee-dashboard-grid .span-two{grid-column:auto}.payslip-card{grid-template-columns:1fr}.employee-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.employee-portal-header{align-items:flex-start;flex-wrap:wrap}.employee-header-right{width:100%;max-width:none;align-items:stretch;flex:1 1 100%}.employee-date{text-align:left}.employee-module-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){.employee-content{padding:14px 12px 40px}.employee-portal-header{padding:16px;display:grid}.employee-identity img{width:62px;height:48px}.employee-identity h1{font-size:24px}.employee-header-right{width:100%;align-items:stretch;gap:12px}.employee-date{text-align:left}.employee-header-quick-actions{grid-template-columns:repeat(4,minmax(0,1fr))}.employee-header-quick-button{padding:8px 5px}.employee-header-quick-button small{font-size:9px}.employee-module-tabs{position:static;grid-template-columns:repeat(2,minmax(0,1fr));border-radius:12px;padding:7px}.employee-module-tabs button{padding:9px 8px;font-size:13px}.employee-shortcuts{grid-template-columns:1fr}.attendance-calendar{grid-template-columns:repeat(4,minmax(0,1fr))}.payslip-breakdown,.salary-preview{grid-template-columns:1fr}.salary-preview small{grid-column:auto}.ai-chat form{grid-template-columns:1fr}.employee-quick-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){.employee-quick-cards{grid-template-columns:1fr}.attendance-calendar{grid-template-columns:repeat(3,minmax(0,1fr))}.employee-module-tabs{grid-template-columns:1fr}.employee-header-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Open roles on the employee dashboard. */
+.employee-vacancy-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.employee-vacancy-list li{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);
+}
+.employee-vacancy-list li>div{min-width:0}
+.employee-vacancy-list strong{display:block;font-size:14px}
+.employee-vacancy-list small{color:var(--muted);display:block;margin-top:2px}
+.employee-vacancy-list button{
+  flex:none;border:0;border-radius:9px;padding:8px 14px;font-weight:750;font-size:12px;
+  background:var(--brand);color:#04202e;cursor:pointer;
+  transition:filter .16s ease,transform .16s ease;
+}
+.employee-vacancy-list button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.employee-vacancy-list button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}

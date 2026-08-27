@@ -25,7 +25,7 @@ type Field = {
   type?: string;
   required?: boolean;
   options?: string[];
-  source?: "employees" | "assets";
+  source?: "employees" | "assets" | "roles";
   placeholder?: string;
   allowOther?: boolean;
   allowAllEmployees?: boolean;
@@ -327,6 +327,18 @@ const actionConfigs: Record<string, ActionConfig> = {
         required: true,
       },
       { key: "requirements", label: "Requirements", type: "textarea" },
+      // What the successful applicant actually becomes. Without these, "accepted" was only ever a
+      // label on the application and nothing changed for the person who got the job.
+      {
+        key: "target_role_id",
+        label: "Role granted on acceptance",
+        source: "roles",
+        placeholder: "Leave roles unchanged",
+      },
+      {
+        key: "target_job_title",
+        label: "Job title on acceptance (defaults to the job title above)",
+      },
     ],
   },
   "Start offboarding": {
@@ -693,6 +705,7 @@ export function AdminSectionPage({
   const config = configs[label];
   const [rows, setRows] = useState<DataRow[]>([]);
   const [employees, setEmployees] = useState<DataRow[]>([]);
+  const [roles, setRoles] = useState<DataRow[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("");
@@ -709,7 +722,7 @@ export function AdminSectionPage({
     if (!config) return;
     setError("");
     try {
-      const [records, people, programs, accounts, applications, balances] = await Promise.all([
+      const [records, people, programs, accounts, applications, roleRows, balances] = await Promise.all([
         listRows(accessToken, config.table, "*", 1000),
         listNamedRows(
           accessToken,
@@ -722,11 +735,14 @@ export function AdminSectionPage({
           : Promise.resolve([]),
         listRows(accessToken, "profiles", "id,display_name,username,profile_code", 1000),
         label === "Recruitment" ? listRows(accessToken, "internal_job_applications", "*", 1000) : Promise.resolve([]),
+        // Vacancies name the role a successful applicant moves into, so the form needs the list.
+        label === "Recruitment" ? listRows(accessToken, "roles", "id,name", 1000, "name") : Promise.resolve([]),
         label === "Leave Management"
           ? listRows(accessToken, "leave_balance_summary", "*", 1000, "employee_name", true)
           : Promise.resolve([]),
       ]);
       setEmployees(people);
+      setRoles(roleRows);
       setLeaveBalances(balances);
       const assignmentRows = records.map((row) => {
         const employeeId = String(
@@ -1032,7 +1048,27 @@ export function AdminSectionPage({
         </p>
       )}
 
-      {label === "Recruitment" && showApplicants && <article className="card data-panel applicant-review-panel"><div className="panel-head"><div><h2>Applicants</h2><p className="muted">Review candidates and move them through the recruitment stages.</p></div><button type="button" onClick={() => setShowApplicants(false)}>Close applicants</button></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Applicant</th><th>Employee ID</th><th>Vacancy</th><th>Applied</th><th>Status</th><th>Update</th></tr></thead><tbody>{applicants.map((applicant) => <tr key={String(applicant.id)}><td>{String(applicant.employee_name)}</td><td>{String(applicant.employee_number ?? "—")}</td><td>{String(applicant.vacancy_name)}</td><td>{displayValue(applicant.created_at)}</td><td><span className={`status-pill ${String(applicant.status)}`}>{displayValue(applicant.status)}</span></td><td><select aria-label={`Application status for ${String(applicant.employee_name)}`} value={String(applicant.status)} onChange={async (event) => { await updateRow(accessToken, "internal_job_applications", String(applicant.id), { status: event.target.value }); await load(); }}><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted</option><option value="interview">Interview</option><option value="offered">Offered</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></td></tr>)}</tbody></table></div>{!applicants.length && <div className="empty-state compact"><h3>No applications yet</h3><p>Applications submitted by employees will appear here immediately.</p></div>}</article>}
+      {label === "Recruitment" && showApplicants && <article className="card data-panel applicant-review-panel"><div className="panel-head"><div><h2>Applicants</h2><p className="muted">Review candidates and move them through the recruitment stages.</p></div><button type="button" onClick={() => setShowApplicants(false)}>Close applicants</button></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Applicant</th><th>Employee ID</th><th>Vacancy</th><th>Applied</th><th>Status</th><th>Update</th></tr></thead><tbody>{applicants.map((applicant) => <tr key={String(applicant.id)}><td>{String(applicant.employee_name)}</td><td>{String(applicant.employee_number ?? "—")}</td><td>{String(applicant.vacancy_name)}</td><td>{displayValue(applicant.created_at)}</td><td><span className={`status-pill ${String(applicant.status)}`}>{displayValue(applicant.status)}</span></td><td><select aria-label={`Application status for ${String(applicant.employee_name)}`} value={String(applicant.status)} onChange={async (event) => {
+        // Routed through decide_internal_application rather than a direct status write: accepting
+        // has to move the applicant into the advertised job title and role, and that has to be one
+        // authorised, atomic step rather than something the client stitches together.
+        setError("");
+        try {
+          const outcome = await callRpc<{ status: string; role_changed: boolean; job_title?: string }>(
+            accessToken,
+            "decide_internal_application",
+            { p_application_id: String(applicant.id), p_decision: event.target.value, p_note: null },
+          );
+          setNotice(
+            outcome?.role_changed
+              ? `${String(applicant.employee_name)} accepted and moved into ${String(outcome.job_title ?? "the role")}.`
+              : `Application marked ${event.target.value}.`,
+          );
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "The application could not be updated.");
+        }
+        await load();
+      }}><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted</option><option value="interview">Interview</option><option value="offered">Offered</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></td></tr>)}</tbody></table></div>{!applicants.length && <div className="empty-state compact"><h3>No applications yet</h3><p>Applications submitted by employees will appear here immediately.</p></div>}</article>}
 
       {label === "Leave Management" && (
         <article className="card data-panel">
@@ -1229,6 +1265,7 @@ export function AdminSectionPage({
           accessToken={accessToken}
           organisationId={organisationId}
           employees={employees}
+          roles={roles}
           records={rows}
           onClose={() => setDialog(null)}
           onSaved={async () => {
@@ -1250,6 +1287,7 @@ function ActionDialog({
   accessToken,
   organisationId,
   employees,
+  roles,
   records,
   onClose,
   onSaved,
@@ -1259,6 +1297,7 @@ function ActionDialog({
   accessToken: string;
   organisationId: string;
   employees: DataRow[];
+  roles: DataRow[];
   records: DataRow[];
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -1382,7 +1421,24 @@ function ActionDialog({
             return (
               <label key={field.key} htmlFor={id}>
                 {field.label}
-                {field.source === "employees" ? (
+                {field.source === "roles" ? (
+                  <select
+                    id={id}
+                    name={field.key}
+                    required={field.required}
+                    value={selected}
+                    onChange={(event) =>
+                      setValues({ ...values, [field.key]: event.target.value })
+                    }
+                  >
+                    <option value="">Leave roles unchanged</option>
+                    {roles.map((role) => (
+                      <option key={String(role.id)} value={String(role.id)}>
+                        {String(role.name)}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.source === "employees" ? (
                   <select
                     id={id}
                     name={field.key}

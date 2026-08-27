@@ -1029,6 +1029,20 @@ function DashboardOverview({
   const upcomingEvents = data.meetings
     .filter((row) => new Date(String(row.starts_at)) > new Date())
     .slice(0, 5);
+  // Vacancies were only reachable by opening the Recruitment tab, so a job posted by HR went
+  // unseen unless someone thought to look. Surface anything still open, with what the applicant
+  // has already sent in, straight on the dashboard.
+  const dashboardToday = new Date();
+  dashboardToday.setHours(0, 0, 0, 0);
+  const openVacancies = data.jobs.filter((job) => {
+    if (!["open", "published"].includes(String(job.status))) return false;
+    if (!job.closing_date) return true;
+    const closing = new Date(String(job.closing_date));
+    return !Number.isNaN(closing.getTime()) && closing.getTime() >= dashboardToday.getTime();
+  });
+  const applicationByJob = new Map(
+    data.applications.map((row) => [String(row.job_opening_id), String(row.status)]),
+  );
   return (
     <>
       <div className="dhv2-stat-grid">
@@ -1040,6 +1054,44 @@ function DashboardOverview({
           />
         ))}
       </div>
+      {openVacancies.length > 0 && (
+        <article className="card dashboard-insights employee-vacancy-card">
+          <div className="panel-head">
+            <div>
+              <h2>Open roles</h2>
+              <p className="muted">
+                {openVacancies.length} internal {openVacancies.length === 1 ? "vacancy is" : "vacancies are"} open to you
+              </p>
+            </div>
+            <button type="button" className="text-btn" onClick={() => onTab("recruitment")}>
+              View all
+            </button>
+          </div>
+          <ul className="employee-vacancy-list">
+            {openVacancies.slice(0, 4).map((job) => {
+              const applied = applicationByJob.get(String(job.id));
+              return (
+                <li key={String(job.id)}>
+                  <div>
+                    <strong>{String(job.title)}</strong>
+                    <small>
+                      {[job.employment_type, job.location].filter(Boolean).join(" · ") || "Internal vacancy"}
+                      {job.closing_date ? ` · closes ${String(job.closing_date)}` : ""}
+                    </small>
+                  </div>
+                  {applied ? (
+                    <span className={`status-pill ${applied}`}>{applied}</span>
+                  ) : (
+                    <button type="button" onClick={() => onTab("recruitment")}>
+                      Apply
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </article>
+      )}
       <article className="card dashboard-insights employee-home-summary">
         <div className="panel-head">
           <div>
