@@ -220,6 +220,18 @@ export function PeopleDashboard({
         : label === "Purchase Approvals" && canProcurement && mode !== "manager"
           ? "Procurement Review"
           : label;
+    // Recruitment notifications carry a generic "Recruitment" target, which only resolves for the
+    // people who run hiring -- a manager's sidebar calls it "Recruitment & Onboarding", and an
+    // employee has no management page at all. Anyone without a recruitment permission is sent to
+    // the Jobs tab of their own profile, which is where they can actually read and apply.
+    const recruitmentTarget = ["Recruitment", "Hiring", "Recruitment & Onboarding"].includes(target);
+    const managesHiring = profile.permissions.some((permission) =>
+      ["hiring.manage", "admin.recruitment.manage", "hr.recruitment.manage"].includes(permission),
+    );
+    if (recruitmentTarget && !managesHiring && !canAccess(target)) {
+      setActive("My Jobs");
+      return;
+    }
     if (!canAccess(target)) return;
     markModuleSeen(target);
     setActive(target);
@@ -376,12 +388,12 @@ export function PeopleDashboard({
             onNavigate={navigate}
           />
         );
-      if (active === "My Profile")
+      if (active === "My Profile" || active === "My Jobs")
         return (
           <EmployeeHome
             accessToken={accessToken}
             profile={profile}
-            activeSection="My Info"
+            activeSection={active === "My Jobs" ? "My Jobs" : "My Info"}
             onNavigate={navigate}
             onChangePassword={onChangePassword}
             onNotificationSettings={() => setNotificationSettings(true)}
@@ -481,12 +493,12 @@ export function PeopleDashboard({
             onNavigate={navigate}
           />
         );
-      if (active === "My Profile")
+      if (active === "My Profile" || active === "My Jobs")
         return (
           <EmployeeHome
             accessToken={accessToken}
             profile={profile}
-            activeSection="My Info"
+            activeSection={active === "My Jobs" ? "My Jobs" : "My Info"}
             onNavigate={navigate}
             onChangePassword={onChangePassword}
             onNotificationSettings={() => setNotificationSettings(true)}
@@ -594,12 +606,12 @@ export function PeopleDashboard({
           onNavigate={navigate}
         />
       );
-    if (active === "My Profile")
+    if (active === "My Profile" || active === "My Jobs")
       return (
         <EmployeeHome
           accessToken={accessToken}
           profile={profile}
-          activeSection="My Info"
+          activeSection={active === "My Jobs" ? "My Jobs" : "My Info"}
           onNavigate={navigate}
           onChangePassword={onChangePassword}
           onNotificationSettings={() => setNotificationSettings(true)}

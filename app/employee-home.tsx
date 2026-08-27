@@ -88,6 +88,9 @@ const sectionTab: Record<string, Tab> = {
   Hiring: "recruitment",
   Files: "documents",
   Help: "help",
+  // Lands on My Profile with the Jobs tab already open, so a recruitment notification can take
+  // any role straight to the vacancy rather than to whichever recruitment page their sidebar has.
+  "My Jobs": "recruitment",
 };
 const infoTabs: [Tab, string][] = [
   ["profile", "Personal"],
@@ -96,6 +99,10 @@ const infoTabs: [Tab, string][] = [
   ["documents", "Documents"],
   ["performance", "Performance"],
   ["attendance", "Timesheet"],
+  // My Profile is the one page every role reaches -- managers, HR and admins all land on this
+  // component for "My Profile" -- so internal vacancies live here rather than only in the employee
+  // shell's own Recruitment section, which the other roles never see.
+  ["recruitment", "Jobs"],
 ];
 const moreItems: [Tab, string][] = [
   ["learning", "Learning & Development"],
@@ -167,6 +174,9 @@ export function EmployeeHome({
     "leave" | "expense" | "asset" | "ticket" | "profile" | "transfer" | null
   >(null);
   const [now, setNow] = useState(Date.now());
+  // "My Jobs" is My Profile opened straight onto the Jobs tab, so it keeps the profile header and
+  // tab strip rather than rendering the bare section.
+  const showsProfileChrome = activeSection === "My Info" || activeSection === "My Jobs";
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState(
     "Ask about leave, payroll, attendance, policies, training or career development.",
@@ -610,7 +620,7 @@ export function EmployeeHome({
         </div>
       )}
 
-      {activeSection === "My Info" && (
+      {showsProfileChrome && (
         <ProfileHero
           employee={employee}
           onRequest={() => setModal("profile")}
@@ -619,7 +629,7 @@ export function EmployeeHome({
         />
       )}
 
-      {activeSection === "My Info" && (
+      {showsProfileChrome && (
         <div className="employee-info-tabs-row">
           <nav
             className="segmented employee-info-tabs"

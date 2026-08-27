@@ -42,3 +42,20 @@
 }
 .employee-vacancy-list button:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .employee-vacancy-list button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* Day/entry preview popped from the calendar grid. */
+.calendar-preview-modal{max-width:560px}
+.calendar-preview-list{display:grid;gap:12px;margin-top:14px;max-height:56vh;overflow-y:auto}
+.calendar-preview-entry{
+  border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--surface-2);
+}
+.calendar-preview-entry-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.calendar-preview-entry-head strong{font-size:14px}
+.calendar-preview-entry dl{
+  display:grid;grid-template-columns:minmax(6rem,auto) minmax(0,1fr);gap:5px 14px;margin:11px 0 0;
+}
+.calendar-preview-entry dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.calendar-preview-entry dd{margin:0;font-size:12px;overflow-wrap:break-word}
+.calendar-day.has-events{cursor:pointer}
+.calendar-day.has-events:hover{background:color-mix(in srgb,var(--brand) 9%,transparent)}
+.calendar-day.has-events:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}

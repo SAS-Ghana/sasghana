@@ -18,6 +18,132 @@ function keyForDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function readableDate(key: string) {
+  const parsed = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return key;
+  return parsed.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/**
+ * Preview what is booked on a day, in place.
+ *
+ * Clicking an entry used to switch the calendar out for the table and scroll to the matching row,
+ * which meant losing the month you were looking at to read one booking. Each entry's own row is the
+ * source of truth for the detail, so every cell of it is shown against its column heading rather
+ * than just the four fields the grid chip carries.
+ */
+function openCalendarPreview(
+  dateKey: string,
+  items: CalendarItem[],
+  onOpenInList?: () => void,
+) {
+  document.querySelector(".calendar-preview-backdrop")?.remove();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop calendar-preview-backdrop";
+
+  const modal = document.createElement("section");
+  modal.className = "modal calendar-preview-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", `Bookings on ${readableDate(dateKey)}`);
+
+  const close = () => {
+    document.removeEventListener("keydown", onKeyDown);
+    backdrop.remove();
+  };
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") close();
+  }
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "modal-close";
+  closeButton.setAttribute("aria-label", "Close");
+  closeButton.textContent = "×";
+  closeButton.addEventListener("click", close);
+
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = `${items.length} ${items.length === 1 ? "entry" : "entries"}`;
+
+  const heading = document.createElement("h2");
+  heading.textContent = readableDate(dateKey);
+
+  const list = document.createElement("div");
+  list.className = "calendar-preview-list";
+
+  const headings = Array.from(
+    items[0]?.row.closest("table")?.querySelectorAll("thead th") ?? [],
+  ).map((cell) => cell.textContent?.trim() ?? "");
+
+  for (const item of items) {
+    const entry = document.createElement("article");
+    entry.className = "calendar-preview-entry";
+
+    const title = document.createElement("strong");
+    title.textContent = item.title || item.type || "Booking";
+
+    const badge = document.createElement("span");
+    badge.className = `status-pill ${item.status.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    badge.textContent = item.status || item.type;
+
+    const head = document.createElement("div");
+    head.className = "calendar-preview-entry-head";
+    head.append(title, badge);
+    entry.appendChild(head);
+
+    const details = document.createElement("dl");
+    Array.from(item.row.querySelectorAll("td")).forEach((cell, index) => {
+      const value = cell.textContent?.trim();
+      if (!value) return;
+      const label = headings[index] || `Field ${index + 1}`;
+      const term = document.createElement("dt");
+      term.textContent = label;
+      const definition = document.createElement("dd");
+      definition.textContent = value;
+      details.append(term, definition);
+    });
+    if (details.childElementCount) entry.appendChild(details);
+
+    list.appendChild(entry);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "form-actions";
+  if (onOpenInList) {
+    const openInList = document.createElement("button");
+    openInList.type = "button";
+    openInList.className = "secondary";
+    openInList.textContent = "Open in list";
+    openInList.addEventListener("click", () => {
+      close();
+      onOpenInList();
+    });
+    actions.appendChild(openInList);
+  }
+  const done = document.createElement("button");
+  done.type = "button";
+  done.className = "primary";
+  done.textContent = "Close";
+  done.addEventListener("click", close);
+  actions.appendChild(done);
+
+  modal.append(closeButton, eyebrow, heading, list, actions);
+  backdrop.appendChild(modal);
+  backdrop.addEventListener("mousedown", (event) => {
+    if (event.target === backdrop) close();
+  });
+  document.addEventListener("keydown", onKeyDown);
+  document.body.appendChild(backdrop);
+  closeButton.focus();
+}
+
 export function EmployeeCalendarEnhancer() {
   useEffect(() => {
     function enhance() {
@@ -133,6 +259,20 @@ export function EmployeeCalendarEnhancer() {
           number.textContent = String(day);
           cell.appendChild(number);
           const dayItems = visible.filter((item) => item.date === key);
+          if (dayItems.length) {
+            // Clicking anywhere in a booked day previews everything on it, not just the chip.
+            cell.classList.add("has-events");
+            cell.setAttribute("role", "button");
+            cell.tabIndex = 0;
+            cell.setAttribute("aria-label", `${dayItems.length} entries on ${key}`);
+            const preview = () => openCalendarPreview(key, dayItems);
+            cell.addEventListener("click", preview);
+            cell.addEventListener("keydown", (keyEvent) => {
+              if (!["Enter", " "].includes(keyEvent.key)) return;
+              keyEvent.preventDefault();
+              preview();
+            });
+          }
           for (const item of dayItems) {
             const event = document.createElement("button");
             event.type = "button";
@@ -143,10 +283,15 @@ export function EmployeeCalendarEnhancer() {
             const title = document.createElement("span");
             title.textContent = item.title;
             event.append(type, title);
-            event.addEventListener("click", () => {
-              view = "list";
-              updateView();
-              item.row.scrollIntoView({ behavior: "smooth", block: "center" });
+            event.addEventListener("click", (clickEvent) => {
+              // Previously this jumped to the list and scrolled -- the entry was reachable but you
+              // lost the calendar and still had to find the row. Show what is booked in place.
+              clickEvent.stopPropagation();
+              openCalendarPreview(keyForDate(date), [item], () => {
+                view = "list";
+                updateView();
+                item.row.scrollIntoView({ behavior: "smooth", block: "center" });
+              });
             });
             cell.appendChild(event);
           }
