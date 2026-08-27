@@ -194,7 +194,11 @@ export function SasPeopleApp() {
     try {
       const result = await signIn(username, password);
       if (result.profile.two_step_email_enabled) {
-        const email = result.profile.email || result.session.user.email || "";
+        // The code is sent through /auth/v1/otp with should_create_user disabled, so it must go to
+        // the address Supabase Auth knows. profiles.email is a separate, editable contact field that
+        // frequently differs from the sign-in identity, and preferring it here meant two-step
+        // verification requested a code for an address with no auth user behind it.
+        const email = result.session.user.email || result.profile.email || "";
         await sendEmailLoginCode(result.session, email);
         setPending({
           session: result.session,
