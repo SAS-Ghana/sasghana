@@ -1,4 +1,4 @@
-import { clearSession, getValidAccessToken, refreshSession } from "./supabase-auth";
+import { clearSession, fetchResilient, getValidAccessToken, refreshSession } from "./supabase-auth";
 import { publishableKey, serviceUrl } from "./supabase-config";
 
 export type DataRow = Record<string, string | number | boolean | null | undefined>;
@@ -8,9 +8,16 @@ function emitDataChanged(resource:string){
   if(resource==="notifications"||/notification/i.test(resource))window.dispatchEvent(new Event("sas-notifications-changed"));
 }
 
+// Data requests ran on a bare fetch() with no timeout, so on a connection that intermittently fails
+// to reach Supabase -- measured at roughly one attempt in five from the Accra office -- a dropped
+// request left the promise unsettled and the dashboard loading forever, with no error and nothing to
+// retry. Same treatment as the sign-in path, with a longer ceiling because report queries are
+// legitimately slower than an auth round trip.
+const dataRequestTimeoutMs=20000;
+
 async function authorisedFetch(accessToken:string,url:string,init:RequestInit={},retry=true){
   const token=await getValidAccessToken(accessToken);
-  const response=await fetch(url,{cache:"no-store",...init,headers:{apikey:publishableKey,Authorization:`Bearer ${token}`,"Content-Type":"application/json",...init.headers}});
+  const response=await fetchResilient(url,{cache:"no-store",...init,headers:{apikey:publishableKey,Authorization:`Bearer ${token}`,"Content-Type":"application/json",...init.headers}},1,dataRequestTimeoutMs);
   if(retry&&(response.status===401||response.status===403)){
     const body=await response.clone().json().catch(()=>({})) as {message?:string;msg?:string;code?:string};
     if(/jwt|token|expired/i.test(`${body.message??""} ${body.msg??""} ${body.code??""}`)){
