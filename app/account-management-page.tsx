@@ -11,6 +11,8 @@ import {
 } from "./lib/supabase-data";
 import { MenuIcon } from "./menu-icon";
 import { moduleIcon } from "./module-icons";
+import { resolveDashboardMode } from "./lib/dashboard-mode";
+import { landingOptions } from "./lib/dashboard-landing";
 
 type Option = { id: string; label: string };
 const dashboardOptions = [
@@ -684,9 +686,25 @@ function AccessDialog({
     job_title: String(row.job_title ?? ""),
     status: String(row.status ?? "active"),
     employee_id: String(row.employee_id ?? ""),
-    preferred_dashboard: String(row.preferred_dashboard ?? "Dashboard"),
+    preferred_dashboard: String(row.preferred_dashboard ?? ""),
     self_service_enabled: row.self_service_enabled !== false,
   });
+  // A landing page is a sidebar label, not a "Dashboard access" grant. Offering the grant list here
+  // (Dashboard / Directory / Employees ...) stored preferences that matched no sidebar entry, which
+  // dropped the user on an empty "not enabled for this account" card. Options are now scoped to the
+  // pages this account's role can actually open.
+  const landingMode = resolveDashboardMode({
+    account_type: String(row.account_type ?? "employee"),
+    roles: roles
+      .filter((role) => initialRoleIds.includes(role.id))
+      .map((role) => role.label),
+  });
+  const landingChoices = landingOptions(landingMode);
+  // A stored value left over from the old grant vocabulary (or from a previous role) is not a valid
+  // choice any more, so fall back to the role's home rather than showing a blank select.
+  const landingValue = landingChoices.includes(values.preferred_dashboard)
+    ? values.preferred_dashboard
+    : landingChoices[0];
   const selection = useAccessSelection(
     roles,
     permissions,
@@ -717,7 +735,7 @@ function AccessDialog({
         p_employee_id: values.employee_id || null,
         p_account_type: selection.accountType,
         p_job_title: values.job_title,
-        p_preferred_dashboard: values.preferred_dashboard,
+        p_preferred_dashboard: landingValue,
         p_self_service_enabled: values.self_service_enabled,
       });
       await onSaved();
@@ -813,12 +831,12 @@ function AccessDialog({
           <label>
             Preferred dashboard
             <select
-              value={values.preferred_dashboard}
+              value={landingValue}
               onChange={(e) =>
                 setValues({ ...values, preferred_dashboard: e.target.value })
               }
             >
-              {dashboardOptions.map((x) => (
+              {landingChoices.map((x) => (
                 <option key={x}>{x}</option>
               ))}
             </select>

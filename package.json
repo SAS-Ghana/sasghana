@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "start": "vite preview",
-    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/dashboard-mode.test.mjs",
+    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/dashboard-mode.test.mjs tests/dashboard-landing.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate"

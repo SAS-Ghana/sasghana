@@ -46,251 +46,18 @@ import {
   OrganisationConfig,
 } from "./lib/organisation-config";
 import { realtimeClient } from "./lib/supabase-realtime";
+import {
+  adminGroups,
+  auditorGroups,
+  employeeGroups,
+  employeeQuickLabels,
+  hrGroups,
+  managerGroups,
+} from "./lib/navigation-groups";
+import { resolveLandingPage, roleHome } from "./lib/dashboard-landing";
 
 const forbidden =
   /billing|billings|subscription|subscriptions|pricing|invoice|renewal|payment|paystack|stripe|license purchase|upgrade plan|trial management|credit card/i;
-
-const managerGroups = [
-  [
-    "OVERVIEW",
-    [
-      ["Manager Dashboard", "⌂"],
-      ["My Profile", "●"],
-    ],
-  ],
-  [
-    "PEOPLE",
-    [
-      ["My Team", "♟"],
-      ["Recruitment & Onboarding", "⌕"],
-      ["Employee Requests", "!"],
-    ],
-  ],
-  [
-    "LEAVE MANAGEMENT",
-    [
-      ["Team Attendance", "◷"],
-      ["Leave Approvals", "✓"],
-      ["Shift & Schedules", "▤"],
-      ["Meetings & Calendar", "▤"],
-    ],
-  ],
-  [
-    "PERFORMANCE",
-    [
-      ["Tasks", "☑"],
-      ["Learning & Development", "▤"],
-    ],
-  ],
-  [
-    "OPERATIONS",
-    [
-      ["Expense Approvals", "¤"],
-      ["Purchase Approvals", "▣"],
-      ["Documents", "◫"],
-      ["Assets", "▣"],
-    ],
-  ],
-  [
-    "ENGAGEMENT",
-    [
-      ["Team Communication", "✉"],
-      ["Notifications", "●"],
-    ],
-  ],
-  [
-    "SYSTEM",
-    [
-      ["Reports & Analytics", "▥"],
-      ["AI Manager Assistant", "✦"],
-    ],
-  ],
-] as const;
-
-const hrGroups = [
-  [
-    "OVERVIEW",
-    [
-      ["HR Dashboard", "⌂"],
-      ["My Profile", "●"],
-    ],
-  ],
-  [
-    "PEOPLE",
-    [
-      ["Employee Management", "♟"],
-      ["Recruitment", "⌕"],
-      ["Onboarding", "↗"],
-      ["Offboarding", "↘"],
-      ["Organization Structure", "▦"],
-    ],
-  ],
-  [
-    "LEAVE MANAGEMENT",
-    [
-      ["Attendance Management", "◷"],
-      ["Live Attendance", "◷"],
-      ["Leave Management", "◴"],
-      ["Meetings & Calendar", "▤"],
-    ],
-  ],
-  ["PERFORMANCE", [["Learning & Development", "▤"]]],
-  [
-    "OPERATIONS",
-    [
-      ["Payroll Administration", "▧"],
-      ["Expense Management", "¤"],
-      ["Benefits Administration", "♡"],
-      ["Documents & Templates", "◫"],
-      ["Asset Management", "▣"],
-    ],
-  ],
-  [
-    "ENGAGEMENT",
-    [
-      ["Announcements & Communication", "✉"],
-      ["Employee Relations & Cases", "!"],
-      ["HR Help Desk", "?"],
-    ],
-  ],
-  [
-    "SYSTEM",
-    [
-      ["Reports & Analytics", "▥"],
-      ["Workflows & Approvals", "⇄"],
-      ["Notifications", "●"],
-      ["AI HR Assistant", "✦"],
-      ["Profile Requests", "✎"],
-    ],
-  ],
-] as const;
-
-const adminGroups = [
-  [
-    "OVERVIEW",
-    [
-      ["Administrator Dashboard", "⌂"],
-      ["My Profile", "●"],
-    ],
-  ],
-  [
-    "ACCESS CONTROL",
-    [
-      ["User & Account Management", "♟"],
-      ["Roles & Permissions", "⚿"],
-      ["Profile Requests", "✎"],
-    ],
-  ],
-  [
-    "WORKFORCE",
-    [
-      ["Employee Management", "◎"],
-      ["Organization Structure", "▦"],
-    ],
-  ],
-  [
-    "TIME & LEAVE",
-    [
-      ["Attendance Management", "◷"],
-      ["Live Attendance", "◷"],
-      ["Leave Management", "◴"],
-      ["Meetings & Calendar", "▤"],
-    ],
-  ],
-  [
-    "TALENT",
-    [
-      ["Recruitment", "⌕"],
-      ["Onboarding", "↗"],
-      ["Offboarding", "↘"],
-      ["Performance Management", "★"],
-      ["Learning & Development", "▤"],
-    ],
-  ],
-  [
-    "PAYROLL & PEOPLE SERVICES",
-    [
-      ["Payroll & Payslips", "▧"],
-      ["Expenses", "¤"],
-      ["Procurement Control", "▣"],
-      ["Benefits", "♡"],
-    ],
-  ],
-  [
-    "DOCUMENTS & ASSETS",
-    [
-      ["Documents & Templates", "◫"],
-      ["Book Library", "📚"],
-      ["Asset Management", "▣"],
-    ],
-  ],
-  [
-    "EMPLOYEE RELATIONS",
-    [
-      ["Employee Relations & Cases", "!"],
-      ["Communication", "✉"],
-      ["Help Desk & Support", "?"],
-    ],
-  ],
-  [
-    "CONTROL & INSIGHTS",
-    [
-      ["Reports & Analytics", "▥"],
-      ["Approval Workflows", "⇄"],
-      ["Notifications", "●"],
-      ["AI Admin Assistant", "✦"],
-    ],
-  ],
-  [
-    "SYSTEM",
-    [
-      ["Settings Centre", "⚙"],
-      ["Audit Logs", "▤"],
-      ["Import & Export", "⇅"],
-    ],
-  ],
-] as const;
-
-const employeeGroups = [
-  [
-    "",
-    [
-      ["Home", "⌂"],
-      ["My Info", "●"],
-      ["People", "♟"],
-      ["Time Off", "◴"],
-      ["Performance", "★"],
-      ["Payroll", "▧"],
-      ["Benefits", "♡"],
-      ["Documents", "◫"],
-      ["Training", "▤"],
-      ["Recruitment", "⌕"],
-      ["Assets", "▣"],
-      ["Calendar", "▤"],
-      ["Requests", "⇄"],
-      ["Purchase Requests", "▣"],
-      ["Notifications", "●"],
-      ["Reports", "▥"],
-      ["Support", "?"],
-      ["Settings", "⚙"],
-    ],
-  ],
-] as const;
-const employeeQuickLabels = ["Ask"] as const;
-
-const auditorGroups = [
-  ["OVERVIEW", [["Audit Dashboard", "▤"]]],
-  [
-    "COMPLIANCE",
-    [
-      ["Employee Directory", "◎"],
-      ["Attendance Management", "◷"],
-      ["Leave Management", "◴"],
-      ["Documents & Templates", "◫"],
-      ["Reports & Analytics", "▥"],
-    ],
-  ],
-] as const;
 
 // Maps HR/Manager sidebar labels to the "Dashboard access" checkbox values an admin actually grants
 // per user in account-management-page.tsx's AccessDialog. A label with no entry here has no matching
@@ -358,9 +125,10 @@ export function PeopleDashboard({
   onChangePassword: () => void;
 }) {
   const [drawer, setDrawer] = useState(false);
-  const [active, setActive] = useState(
-    profile.preferred_dashboard || "Dashboard",
-  );
+  // Resolved once, synchronously, from the profile's role -- a stored preference is used only when
+  // it is a reachable page for that role, otherwise the role's own home wins. This is what makes the
+  // correct dashboard render on the very first paint instead of being corrected afterwards.
+  const [active, setActive] = useState(() => resolveLandingPage(profile));
   const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [notificationSettings, setNotificationSettings] = useState(false);
@@ -430,16 +198,7 @@ export function PeopleDashboard({
     string,
     readonly (readonly [string, string])[],
   ])[] = extraGroups.length ? [...baseGroups, ...extraGroups] : baseGroups;
-  const home =
-    mode === "admin"
-      ? "Administrator Dashboard"
-      : mode === "hr"
-        ? "HR Dashboard"
-        : mode === "manager"
-          ? "Manager Dashboard"
-          : mode === "auditor"
-            ? "Audit Dashboard"
-            : "Home";
+  const home = roleHome(mode);
   const granted = profile.dashboard_access ?? [];
   const canAccess = (label: string) =>
     !forbidden.test(label) &&

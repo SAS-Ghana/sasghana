@@ -27,15 +27,30 @@ async function recordLoginEvent(login:string,success:boolean,accessToken?:string
 export async function requestPasswordReset(usernameOrEmail:string){const email=await resolveLoginEmail(usernameOrEmail);await fetch(`${serviceUrl}/rest/v1/rpc/request_password_reset_notice`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:usernameOrEmail.trim()})});const response=await fetch(`${serviceUrl}/auth/v1/recover`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,redirect_to:`${window.location.origin}/`})});if(!response.ok)throw new Error("Password reset email could not be sent. Confirm that this account has a valid email.");return "If the account exists and has an email, a secure reset link has been sent. An administrator has also been notified.";}
 const profileBaseColumns="id,organisation_id,username,email,display_name,status,account_type,job_title,employee_id,dashboard_access,preferred_dashboard,self_service_enabled,two_step_email_enabled,two_step_email_verified_at";
 export async function fetchProfile(accessToken:string,userId:string){
+  const authHeaders={apikey:publishableKey,Authorization:`Bearer ${accessToken}`};
+  // All three lookups are issued in a single wave. The profile row used to be awaited before the
+  // permission/role requests were even started, which cost a full extra round trip on every sign-in
+  // and every session restore.
+  //
   // avatar_path is requested optimistically -- the column only exists once the profile-avatar
   // migration has been applied. If PostgREST rejects the unknown column, retry without it so
   // login/profile loading never hard-fails on a migration the user hasn't run yet.
-  let profileResponse=await fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns},avatar_path&id=eq.${userId}`,{headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`}});
-  if(!profileResponse.ok)profileResponse=await fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns}&id=eq.${userId}`,{headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`}});
-  const [permissionsResponse,rolesResponse]=await Promise.all([
+  const [profileResponse,permissionsResponse,rolesResponse]=await Promise.all([
+    fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns},avatar_path&id=eq.${userId}`,{headers:authHeaders})
+      .then(response=>response.ok?response:fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns}&id=eq.${userId}`,{headers:authHeaders})),
     fetch(`${serviceUrl}/rest/v1/rpc/current_permissions`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:"{}"}),
-    fetch(`${serviceUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`,{headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`}})
-  ]);if(!profileResponse.ok)return null;const profiles=await profileResponse.json() as Omit<UserProfile,"roles"|"permissions">[];if(!profiles[0])return null;const permissionRows=permissionsResponse.ok?await permissionsResponse.json() as {permission_key:string}[]:[];const roleRows=rolesResponse.ok?await rolesResponse.json() as {roles:{name:string}|null}[]:[];return{...profiles[0],dashboard_access:profiles[0].dashboard_access??[],preferred_dashboard:profiles[0].preferred_dashboard??"Dashboard",self_service_enabled:profiles[0].self_service_enabled!==false,two_step_email_enabled:profiles[0].two_step_email_enabled===true,permissions:permissionRows.map(row=>row.permission_key),roles:roleRows.flatMap(row=>row.roles?.name?[row.roles.name]:[])};}
+    fetch(`${serviceUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`,{headers:authHeaders})
+  ]);
+  if(!profileResponse.ok)return null;
+  const profiles=await profileResponse.json() as Omit<UserProfile,"roles"|"permissions">[];
+  if(!profiles[0])return null;
+  const permissionRows=permissionsResponse.ok?await permissionsResponse.json() as {permission_key:string}[]:[];
+  const roleRows=rolesResponse.ok?await rolesResponse.json() as {roles:{name:string}|null}[]:[];
+  // preferred_dashboard is deliberately NOT defaulted to "Dashboard" here. No role's sidebar defines
+  // a page by that name, so the old default sent every user without an explicit preference to a page
+  // that could not render. Leaving it unset lets resolveLandingPage() pick the role's real home.
+  return{...profiles[0],dashboard_access:profiles[0].dashboard_access??[],self_service_enabled:profiles[0].self_service_enabled!==false,two_step_email_enabled:profiles[0].two_step_email_enabled===true,permissions:permissionRows.map(row=>row.permission_key),roles:roleRows.flatMap(row=>row.roles?.name?[row.roles.name]:[])};
+}
 async function recordVerificationEvent(accessToken:string,eventType:"verified"|"failed"){await fetch(`${serviceUrl}/rest/v1/rpc/record_login_verification_event`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:JSON.stringify({p_event_type:eventType,p_user_agent:navigator.userAgent})}).catch(()=>undefined);}
 export async function sendEmailLoginCode(session:AuthSession,email:string){if(!email||email.endsWith("@saspeople.local"))throw new Error("A valid work email is required for two-step verification.");const response=await fetch(`${serviceUrl}/auth/v1/otp`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,create_user:false,should_create_user:false,data:{purpose:"login_verification"}})});if(!response.ok){const body=await response.json().catch(()=>({})) as {msg?:string;message?:string};throw new Error(body.msg??body.message??"The verification code could not be sent.");}await fetch(`${serviceUrl}/rest/v1/rpc/record_login_verification_event`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({p_event_type:"code_requested",p_user_agent:navigator.userAgent})}).catch(()=>undefined);}
 export async function verifyEmailLoginCode(email:string,token:string){const response=await fetch(`${serviceUrl}/auth/v1/verify`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email,token:token.trim(),type:"email"})});if(!response.ok){const current=readSession();if(current)await recordVerificationEvent(current.access_token,"failed");const body=await response.json().catch(()=>({})) as {msg?:string;message?:string};throw new Error(body.msg??body.message??"The verification code is incorrect or expired.");}const session=normaliseSession(await response.json() as AuthSession);await recordVerificationEvent(session.access_token,"verified");return session;}
