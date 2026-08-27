@@ -8,10 +8,32 @@ const actions = [
   { tab: "signout", label: "Sign out", icon: "⇥", kind: "signout" },
 ] as const;
 
+// Searched only ".employee-module-tabs", a class no longer rendered anywhere, so every quick action
+// in the header resolved to nothing and clicking one did nothing at all. The live strip is
+// ".employee-info-tabs", and several destinations (Notifications, Settings, Help) sit behind its
+// "More" menu rather than on the strip itself, so both have to be searched.
+function findTabButton(tab: string, scope: string) {
+  return Array.from(document.querySelectorAll<HTMLButtonElement>(scope))
+    .find((button) => button.textContent?.trim().toLowerCase().includes(tab));
+}
+
 function openEmployeeTab(tab: string) {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button"));
-  const target = buttons.find(button => button.textContent?.trim().toLowerCase().includes(tab));
-  target?.click();
+  const strips = ".employee-module-tabs button,.employee-info-tabs button";
+  const direct = findTabButton(tab, strips);
+  if (direct) {
+    direct.click();
+    return;
+  }
+
+  // Not on the visible strip -- open "More" and look inside it once it has rendered.
+  const more = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".employee-info-tabs button"),
+  ).find((button) => button.textContent?.trim() === "More");
+  if (!more) return;
+  more.click();
+  window.setTimeout(() => {
+    findTabButton(tab, ".employee-info-more-menu button")?.click();
+  }, 60);
 }
 
 export function EmployeeHeaderActionsEnhancer() {

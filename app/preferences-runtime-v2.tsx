@@ -150,7 +150,7 @@ export function PreferencesRuntimeV2() {
         if (securityButton) securityButton.dataset.settingsAction = "two-step";
       }
 
-      const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button"));
+      const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button,.employee-info-tabs button"));
       const communications = tabs.find((button) => /communication|comunicaciones|通讯|nkitahodi|kasemɔ|dɔmedzoe/i.test(button.textContent ?? ""));
       if (communications) {
         const icon = communications.querySelector("span");

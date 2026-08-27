@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 const navigationSelector = [
   ".employee-module-tabs button",
+  ".employee-info-tabs button",
   ".employee-tabs button",
   ".settings-cards button",
   ".nav button",
@@ -17,7 +18,7 @@ function verticalScroller(element: HTMLElement) {
 }
 
 function scrollAfterNavigation(button: HTMLButtonElement) {
-  const navigation = button.closest<HTMLElement>(".employee-module-tabs,.employee-tabs,.settings-cards,.nav,.enterprise-items");
+  const navigation = button.closest<HTMLElement>(".employee-module-tabs,.employee-info-tabs,.employee-tabs,.settings-cards,.nav,.enterprise-items");
   const behavior: ScrollBehavior = reducedMotion() ? "auto" : "smooth";
 
   // Keep the selected item visible in long horizontal tab rows.
@@ -25,7 +26,7 @@ function scrollAfterNavigation(button: HTMLButtonElement) {
 
   // Wait for React to render the selected dashboard/module before moving the screen.
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-    if (navigation?.matches(".employee-module-tabs,.employee-tabs")) {
+    if (navigation?.matches(".employee-module-tabs,.employee-info-tabs,.employee-tabs")) {
       const destination = navigation.nextElementSibling as HTMLElement | null;
       if (destination) {
         destination.scrollIntoView({ behavior, block: "start", inline: "nearest" });

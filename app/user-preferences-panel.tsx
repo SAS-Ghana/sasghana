@@ -212,6 +212,7 @@ const translations: Record<string, Record<string, string>> = {
 const originalText = new WeakMap<Text, string>();
 const translatableSelectors = [
   ".employee-module-tabs button",
+  ".employee-info-tabs button",
   ".nav button",
   ".nav-label",
   ".account-menu button",

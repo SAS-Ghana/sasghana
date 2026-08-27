@@ -17,7 +17,7 @@ async function safe(accessToken: string, table: string, employeeId?: string, key
 }
 
 function openEmployeeNotifications() {
-  const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button"))
+  const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button,.employee-info-tabs button"))
     .find((item) => item.textContent?.includes("Notifications"));
   button?.click();
   button?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -48,7 +48,7 @@ function applyNotificationShortcut(unread: number) {
 }
 
 function applyBadges(counts: Record<string, number>) {
-  const buttons = document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button");
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".employee-module-tabs button,.employee-info-tabs button");
   buttons.forEach((button) => {
     const label = Array.from(button.childNodes)
       .filter((node) => !(node instanceof HTMLElement && node.classList.contains("employee-tab-count")))
@@ -143,11 +143,11 @@ export function EmployeeModuleCounterEnhancer() {
       }
     }
 
-    if (document.querySelector(".employee-module-tabs")) {
+    if (document.querySelector(".employee-module-tabs,.employee-info-tabs")) {
       void load();
     } else {
       firstRenderObserver = new MutationObserver(() => {
-        if (!document.querySelector(".employee-module-tabs")) return;
+        if (!document.querySelector(".employee-module-tabs,.employee-info-tabs")) return;
         firstRenderObserver?.disconnect();
         firstRenderObserver = null;
         void load();

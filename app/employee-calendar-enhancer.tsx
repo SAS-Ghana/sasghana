@@ -147,12 +147,12 @@ function openCalendarPreview(
 export function EmployeeCalendarEnhancer() {
   useEffect(() => {
     function enhance() {
-      const active = Array.from(
-        document.querySelectorAll<HTMLButtonElement>(
-          ".employee-module-tabs button.active",
-        ),
-      ).some((button) => calendarLabel.test(button.textContent?.trim() ?? ""));
-      if (!active) return;
+      // This used to require an active button inside ".employee-module-tabs". That class is not
+      // rendered anywhere any more -- the strip is ".employee-info-tabs" -- so the check was always
+      // false and the month grid never built at all. Reaching Calendar through the "More" menu also
+      // leaves "More" as the active label rather than "Calendar", so gating on the tab text was
+      // doubly unreliable. The record-page lookup below already identifies the page precisely, and
+      // the data-calendarEnhanced flag stops it running twice, so no tab check is needed.
       const page = Array.from(
         document.querySelectorAll<HTMLElement>(".employee-record-page"),
       ).find((item) =>
