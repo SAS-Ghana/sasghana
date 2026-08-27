@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { observeBody } from "./lib/dom-enhancer";
 
 function sidebarGroups(sidebar: HTMLElement) {
   return Array.from(sidebar.children).filter((node): node is HTMLElement => {
@@ -65,14 +66,12 @@ function syncSidebar(sidebar: HTMLElement) {
 
 export function SidebarAccordionEnhancer() {
   useEffect(() => {
-    const run = () => {
-      document.querySelectorAll<HTMLElement>(".sidebar").forEach(syncSidebar);
-    };
-
-    run();
-    const observer = new MutationObserver(run);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    // syncSidebar() adds `open` classes, so watching `class` across the whole subtree used to feed
+    // this observer its own writes. observeBody() detaches while the pass runs.
+    return observeBody(
+      () => document.querySelectorAll<HTMLElement>(".sidebar").forEach(syncSidebar),
+      { label: "SidebarAccordionEnhancer", attributeFilter: ["class"] },
+    );
   }, []);
 
   return null;

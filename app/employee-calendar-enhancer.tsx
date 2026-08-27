@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { observeBody } from "./lib/dom-enhancer";
 
 type CalendarItem = {
   date: string;
@@ -19,7 +20,6 @@ function keyForDate(date: Date) {
 
 export function EmployeeCalendarEnhancer() {
   useEffect(() => {
-    let queued = false;
     function enhance() {
       const active = Array.from(
         document.querySelectorAll<HTMLButtonElement>(
@@ -206,16 +206,9 @@ export function EmployeeCalendarEnhancer() {
       updateView();
     }
     enhance();
-    const observer = new MutationObserver(() => {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(() => {
-        queued = false;
-        enhance();
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    // enhance() builds the calendar shell in place; the old rAF guard still fed those writes back
+    // in on the next frame, so the pass repeated indefinitely once mounted.
+    return observeBody(enhance, { label: "EmployeeCalendarEnhancer" });
   }, []);
   return null;
 }

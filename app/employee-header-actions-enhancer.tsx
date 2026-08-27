@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { observeBody } from "./lib/dom-enhancer";
 
 const actions = [
   { tab: "notifications", label: "Notifications", icon: "◉", kind: "tab" },
@@ -49,10 +50,9 @@ export function EmployeeHeaderActionsEnhancer() {
       wrapper.appendChild(quick);
     }
 
-    enhance();
-    const observer = new MutationObserver(enhance);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    // enhance() appends the quick-action buttons, so an undebounced observer on the whole subtree
+    // re-entered itself on its own writes.
+    return observeBody(enhance, { label: "EmployeeHeaderActionsEnhancer" });
   }, []);
 
   return null;
