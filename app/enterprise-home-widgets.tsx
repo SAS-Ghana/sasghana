@@ -108,7 +108,10 @@ export function TasksWidget({ tasks, onNavigate }: { tasks: DataRow[]; onNavigat
 }
 
 export function ScheduleWidget({ meetings, holidays, onNavigate }: { meetings: DataRow[]; holidays?: DataRow[]; onNavigate?: Navigate }) {
-  const combined = [...meetings.map((row) => ({ ...row, event_title: row.title, event_date: row.starts_at, kind: "Meeting" })), ...(holidays ?? []).map((row) => ({ ...row, event_title: row.name, event_date: row.holiday_date, kind: "Holiday" }))].filter((row) => row.event_date && new Date(String(row.event_date)).getTime() >= Date.now() - 86400000).sort((a, b) => new Date(String(a.event_date)).getTime() - new Date(String(b.event_date)).getTime()).slice(0, 4);
+  // Typed explicitly: spreading DataRow and adding known keys widens the inferred element type to
+  // just the added keys, so row.id -- which is present at runtime from the spread -- did not
+  // typecheck, leaving a standing error in the build.
+  const combined: DataRow[] = [...meetings.map((row) => ({ ...row, event_title: row.title, event_date: row.starts_at, kind: "Meeting" })), ...(holidays ?? []).map((row) => ({ ...row, event_title: row.name, event_date: row.holiday_date, kind: "Holiday" }))].filter((row) => row.event_date && new Date(String(row.event_date)).getTime() >= Date.now() - 86400000).sort((a, b) => new Date(String(a.event_date)).getTime() - new Date(String(b.event_date)).getTime()).slice(0, 4);
   return <article className="card enterprise-widget schedules-widget"><header><div><h2>Schedules</h2><p>Upcoming meetings and company events</p></div><button type="button" onClick={() => onNavigate?.("Meetings & Calendar")}>View All</button></header><div className="schedule-list">{combined.map((row) => <div key={`${row.kind}-${row.id}`}><span>{String(row.kind)}</span><strong>{String(row.event_title ?? "Event")}</strong><small>{new Date(String(row.event_date)).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small></div>)}{!combined.length && <p className="empty-widget">No upcoming schedules.</p>}</div></article>;
 }
 

@@ -19,9 +19,11 @@ function jwtSubject(token: string) {
 }
 
 // Shared photo circle for dashboard headers, sidebar account chips and profile pages.
-// profiles.avatar_path is preferred, but older records often only have employees.avatar_path.
-// Falling back to the linked employee record keeps the same uploaded photo visible everywhere
-// while the database sync migration brings both columns back into alignment.
+// profiles.avatar_path is preferred; older records only have a photo on the linked employee row,
+// where the column is passport_photo_path. This fallback asked employees for avatar_path, which
+// does not exist on that table, so every avatar without a profiles.avatar_path raised
+// 42703 "column employees.avatar_path does not exist" and then fell into the catch below and
+// resolved to no photo at all -- 22 of them in the last day of production logs.
 export function AvatarPhoto({ accessToken, path, name, size = 40 }: { accessToken: string; path?: string | null; name: string; size?: number }) {
   const [url, setUrl] = useState("");
 
@@ -39,10 +41,10 @@ export function AvatarPhoto({ accessToken, path, name, size = 40 }: { accessToke
               accessToken,
               "employees",
               { profile_id: profileId },
-              "avatar_path",
+              "passport_photo_path",
               1,
             );
-            resolvedPath = String(employeeRows[0]?.avatar_path ?? "").trim();
+            resolvedPath = String(employeeRows[0]?.passport_photo_path ?? "").trim();
           } catch {
             resolvedPath = "";
           }
