@@ -11,6 +11,7 @@ import { monthlyBuckets, groupCounts } from "./lib/dashboard-metrics";
 import { realtimeClient } from "./lib/supabase-realtime";
 import { AttendanceOverviewWidget, BirthdaysWidget, ClockInOutWidget, DepartmentBarsWidget, EmployeeStatusWidget, EmployeesListWidget, ScheduleWidget, TasksWidget } from "./enterprise-home-widgets";
 import { AccountantDashboard } from "./accountant-dashboard";
+import { InternalVacanciesCard } from "./internal-vacancies-card";
 
 type ManagerData = { team: DataRow[]; attendance: DataRow[]; leave: DataRow[]; expenses: DataRow[]; reviews: DataRow[]; tasks: DataRow[]; training: DataRow[]; announcements: DataRow[]; assets: DataRow[]; requests: DataRow[]; purchases: DataRow[]; meetings: DataRow[]; holidays: DataRow[] };
 const empty: ManagerData = { team: [], attendance: [], leave: [], expenses: [], reviews: [], tasks: [], training: [], announcements: [], assets: [], requests: [], purchases: [], meetings: [], holidays: [] };
@@ -100,6 +101,15 @@ function ManagerTeamDashboard({ accessToken, profile, onNavigate }: { accessToke
       <ScheduleWidget meetings={data.meetings} holidays={data.holidays} onNavigate={() => onNavigate("Meetings & Calendar")} />
       <BirthdaysWidget employees={data.team} onNavigate={() => onNavigate("My Team")} />
     </div>
+    {/* Managers see and apply to vacancies like anyone else. Posting stays gated: the card only
+        offers "Manage vacancies" when the user actually holds a recruitment permission, and
+        job_openings RLS is the real gate regardless of what the card shows. */}
+    <InternalVacanciesCard
+      accessToken={accessToken}
+      profile={profile}
+      onNavigate={onNavigate}
+      recruitmentPage={"Recruitment & Onboarding"}
+    />
     <div className="enterprise-home-section-title"><div><h2>Approvals & trends</h2><p>Leave trends, attendance movement and manager actions.</p></div></div>
     <div className="dhv2-chart-row"><article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Leave Trends</h2><button type="button" className="dhv2-chart-link" onClick={() => onNavigate("Leave Approvals")}>View Details ›</button></div><AreaChart series={leaveSeries} xLabels={leaveMonthLabels} /></article><article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Team Attendance Trend</h2></div><BarChart values={attendanceTrend.values} xLabels={attendanceTrend.labels} /></article></div>
     <div className="dhv2-list-row-grid"><ListCard title="Pending Approvals" count={pendingApprovals.length} rows={pendingApprovals.map((row) => ({ icon: "leave" as IconName, iconColor: "var(--viz-orange-strong)", title: String(row.employee_name ?? "Employee"), subtitle: `${row.leave_type ?? "Leave"} — ${row.days ?? "?"} days`, trailing: { type: "check" as const, onClick: () => onNavigate("Leave Approvals") } }))} emptyLabel="No leave requests are waiting on your approval." /><ListCard title="Announcements" rows={data.announcements.filter((row) => String(row.status) === "published").slice(0, 5).map((row) => ({ icon: "announcement" as IconName, iconColor: "var(--brand)", title: String(row.title ?? "Announcement"), subtitle: String(row.body ?? "").slice(0, 90) }))} emptyLabel="No announcements have been published." /><article className="card dhv2-chart-card"><div className="dhv2-chart-head"><h2>Quick Actions</h2></div><QuickActionsGrid items={quickActions.slice(0, 6).map(([page, label]) => ({ label, icon: quickActionIcon[label] ?? moduleIcon(page), color: "blue" as const, onClick: () => onNavigate(page) }))} /></article></div>
