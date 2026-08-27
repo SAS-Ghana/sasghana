@@ -171,7 +171,17 @@ export function SasPeopleApp() {
             }
             setReady(true);
           },
-        );
+        ).catch(() => {
+          // The stored session could not be checked because the profile request never completed --
+          // typically an unreachable Supabase host. Without this the promise rejected unhandled,
+          // setReady(true) never ran, and the app sat on the "Loading..." splash forever. Keep the
+          // stored session (it may still be valid) and fall through to the sign-in screen with an
+          // explanation instead of silently signing the user out.
+          setError(
+            "Could not reach the server to restore your session. Check your internet connection and sign in again.",
+          );
+          setReady(true);
+        });
         return;
       }
       setReady(true);

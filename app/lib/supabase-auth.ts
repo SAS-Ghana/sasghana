@@ -5,9 +5,45 @@ import { jsonHeaders, publishableKey, serviceUrl } from "./supabase-config";
 const browserSessionKey="sas-people-browser-session-id";
 let refreshPromise:Promise<AuthSession|null>|null=null;
 
+// Sign-in requests used to run on a bare fetch(), which has no timeout at all. On connections that
+// intermittently fail to reach the Supabase host -- measured at roughly one attempt in five from the
+// Accra office, each stalling ~21s before the OS gives up -- the promise simply never settled, so the
+// button sat on "Signing in..." indefinitely with no error and no way to recover but a page reload.
+// Auth itself was healthy throughout; the request never arrived.
+const authRequestTimeoutMs=12000;
+
+/** Raised when the Supabase host could not be reached, as opposed to rejecting the credentials. */
+export class NetworkUnavailableError extends Error{
+  constructor(message="Could not reach the sign-in service. Check your internet connection and try again."){
+    super(message);
+    this.name="NetworkUnavailableError";
+  }
+}
+
+async function fetchWithTimeout(input:string,init:RequestInit={},timeoutMs=authRequestTimeoutMs){
+  const controller=new AbortController();
+  const timer=window.setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(input,{...init,signal:controller.signal});}
+  finally{window.clearTimeout(timer);}
+}
+
+/**
+ * fetch() that gives up quickly and retries once, then reports a connection failure distinctly.
+ *
+ * Only the connection is retried: a response of any status (including 400/401) is returned as-is, so
+ * a wrong password still fails immediately rather than being retried.
+ */
+async function fetchResilient(input:string,init:RequestInit={},retries=1){
+  for(let attempt=0;attempt<=retries;attempt++){
+    try{return await fetchWithTimeout(input,init);}
+    catch{/* aborted or the connection never opened -- fall through and retry once */}
+  }
+  throw new NetworkUnavailableError();
+}
+
 function loginEmail(username:string){const clean=username.trim();return clean.includes("@")?clean.toLowerCase():`${clean.toLowerCase()}@saspeople.local`;}
-export async function resolveLoginEmail(usernameOrEmail:string){const clean=usernameOrEmail.trim().toLowerCase();if(clean.includes("@"))return clean;const response=await fetch(`${serviceUrl}/rest/v1/rpc/resolve_login_email`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:clean})});if(!response.ok)return loginEmail(clean);const email=await response.json() as string|null;return email||loginEmail(clean);}
-export async function signIn(username:string,password:string):Promise<{session:AuthSession;profile:UserProfile}>{const response=await fetch(`${serviceUrl}/auth/v1/token?grant_type=password`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email:await resolveLoginEmail(username),password})});if(!response.ok){void recordLoginEvent(username,false);throw new Error("The username or password is incorrect.");}const session=normaliseSession(await response.json() as AuthSession);const profile=await fetchProfile(session.access_token,session.user.id);if(!profile||!["active","password_change_required"].includes(profile.status))throw new Error("This account is not active. Contact an administrator.");void recordLoginEvent(username,true,session.access_token);return{session,profile};}
+export async function resolveLoginEmail(usernameOrEmail:string){const clean=usernameOrEmail.trim().toLowerCase();if(clean.includes("@"))return clean;const response=await fetchResilient(`${serviceUrl}/rest/v1/rpc/resolve_login_email`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({login_name:clean})});if(!response.ok)return loginEmail(clean);const email=await response.json() as string|null;return email||loginEmail(clean);}
+export async function signIn(username:string,password:string):Promise<{session:AuthSession;profile:UserProfile}>{const response=await fetchResilient(`${serviceUrl}/auth/v1/token?grant_type=password`,{method:"POST",headers:jsonHeaders,body:JSON.stringify({email:await resolveLoginEmail(username),password})});if(!response.ok){void recordLoginEvent(username,false);throw new Error("The username or password is incorrect.");}const session=normaliseSession(await response.json() as AuthSession);const profile=await fetchProfile(session.access_token,session.user.id);if(!profile||!["active","password_change_required"].includes(profile.status))throw new Error("This account is not active. Contact an administrator.");void recordLoginEvent(username,true,session.access_token);return{session,profile};}
 // Best-effort approximate location for the audit trail -- resolved via the browser's own request to
 // a free IP-geolocation lookup (the request naturally carries the user's real public IP), since
 // Postgres has no city/country database of its own. Never blocks or fails the login flow: any error
@@ -36,10 +72,10 @@ export async function fetchProfile(accessToken:string,userId:string){
   // migration has been applied. If PostgREST rejects the unknown column, retry without it so
   // login/profile loading never hard-fails on a migration the user hasn't run yet.
   const [profileResponse,permissionsResponse,rolesResponse]=await Promise.all([
-    fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns},avatar_path&id=eq.${userId}`,{headers:authHeaders})
-      .then(response=>response.ok?response:fetch(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns}&id=eq.${userId}`,{headers:authHeaders})),
-    fetch(`${serviceUrl}/rest/v1/rpc/current_permissions`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:"{}"}),
-    fetch(`${serviceUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`,{headers:authHeaders})
+    fetchResilient(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns},avatar_path&id=eq.${userId}`,{headers:authHeaders})
+      .then(response=>response.ok?response:fetchResilient(`${serviceUrl}/rest/v1/profiles?select=${profileBaseColumns}&id=eq.${userId}`,{headers:authHeaders})),
+    fetchResilient(`${serviceUrl}/rest/v1/rpc/current_permissions`,{method:"POST",headers:{...jsonHeaders,Authorization:`Bearer ${accessToken}`},body:"{}"}),
+    fetchResilient(`${serviceUrl}/rest/v1/user_roles?select=roles(name)&profile_id=eq.${userId}`,{headers:authHeaders})
   ]);
   if(!profileResponse.ok)return null;
   const profiles=await profileResponse.json() as Omit<UserProfile,"roles"|"permissions">[];
