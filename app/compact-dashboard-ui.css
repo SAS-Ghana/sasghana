@@ -100,6 +100,10 @@ body{font-size:var(--sas-ui-font)}
 button,input,select,textarea{font-size:13px!important}
 button,.button,.primary,.secondary{min-height:38px!important;padding:8px 13px!important;border-radius:10px!important}
 input,select{min-height:40px!important;padding:8px 11px!important}
+/* The topbar search carries a magnifier absolutely positioned at left:14px. The blanket rule above
+   is !important, so it beat the 38px left padding design-system.css reserves for that icon and the
+   placeholder ran underneath it. Restore the gutter, at a weight that can win. */
+.search-wrap .search{padding-left:38px!important}
 textarea{padding:10px 11px!important}
 
 .filter-bar,.toolbar,.row-actions,.panel-actions{gap:8px!important}

@@ -45,9 +45,43 @@ export function ClockInOutWidget({ employees, attendance, onNavigate }: { employ
   return <article className="card enterprise-widget clock-widget"><header><div><h2>Clock In / Out</h2><p>Latest employee attendance today</p></div><button type="button" onClick={() => onNavigate?.("Live Attendance")}>Today</button></header><div className="clock-list">{rows.map((row) => { const employee = byId.get(String(row.employee_id)) || row; return <div className="clock-person" key={String(row.id)}><span className="enterprise-avatar">{initials(employee)}</span><div><strong>{personName(employee)}</strong><small>{String(employee.position_title ?? row.status ?? "Employee")}</small></div><span className={`clock-time ${row.clock_out ? "clock-out" : "clock-in"}`}>{String(row.clock_out ?? row.clock_in ?? "—").slice(11, 16)}</span></div>; })}{!rows.length && <p className="empty-widget">No attendance activity recorded today.</p>}</div><button type="button" className="enterprise-full-button" onClick={() => onNavigate?.("Live Attendance")}>View all attendance</button></article>;
 }
 
+function jobTitle(row: DataRow) { return String(row.title ?? row.position_title ?? row.job_title ?? "Vacancy"); }
+
 export function RecruitmentWidget({ jobs, candidates, applications, onNavigate }: { jobs: DataRow[]; candidates?: DataRow[]; applications?: DataRow[]; onNavigate?: Navigate }) {
   const applicants = applications?.length ? applications : (candidates ?? []);
-  return <article className="card enterprise-widget recruitment-widget"><header><div><h2>Jobs & Applicants</h2><p>{jobs.filter((row) => ["open", "published"].includes(String(row.status))).length} open roles · {applicants.length} applicants</p></div><button type="button" onClick={() => onNavigate?.("Recruitment")}>View All</button></header><div className="recruitment-tabs"><span>Openings</span><span className="active">Applicants</span></div><div className="applicant-list">{applicants.slice(0, 5).map((row) => <div key={String(row.id)}><span className="enterprise-avatar">{initials(row)}</span><div><strong>{personName(row)}</strong><small>{String(row.stage ?? row.status ?? "Application")}</small></div><em>{String(row.position_title ?? row.job_title ?? row.role ?? "Applicant")}</em></div>)}{!applicants.length && <p className="empty-widget">No applicants yet.</p>}</div></article>;
+  const openings = jobs.filter((row) => ["open", "published"].includes(String(row.status)));
+  // These two were plain <span>s, one with a hardcoded "active" class: the tabs could not be
+  // switched, and the panel below only ever rendered applicants -- so vacancies never appeared on
+  // the dashboard at all. Openings leads, since that is the side with data far more often.
+  const [tab, setTab] = useState<"openings" | "applicants">("openings");
+
+  return <article className="card enterprise-widget recruitment-widget">
+    <header>
+      <div><h2>Jobs &amp; Applicants</h2><p>{openings.length} open roles · {applicants.length} applicants</p></div>
+      <button type="button" onClick={() => onNavigate?.("Recruitment")}>View All</button>
+    </header>
+    <div className="recruitment-tabs" role="tablist">
+      <button type="button" role="tab" aria-selected={tab === "openings"} className={tab === "openings" ? "active" : ""} onClick={() => setTab("openings")}>Openings</button>
+      <button type="button" role="tab" aria-selected={tab === "applicants"} className={tab === "applicants" ? "active" : ""} onClick={() => setTab("applicants")}>Applicants</button>
+    </div>
+    {tab === "openings"
+      ? <div className="applicant-list">
+          {openings.slice(0, 5).map((row) => <div key={String(row.id)}>
+            <span className="enterprise-avatar">{jobTitle(row).slice(0, 1).toUpperCase()}</span>
+            <div><strong>{jobTitle(row)}</strong><small>{[row.employment_type, row.location].filter(Boolean).join(" · ") || String(row.status ?? "Open")}</small></div>
+            <em>{Number(row.openings ?? 1)} {Number(row.openings ?? 1) === 1 ? "opening" : "openings"}</em>
+          </div>)}
+          {!openings.length && <p className="empty-widget">No open roles yet.</p>}
+        </div>
+      : <div className="applicant-list">
+          {applicants.slice(0, 5).map((row) => <div key={String(row.id)}>
+            <span className="enterprise-avatar">{initials(row)}</span>
+            <div><strong>{personName(row)}</strong><small>{String(row.stage ?? row.status ?? "Application")}</small></div>
+            <em>{String(row.position_title ?? row.job_title ?? row.role ?? "Applicant")}</em>
+          </div>)}
+          {!applicants.length && <p className="empty-widget">No applicants yet.</p>}
+        </div>}
+  </article>;
 }
 
 export function EmployeesListWidget({ employees, onNavigate }: { employees: DataRow[]; onNavigate?: Navigate }) {

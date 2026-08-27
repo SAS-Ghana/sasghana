@@ -8,7 +8,7 @@ function sidebarGroups(sidebar: HTMLElement) {
   });
 }
 
-function prepareGroup(group: HTMLElement, index: number) {
+function prepareGroup(group: HTMLElement) {
   const label = group.querySelector<HTMLElement>(":scope > .nav-label");
   const nav = group.querySelector<HTMLElement>(":scope > .nav");
   if (!label || !nav) return;
@@ -37,7 +37,19 @@ function prepareGroup(group: HTMLElement, index: number) {
     label.setAttribute("aria-expanded", String(open));
   };
 
-  const toggle = () => setOpen(!group.classList.contains("open"));
+  const toggle = () => {
+    const opening = !group.classList.contains("open");
+    // One section at a time: opening this one collapses its siblings.
+    const sidebar = group.parentElement;
+    if (opening && sidebar) {
+      for (const sibling of sidebarGroups(sidebar)) {
+        if (sibling === group) continue;
+        sibling.classList.remove("open");
+        sibling.querySelector<HTMLElement>(":scope > .nav-label")?.setAttribute("aria-expanded", "false");
+      }
+    }
+    setOpen(opening);
+  };
   const activate = (event: Event) => {
     if (event instanceof KeyboardEvent && !["Enter", " "].includes(event.key)) return;
     if (event instanceof KeyboardEvent) event.preventDefault();
@@ -47,24 +59,30 @@ function prepareGroup(group: HTMLElement, index: number) {
   label.addEventListener("click", activate);
   label.addEventListener("keydown", activate);
 
-  const activeInside = Boolean(nav.querySelector("button.active"));
-  setOpen(activeInside || index === 0);
+  // Open only the section holding the active page. Falling back to "or the first section" here let
+  // two sections start open at once, which the accordion no longer allows; syncSidebar picks a
+  // default when no section qualifies.
+  setOpen(Boolean(nav.querySelector("button.active")));
 }
 
 function syncSidebar(sidebar: HTMLElement) {
   const groups = sidebarGroups(sidebar);
-  groups.forEach((group, index) => {
+  groups.forEach((group) => {
     const label = group.querySelector<HTMLElement>(":scope > .nav-label");
-    if (label?.dataset.accordionReady !== "true") prepareGroup(group, index);
+    if (label?.dataset.accordionReady !== "true") prepareGroup(group);
   });
 
-  // Whenever navigation changes, keep the section containing the active page open.
-  groups.forEach((group) => {
-    if (group.querySelector(":scope > .nav button.active")) {
-      group.classList.add("open");
-      group.querySelector<HTMLElement>(":scope > .nav-label")?.setAttribute("aria-expanded", "true");
+  // Reveal the section holding the active page, but only when nothing is open at all -- on first
+  // render, or after navigating from somewhere that left every section collapsed. This used to run
+  // unconditionally on every pass, so a section the user had just collapsed was immediately forced
+  // back open, and opening a second one left both showing.
+  if (!groups.some((group) => group.classList.contains("open"))) {
+    const target = groups.find((group) => group.querySelector(":scope > .nav button.active")) ?? groups[0];
+    if (target) {
+      target.classList.add("open");
+      target.querySelector<HTMLElement>(":scope > .nav-label")?.setAttribute("aria-expanded", "true");
     }
-  });
+  }
 }
 
 export function SidebarAccordionEnhancer() {
