@@ -2378,6 +2378,16 @@ function RecruitmentPage({
       jobs.find((job) => String(job.id) === String(application.job_opening_id))
         ?.title ?? "Vacancy",
   }));
+  // One application per person per vacancy is enforced by a unique constraint in the database. The
+  // card offered "Apply internally" regardless, so a second attempt surfaced the raw Postgres
+  // message -- "duplicate key value violates unique constraint ..." -- to the employee. Show where
+  // the existing application has got to instead.
+  const appliedStatusByJob = new Map(
+    applications.map((application) => [
+      String(application.job_opening_id),
+      String(application.status ?? "submitted"),
+    ]),
+  );
   return (
     <>
       <header className="page-header">
@@ -2429,16 +2439,22 @@ function RecruitmentPage({
               >
                 View details
               </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setApplying(job);
-                }}
-              >
-                Apply internally
-              </button>
+              {appliedStatusByJob.has(String(job.id)) ? (
+                <span className={`status-pill ${appliedStatusByJob.get(String(job.id))}`}>
+                  Applied · {appliedStatusByJob.get(String(job.id))}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setApplying(job);
+                  }}
+                >
+                  Apply internally
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -2540,17 +2556,23 @@ function RecruitmentPage({
               >
                 Close
               </button>
-              {openJobs.some((job) => String(job.id) === String(viewing.id)) && (
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => {
-                    setApplying(viewing);
-                    setViewing(null);
-                  }}
-                >
-                  Apply internally
-                </button>
+              {appliedStatusByJob.has(String(viewing.id)) ? (
+                <span className={`status-pill ${appliedStatusByJob.get(String(viewing.id))}`}>
+                  Applied · {appliedStatusByJob.get(String(viewing.id))}
+                </span>
+              ) : (
+                openJobs.some((job) => String(job.id) === String(viewing.id)) && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setApplying(viewing);
+                      setViewing(null);
+                    }}
+                  >
+                    Apply internally
+                  </button>
+                )
               )}
             </div>
           </section>
@@ -2621,10 +2643,14 @@ function ApplyDialog({
       });
       await onSaved();
     } catch (cause) {
+      // The unique constraint on (job_opening_id, employee_id) is the last line of defence against
+      // a double application, and its message is pure Postgres. Translate it rather than showing an
+      // employee "duplicate key value violates unique constraint ...".
+      const raw = cause instanceof Error ? cause.message : "";
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Application could not be submitted.",
+        /duplicate key|already exists/i.test(raw)
+          ? "You have already applied for this role. Check Application tracking below for its status."
+          : raw || "Application could not be submitted.",
       );
     } finally {
       setBusy(false);
