@@ -77,7 +77,7 @@ export function AdminDashboard({ accessToken, profile, onNavigate }: Props) {
       <AttendanceOverviewWidget attendance={attendance} employees={employees} onNavigate={onNavigate} />
       <ClockInOutWidget attendance={attendance} employees={employees} onNavigate={onNavigate} />
       <DepartmentBarsWidget employees={employees} onNavigate={onNavigate} />
-      <RecruitmentWidget jobs={jobs} applications={applications} onNavigate={onNavigate} />
+      <RecruitmentWidget jobs={jobs} applications={applications} employees={employees} onNavigate={onNavigate} />
       <EmployeesListWidget employees={employees} onNavigate={onNavigate} />
       <TasksWidget tasks={tasks} onNavigate={() => onNavigate("Reports & Analytics")} />
       <ScheduleWidget meetings={data.meetings ?? []} holidays={data.holidays ?? []} onNavigate={onNavigate} />

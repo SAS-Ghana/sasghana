@@ -107,7 +107,7 @@ export function HRDashboard({ accessToken, profile, onNavigate }: { accessToken:
       <AttendanceOverviewWidget attendance={data.attendance} employees={data.employees} onNavigate={safeHrNavigate} />
       <ClockInOutWidget attendance={data.attendance} employees={data.employees} onNavigate={safeHrNavigate} />
       <DepartmentBarsWidget employees={data.employees} onNavigate={safeHrNavigate} />
-      <RecruitmentWidget jobs={data.jobs} candidates={data.candidates} applications={data.applications} onNavigate={safeHrNavigate} />
+      <RecruitmentWidget jobs={data.jobs} candidates={data.candidates} applications={data.applications} employees={data.employees} onNavigate={safeHrNavigate} />
       <EmployeesListWidget employees={data.employees} onNavigate={safeHrNavigate} />
       <TasksWidget tasks={data.tasks} onNavigate={safeHrNavigate} />
       <ScheduleWidget meetings={data.meetings} holidays={data.holidays} onNavigate={safeHrNavigate} />

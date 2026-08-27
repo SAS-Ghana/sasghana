@@ -47,9 +47,22 @@ export function ClockInOutWidget({ employees, attendance, onNavigate }: { employ
 
 function jobTitle(row: DataRow) { return String(row.title ?? row.position_title ?? row.job_title ?? "Vacancy"); }
 
-export function RecruitmentWidget({ jobs, candidates, applications, onNavigate }: { jobs: DataRow[]; candidates?: DataRow[]; applications?: DataRow[]; onNavigate?: Navigate }) {
+export function RecruitmentWidget({ jobs, candidates, applications, employees, onNavigate }: { jobs: DataRow[]; candidates?: DataRow[]; applications?: DataRow[]; employees?: DataRow[]; onNavigate?: Navigate }) {
   const applicants = applications?.length ? applications : (candidates ?? []);
   const openings = jobs.filter((row) => ["open", "published"].includes(String(row.status)));
+  // An internal_job_applications row carries only employee_id and job_opening_id, so reading a name
+  // straight off it produced "Employee" applying for "Applicant" on every real application. Resolve
+  // both against the lists the dashboard already loaded. Candidate rows carry their own names and
+  // fall through these lookups unchanged.
+  const employeeById = new Map((employees ?? []).map((row) => [String(row.id), row]));
+  const jobById = new Map(jobs.map((row) => [String(row.id), row]));
+  const applicantName = (row: DataRow) => {
+    const employee = employeeById.get(String(row.employee_id ?? ""));
+    return employee ? personName(employee) : personName(row);
+  };
+  const appliedFor = (row: DataRow) =>
+    String(jobById.get(String(row.job_opening_id ?? ""))?.title
+      ?? row.position_title ?? row.job_title ?? row.role ?? "Applicant");
   // These two were plain <span>s, one with a hardcoded "active" class: the tabs could not be
   // switched, and the panel below only ever rendered applicants -- so vacancies never appeared on
   // the dashboard at all. Openings leads, since that is the side with data far more often.
@@ -75,9 +88,9 @@ export function RecruitmentWidget({ jobs, candidates, applications, onNavigate }
         </div>
       : <div className="applicant-list">
           {applicants.slice(0, 5).map((row) => <div key={String(row.id)}>
-            <span className="enterprise-avatar">{initials(row)}</span>
-            <div><strong>{personName(row)}</strong><small>{String(row.stage ?? row.status ?? "Application")}</small></div>
-            <em>{String(row.position_title ?? row.job_title ?? row.role ?? "Applicant")}</em>
+            <span className="enterprise-avatar">{applicantName(row).split(/\s+/).slice(0, 2).map((part) => part.slice(0, 1)).join("").toUpperCase() || "A"}</span>
+            <div><strong>{applicantName(row)}</strong><small>{String(row.stage ?? row.status ?? "Application")}</small></div>
+            <em>{appliedFor(row)}</em>
           </div>)}
           {!applicants.length && <p className="empty-widget">No applicants yet.</p>}
         </div>}

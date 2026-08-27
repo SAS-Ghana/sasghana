@@ -1064,10 +1064,13 @@ export function AdminSectionPage({
               ? `${String(applicant.employee_name)} accepted and moved into ${String(outcome.job_title ?? "the role")}.`
               : `Application marked ${event.target.value}.`,
           );
+          // Only refresh on success: load() clears the error banner as it starts, so refreshing
+          // after a refusal wiped the reason and left the reviewer staring at an unchanged row with
+          // no explanation -- which is exactly what a blocked promotion looks like.
+          await load();
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : "The application could not be updated.");
         }
-        await load();
       }}><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted</option><option value="interview">Interview</option><option value="offered">Offered</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></td></tr>)}</tbody></table></div>{!applicants.length && <div className="empty-state compact"><h3>No applications yet</h3><p>Applications submitted by employees will appear here immediately.</p></div>}</article>}
 
       {label === "Leave Management" && (
