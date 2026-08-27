@@ -30,8 +30,33 @@ body{font-size:var(--sas-ui-font)}
   transition:background .16s ease,color .16s ease;
 }
 .sidebar-accordion-trigger:hover{background:color-mix(in srgb,var(--sas-cyan,#00AEEF) 10%,transparent)}
-.sidebar-accordion-chevron{font-size:16px;line-height:1;transition:transform .18s ease}
-.sidebar-accordion-group.open .sidebar-accordion-chevron{transform:rotate(180deg)}
+/* A round icon button rather than a bare glyph: fixed box, centred, so it reads as something you
+   press instead of stray punctuation sitting next to the section name. */
+.sidebar-accordion-chevron{
+  flex:none;
+  display:grid;
+  place-items:center;
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  color:#93a5bd;
+  background:rgb(255 255 255 / 6%);
+  transition:transform .22s cubic-bezier(.4,0,.2,1),background .16s ease,color .16s ease;
+}
+.sidebar-accordion-chevron svg{display:block;width:12px;height:12px}
+.sidebar-accordion-trigger:hover .sidebar-accordion-chevron{
+  background:color-mix(in srgb,var(--sas-cyan,#00AEEF) 26%,transparent);
+  color:#fff;
+}
+.sidebar-accordion-group.open .sidebar-accordion-chevron{transform:rotate(180deg);color:#c6d3e4}
+.sidebar-accordion-trigger:focus-visible{
+  outline:2px solid var(--sas-cyan,#00AEEF);
+  outline-offset:2px;
+  border-radius:10px;
+}
+@media (prefers-reduced-motion:reduce){
+  .sidebar-accordion-chevron{transition:background .16s ease,color .16s ease}
+}
 .sidebar-accordion-group>.nav{display:none!important;padding:4px 0 5px!important}
 .sidebar-accordion-group.open>.nav{display:grid!important}
 .sidebar .nav button{

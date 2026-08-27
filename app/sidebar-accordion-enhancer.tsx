@@ -25,7 +25,10 @@ function prepareGroup(group: HTMLElement, index: number) {
     chevron = document.createElement("span");
     chevron.className = "sidebar-accordion-chevron";
     chevron.setAttribute("aria-hidden", "true");
-    chevron.textContent = "⌄";
+    // An inline SVG rather than the "⌄" glyph, whose weight and vertical alignment shift with
+    // whichever font actually resolves -- it sat noticeably high inside the round button.
+    chevron.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
     label.appendChild(chevron);
   }
 
