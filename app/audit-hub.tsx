@@ -116,7 +116,10 @@ export function AuditHub({ accessToken }: { accessToken: string }) {
       <div>
         <span className="eyebrow">Security & accountability</span>
         <h1><MenuIcon name={moduleIcon("Audit Logs")} />{view === "logins" ? "Login history" : "Complete activity audit"}</h1>
-        <p className="muted">Audit history is permanent and read only. Login history includes successful and failed account access attempts, with the approximate location and device used.</p>
+        {/* Said "approximate location" when the city came from a third-party IP lookup. That lookup
+            was removed so employee addresses stop leaving Supabase, and the address is now read from
+            the request headers, so only the IP is recorded. */}
+        <p className="muted">Audit history is permanent and read only. Login history includes successful and failed account access attempts, with the IP address and device used.</p>
       </div>
       <div className="row-actions audit-view-actions">
         <button type="button" className={view === "activity" ? "primary" : "secondary"} onClick={() => setView("activity")}>All activity</button>
